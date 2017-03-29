@@ -18,13 +18,13 @@ unset XCL_EMULATION_MODE
 
 When linking against the Xilinx OpenCL libraries, the linker must add the runtime library folder to the library search path. This folder contains an ancient version of libc++.so, which will break compilation when using a newer compiler.
 To avoid this, backup or delete the library file located at:
-```shell
+```
 <SDx or SDAccel folder>/runtime/lib/<architecture>/libstdc++.so
 ```
 
 ### relax\_ii\_for_timing
 
 SDAccel sets the option `relax_ii_for_timing`, and a conservative clock uncertainty of 27% of the target timing. This means that it will silently increase the initiation interval if this more conservative constraint is not met, resulting a slowdown of 2x to the resulting performance. Check the HLS log file to see if your design was throttled, located at:
-```shell
+```
 _xocc_<source file>_<kernel file>.dir/impl/build/system/<kernel file>/bitstream/<kernel file>_ipi/ipiimpl/ipiimpl.runs/impl_1/<"vivado_hls" or "runme">.log
 ```
