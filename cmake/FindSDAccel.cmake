@@ -1,0 +1,81 @@
+# Author:  Johannes de Fine Licht (johannes.definelicht@inf.ethz.ch)
+# Created: March 2017 
+#
+# Once done this will define:
+#   SDAccel_FOUND - Indicates whether SDAccel was found.
+#   SDAccel_INCLUDE_DIRS - Include directories for HLS. 
+#   SDAccel_LIBRARIES - Libraries required for host side code. 
+#   SDAccel_XOCC - Path to the xocc executable.
+#   SDAccel_VIVADO_HLS - Path to the Vivado HLS executable shipped with SDAccel. 
+#
+# To specify the location of SDAccel or to force this script to use a specific
+# version, set the variable SDACCEL_ROOT_DIR to the root directory of the
+# desired SDAccel installation.
+
+if(NOT DEFINED SDACCEL_ROOT_DIR)
+
+  find_path(SDACCEL_SEARCH_PATH xocc 
+            PATHS ENV XILINX_OPENCL ENV XILINX_SDACCEL
+						PATH_SUFFIXES bin)
+  get_filename_component(SDACCEL_ROOT_DIR ${SDACCEL_SEARCH_PATH} DIRECTORY) 
+  mark_as_advanced(SDACCEL_SEARCH_PATH)
+
+else()
+
+  message(STATUS "Using user defined SDAccel directory \"${SDACCEL_ROOT_DIR}\".")
+
+endif()
+
+# Check if all the necessary components are present. We want to ensure that we
+# use the tools bundled together, so we don't use find_path again. 
+
+find_program(SDAccel_XOCC xocc PATHS ${SDACCEL_ROOT_DIR}/bin NO_DEFAULT_PATH)
+
+find_program(SDAccel_VIVADO_HLS vivado_hls
+             PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/bin NO_DEFAULT_PATH)
+
+find_path(SDAccel_INCLUDE_DIRS hls_stream.h
+          PATHS ${SDACCEL_ROOT_DIR}/include NO_DEFAULT_PATH)
+
+# Currently only x86 support
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+
+  set(SDACCEL_RUNTIME_LIBS ${SDACCEL_ROOT_DIR}/runtime/lib/x86_64)
+  mark_as_advanced(SDACCEL_RUNTIME_LIBS)
+
+  find_library(SDAccel_LIBLMX lmx6.0 PATHS ${SDACCEL_RUNTIME_LIBS}
+               NO_DEFAULT_PATH)
+  mark_as_advanced(SDAccel_LIBLMX)
+
+  find_library(SDAccel_LIBOPENCL OpenCL PATHS ${SDACCEL_RUNTIME_LIBS}
+               NO_DEFAULT_PATH)
+  mark_as_advanced(SDAccel_LIBOPENCL)
+
+  find_library(SDAccel_LIBXILINXOPENCL xilinxopencl PATHS ${SDACCEL_RUNTIME_LIBS}
+               NO_DEFAULT_PATH)
+  mark_as_advanced(SDAccel_LIBXILINXOPENCL)
+
+  # Only succeed if all libraries were found
+
+  if(SDAccel_LIBLMX AND SDAccel_LIBOPENCL AND SDAccel_LIBXILINXOPENCL)
+    set(SDAccel_LIBRARIES ${SDAccel_LIBXML} ${SDAccel_LIBOPENCL} 
+        ${SDAccel_LIBXILINXOPENCL} CACHE STRING "SDAccel runtime libraries.")
+  endif()
+
+  if(EXISTS ${SDACCEL_RUNTIME_LIBS}/libstdc++.so)
+    message(WARNING "Found libstdc++.so in ${SDACCEL_RUNTIME_LIBS}. This may break compilation for newer compilers. Remove from path to ensure that your native libstdc++.so is used.") 
+  endif()
+
+else()
+
+  message(WARNING "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+
+endif()
+
+include(FindPackageHandleStandardArgs)
+# Handle the QUIETLY and REQUIRED arguments and set SDAccelHLS_FOUND to TRUE
+# if all listed variables were found.
+find_package_handle_standard_args(SDAccel DEFAULT_MSG
+  SDAccel_XOCC SDAccel_VIVADO_HLS SDAccel_INCLUDE_DIRS
+  SDAccel_LIBRARIES)
