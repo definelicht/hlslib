@@ -34,8 +34,9 @@ find_program(SDAccel_XOCC xocc PATHS ${SDACCEL_ROOT_DIR}/bin NO_DEFAULT_PATH)
 find_program(SDAccel_VIVADO_HLS vivado_hls
              PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/bin NO_DEFAULT_PATH)
 
-find_path(SDAccel_INCLUDE_DIRS hls_stream.h
-          PATHS ${SDACCEL_ROOT_DIR}/include NO_DEFAULT_PATH)
+find_path(SDAccel_HLS_INCLUDE_DIR hls_stream.h
+          PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/include NO_DEFAULT_PATH)
+mark_as_advanced(SDAccel_HLS_INCLUDE_DIR)
 
 # Currently only x86 support
 
@@ -57,7 +58,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
   mark_as_advanced(SDAccel_LIBXILINXOPENCL)
 
   # Only succeed if all libraries were found
-
   if(SDAccel_LIBLMX AND SDAccel_LIBOPENCL AND SDAccel_LIBXILINXOPENCL)
     set(SDAccel_LIBRARIES ${SDAccel_LIBXML} ${SDAccel_LIBOPENCL} 
         ${SDAccel_LIBXILINXOPENCL} CACHE STRING "SDAccel runtime libraries.")
@@ -65,6 +65,20 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
 
   if(EXISTS ${SDACCEL_RUNTIME_LIBS}/libstdc++.so)
     message(WARNING "Found libstdc++.so in ${SDACCEL_RUNTIME_LIBS}. This may break compilation for newer compilers. Remove from path to ensure that your native libstdc++.so is used.") 
+  endif()
+
+  find_path(SDAccel_OPENCL_INCLUDE_DIR opencl.h
+            PATHS ${SDACCEL_ROOT_DIR}/runtime/include
+            PATH_SUFFIXES 1_1/CL 1_2/CL 2_0/CL
+            NO_DEFAULT_PATH)
+  get_filename_component(SDAccel_OPENCL_INCLUDE_DIR ${SDAccel_OPENCL_INCLUDE_DIR} DIRECTORY) 
+  mark_as_advanced(SDAccel_OPENCL_INCLUDE_DIR)
+
+  # Only succeed if both include paths were found
+  if(SDAccel_HLS_INCLUDE_DIR AND SDAccel_OPENCL_INCLUDE_DIR)
+    set(SDAccel_INCLUDE_DIRS ${SDAccel_HLS_INCLUDE_DIR}
+        ${SDAccel_OPENCL_INCLUDE_DIR} 
+        CACHE STRING "SDAccel include directories.")
   endif()
 
 else()
