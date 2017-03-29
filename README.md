@@ -21,4 +21,4 @@ To avoid this, backup or delete the library file located at `<SDx/SDAccel folder
 
 ### relax\_ii\_for_timing
 
-SDAccel sets the option `relax_ii_for_timing`, and a much more conservative clock constraint than the default. This means that it will silently cut the initiation interval if this more conservative constraint is not met, resulting a slowdown of 2x to the resulting performance. Check `_xocc_<source file>_<kernel file>.dir/impl/build/system/<kernel file>/bitstream/<kernel file>_ipi/ipiimpl/ipiimpl.runs/impl_1/runme.log` to see if any modules were throttled.
+SDAccel sets the option `relax_ii_for_timing`, and a conservative clock uncertainty of 27% of the target timing. This means that it will silently increase the initiation interval if this more conservative constraint is not met, resulting a slowdown of 2x to the resulting performance. Check `_xocc_<source file>_<kernel file>.dir/impl/build/system/<kernel file>/bitstream/<kernel file>_ipi/ipiimpl/ipiimpl.runs/impl_1/runme.log` to see if any modules were throttled.
