@@ -4,13 +4,13 @@ It is beneficial to make a custom script for setting up the SDAccel environment,
 
 The following is sufficient as of SDx 2016.3:
 
-`
+```shell
 #!/bin/sh
 export XILINX_OPENCL=<path to DSA folder>/xbinst/pkg/pcie
 export XCL_PLATFORM=<DSA string (e.g. "xilinx_adm-pcie-7v3_1ddr_3_0")>
 unset XILINX_SDACCEL
 unset XCL_EMULATION_MODE
-`
+```
 
 ## Things to look out for
 
