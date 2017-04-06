@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 // This macro must be defined when synthesizing. Synthesis will fail otherwise.
 #ifdef HLSLIB_SYNTHESIS
 
@@ -8,7 +10,7 @@
 
 namespace hlslib {
 
-// Fall back on vanilla stream when synthesizing
+// Fall back to vanilla stream when synthesizing
 template <typename T>
 using Stream = hls::stream<T>; 
 
@@ -55,7 +57,7 @@ bool IsEmpty(Stream<T> &stream) {
 }
 
 template <typename T>
-bool IsEmptySimulation(Stream<T> &stream) {
+bool IsEmptySimulationOnly(Stream<T> &stream) {
   #pragma HLS INLINE
   return false;
 }
@@ -67,7 +69,7 @@ bool IsFull(Stream<T> &stream, int) {
 }
 
 template <typename T>
-bool IsFullSimulation(Stream<T> &stream, int) {
+bool IsFullSimulationOnly(Stream<T> &stream, int) {
   #pragma HLS INLINE
   return false;
 }
@@ -130,7 +132,7 @@ bool IsEmpty(Stream<T> &stream) {
 }
 
 template <typename T>
-bool IsEmptySimulation(Stream<T> &stream) {
+bool IsEmptySimulationOnly(Stream<T> &stream) {
   return stream.IsEmpty();
 }
 
@@ -140,7 +142,7 @@ bool IsFull(Stream<T> &stream, int size) {
 }
 
 template <typename T>
-bool IsFullSimulation(Stream<T> &stream, int size) {
+bool IsFullSimulationOnly(Stream<T> &stream, int size) {
   return stream.IsFull(size);
 }
 
@@ -267,6 +269,7 @@ public:
   }
 
   size_t Size() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return queue_.size();
   }
 

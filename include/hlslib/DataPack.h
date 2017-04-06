@@ -25,11 +25,11 @@ class DataPack {
 
   static_assert(width > 0, "Width must be positive");
 
+public:
+
   static constexpr int kBits = 8 * sizeof(T);
   using Pack_t = ap_uint<kBits>;
   using Internal_t = ap_uint<width * kBits>;
-
-public:
 
   DataPack() : data_() {
     #pragma HLS INLINE
@@ -51,10 +51,6 @@ public:
   DataPack(T const arr[width]) : data_() { 
     #pragma HLS INLINE
     Pack(arr);
-  }
-
-  DataPack(Internal_t const &data) : data_(data) {
-    #pragma HLS INLINE
   }
 
   DataPack<T, width>& operator=(DataPack<T, width> &&other) {
