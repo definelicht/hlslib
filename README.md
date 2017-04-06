@@ -28,3 +28,9 @@ SDAccel sets the option `relax_ii_for_timing`, and a conservative clock uncertai
 ```
 _xocc_<source file>_<kernel file>.dir/impl/build/system/<kernel file>/bitstream/<kernel file>_ipi/ipiimpl/ipiimpl.runs/impl_1/<"vivado_hls" or "runme">.log
 ```
+
+### Power report crash
+
+While building a project, Vivado generates a number of GUI-reports, even when running `xocc` on the command line. These reports have an internal limit of 64 MB per _section_. For very large projects these sections can exceed 64 MB, causing Vivado to crash with an error like "Unable to write <report name>.rpx as it exceeds maximum size of 64 MB".
+So far there does not seem to be a solution to this error.
+
