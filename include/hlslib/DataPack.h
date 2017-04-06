@@ -3,13 +3,17 @@
 
 #pragma once
 
-#include <cstddef> // ap_int.h will break some compilers if this is not defined
+#include <cstddef> // ap_int.h will break some compilers if this is not included 
 #include <ap_int.h>
 
 namespace hlslib {
 
+namespace {
+
 template <typename T, int width>
 class DataPackProxy; // Forward declaration
+
+} // End anonymous namespace
 
 /// Class to accommodate SIMD-style vectorization of a data path on FPGA using
 /// ap_uint to force wide ports.
@@ -117,10 +121,7 @@ public:
     return Get(i);    
   }
 
-  DataPackProxy<T, width> operator[](const size_t i) {
-    #pragma HLS INLINE
-    return DataPackProxy<T, width>(*this, i);
-  }
+  DataPackProxy<T, width> operator[](const size_t i);
 
   // Access to internal data directly if necessary
   Internal_t &data() { return data_; }
@@ -162,9 +163,9 @@ public:
     #pragma HLS INLINE
   }
 
-  DataPackProxy(DataPackProxy<T, width> const &) = delete;
+  DataPackProxy(DataPackProxy<T, width> const &other) = default; 
 
-  DataPackProxy(DataPackProxy<T, width> &&) = delete;
+  DataPackProxy(DataPackProxy<T, width> &&) = default;
 
   ~DataPackProxy() {}
 
@@ -180,13 +181,11 @@ public:
 
   void operator=(DataPackProxy<T, width> const &rhs) {
     #pragma HLS INLINE
-    // Implicit call to operator T()
     data_.Set(index_, static_cast<T>(rhs));
   }
 
   void operator=(DataPackProxy<T, width> &&rhs) {
     #pragma HLS INLINE
-    // Implicit call to operator T()
     data_.Set(index_, static_cast<T>(rhs));
   }
 
@@ -203,6 +202,12 @@ private:
 };
 
 } // End anonymous namespace
+
+template <typename T, int width>
+DataPackProxy<T, width> DataPack<T, width>::operator[](const size_t i) {
+  #pragma HLS INLINE
+  return DataPackProxy<T, width>(*this, i);
+}
 
 template <typename T, int width>
 std::ostream& operator<<(std::ostream &os, DataPack<T, width> const &rhs) {
