@@ -5,7 +5,7 @@ void AxiToStream(Data_t const *memory, hlslib::Stream<Data_t> &stream) {
 AxiToStream:
   for (int i = 0; i < kNumElements; ++i) {
     #pragma HLS PIPELINE
-    hlslib::WriteBlocking(stream, memory[i], 1);
+    hlslib::WriteOptimistic(stream, memory[i], 1);
   }
 }
 
@@ -14,9 +14,9 @@ void AddStage(hlslib::Stream<Data_t> &streamIn,
 AddStage:
   for (int i = 0; i < kNumElements; ++i) {
     #pragma HLS PIPELINE
-    const Data_t read = hlslib::ReadBlocking(streamIn);
+    const Data_t read = hlslib::ReadOptimistic(streamIn);
     const Data_t eval = read + 1;
-    hlslib::WriteBlocking(streamOut, eval, 1);
+    hlslib::WriteOptimistic(streamOut, eval, 1);
   }
 }
 
@@ -24,7 +24,7 @@ void StreamToAxi(hlslib::Stream<Data_t> &stream, Data_t *memory) {
 StreamToAxi:
   for (int i = 0; i < kNumElements; ++i) {
     #pragma HLS PIPELINE
-    memory[i] = hlslib::ReadBlocking(stream);
+    memory[i] = hlslib::ReadOptimistic(stream);
   }
 }
 

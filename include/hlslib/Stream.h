@@ -7,6 +7,7 @@
 
 #include <hls_stream.h>
 #include <iostream>
+#include <sstream>
 
 namespace hlslib {
 
@@ -156,7 +157,7 @@ public:
 
   Stream(std::string name) : name_(name) {} 
 
-  // Streams represent hardware entities. Don't allow copying or assignment.
+  // Streams represent hardware entities. Don't allow copy or assignment.
   Stream(Stream<T> const &) = delete;
   Stream(Stream<T> &&) = delete;
   Stream<T> &operator=(Stream<T> const &) = delete;
@@ -171,8 +172,26 @@ public:
     }
   }
 
+  void ReadSynchronize(std::unique_lock<std::mutex> &lock) {
+    (void)lock; // Silence unused warning
+#ifdef HLSLIB_STREAM_SYNCHRONIZE
+    while (!readNext_) {
+      if (cvSync_.wait_for(lock, std::chrono::seconds(3)) ==
+          std::cv_status::timeout) {
+        std::stringstream ss;
+        ss << "Stream synchronization stuck on \"" << name_
+           << "\". Possibly a deadlock?" << std::endl;
+        std::cerr << ss.str();
+      }
+    }
+    readNext_ = false;
+    cvSync_.notify_all();
+#endif
+  }
+
   T ReadBlocking() {
     std::unique_lock<std::mutex> lock(mutex_);
+    ReadSynchronize(lock);
     bool slept = false;
     while (queue_.empty()) {
       if (kStreamVerbose && !slept) {
@@ -195,7 +214,8 @@ public:
   }
 
   T ReadOptimistic() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
+    ReadSynchronize(lock);
     if (queue_.empty()) {
       throw std::runtime_error(name_ + ": read while empty.");
     }
@@ -206,7 +226,8 @@ public:
   }
 
   bool ReadBlocking(T &output) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
+    ReadSynchronize(lock);
     if (queue_.empty()) {
       return false;
     }
@@ -215,9 +236,27 @@ public:
     cvWrite_.notify_all();
     return true;
   }
+
+  void WriteSynchronize(std::unique_lock<std::mutex> &lock) {
+    (void)lock; // Silence unused warning
+#ifdef HLSLIB_STREAM_SYNCHRONIZE
+    while (readNext_) {
+      if (cvSync_.wait_for(lock, std::chrono::seconds(3)) ==
+          std::cv_status::timeout) {
+        std::stringstream ss;
+        ss << "Stream synchronization stuck on \"" << name_
+           << "\". Possibly a deadlock?" << std::endl;
+        std::cerr << ss.str();
+      }
+    }
+    readNext_ = true;
+    cvSync_.notify_all();
+#endif
+  }
   
   void WriteBlocking(T const &val, int size) {
     std::unique_lock<std::mutex> lock(mutex_);
+    WriteSynchronize(lock);
     bool slept = false;
     while (queue_.size() == size) {
       if (kStreamVerbose && !slept) {
@@ -240,7 +279,8 @@ public:
   }
   
   void WriteOptimistic(T const &val, int size) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
+    WriteSynchronize(lock);
     if (queue_.size() == size) {
       throw std::runtime_error(name_ + ": written while full.");
     }
@@ -249,7 +289,8 @@ public:
   }
 
   bool WriteNonBlocking(T const &val, int size) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
+    WriteSynchronize(lock);
     if (queue_.size() == size) {
       return false;
     }
@@ -277,6 +318,10 @@ private:
   mutable std::mutex mutex_{};
   mutable std::condition_variable cvRead_{};
   mutable std::condition_variable cvWrite_{};
+#ifdef HLSLIB_STREAM_SYNCHRONIZE
+  mutable std::condition_variable cvSync_{};
+  bool readNext_{false};
+#endif
   std::string name_;
   std::queue<T> queue_;
 };

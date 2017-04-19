@@ -27,7 +27,7 @@ else()
 endif()
 
 include_directories(include)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -DHLSLIB_STREAM_SYNCHRONIZE")
 
 add_library(hls kernels/MultiStageAdd.cpp)
 
