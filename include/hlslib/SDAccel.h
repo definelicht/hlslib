@@ -325,11 +325,11 @@ public:
   Buffer<T, access> MakeBuffer();
 
   template <typename T, Access access, typename... Ts>
-  Buffer<T, access> MakeBuffer(MemoryBank memoryBank, Ts... args);
+  Buffer<T, access> MakeBuffer(MemoryBank memoryBank, Ts&&... args);
 
   template <typename... Ts>
-  Kernel MakeKernelFromBinary(std::string const &path,
-                              std::string const &kernelName, Ts &... args);
+  Kernel MakeKernel(std::string const &path, std::string const &kernelName,
+                    Ts &&... args);
 
 private:
   cl_platform_id platformId_{};
@@ -700,15 +700,15 @@ Buffer<T, access> Context::MakeBuffer() {
 }
 
 template <typename T, Access access, typename... Ts>
-Buffer<T, access> Context::MakeBuffer(MemoryBank memoryBank, Ts... args) {
+Buffer<T, access> Context::MakeBuffer(MemoryBank memoryBank, Ts&&... args) {
   return Buffer<T, access>(*this, memoryBank, args...);
 }
 
 template <typename... Ts>
-Kernel Context::MakeKernelFromBinary(std::string const &path,
-                                     std::string const &kernelName,
-                                     Ts &... args) {
-  return Kernel(*this, path, kernelName, true, args...);
+Kernel Context::MakeKernel(std::string const &path,
+                           std::string const &kernelName,
+                           Ts&&... args) {
+  return Kernel(*this, path, kernelName, args...);
 }
 
 } // End namespace ocl 
