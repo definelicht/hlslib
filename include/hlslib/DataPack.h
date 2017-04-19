@@ -31,17 +31,11 @@ public:
   using Pack_t = ap_uint<kBits>;
   using Internal_t = ap_uint<width * kBits>;
 
-  DataPack() : data_() {
-    #pragma HLS INLINE
-  }
+  DataPack() : data_() {}
 
-  DataPack(DataPack<T, width> const &other) : data_(other.data_) {
-    #pragma HLS INLINE
-  }
+  DataPack(DataPack<T, width> const &other) : data_(other.data_) {}
 
-  DataPack(DataPack<T, width> &&other) : data_(other.data_) {
-    #pragma HLS INLINE
-  }
+  DataPack(DataPack<T, width> &&other) : data_(other.data_) {}
 
   DataPack(T const &value) : data_() {
     #pragma HLS INLINE
@@ -77,7 +71,7 @@ public:
 
   void Fill(T const &value) {
     #pragma HLS INLINE
-  DataPackFill:
+  DataPack_Fill:
     for (int i = 0; i < width; ++i) {
       #pragma HLS UNROLL
       Set(i, value);
@@ -86,7 +80,7 @@ public:
 
   void Pack(T const arr[width]) {
     #pragma HLS INLINE
-  DataPackPack:
+  DataPack_Pack:
     for (int i = 0; i < width; ++i) {
       #pragma HLS UNROLL
       Set(i, arr[i]);
@@ -95,7 +89,7 @@ public:
 
   void Unpack(T arr[width]) const {
     #pragma HLS INLINE
-  DataPackUnpack:
+  DataPack_Unpack:
     for (int i = 0; i < width; ++i) {
       #pragma HLS UNROLL
       arr[i] = Get(i);
@@ -130,7 +124,7 @@ public:
     #pragma HLS INLINE
     static_assert(src + count <= width && dst + count <= otherWidth,
                   "Invalid range");
-  DataPackShift:
+  DataPack_Shift:
     for (int i = 0, s = src, d = dst; i < count; ++i, ++s, ++d) {
       #pragma HLS UNROLL
       other.Set(d, Get(s));
