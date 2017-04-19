@@ -25,7 +25,7 @@ namespace hlslib {
 #else
 #include <vector>
 #include <thread>
-namespace internal {
+namespace {
 class _Dataflow {
 private:
   inline _Dataflow() {}
@@ -50,9 +50,9 @@ private:
 };
 #define HLSLIB_DATAFLOW_INIT() 
 #define HLSLIB_DATAFLOW_FUNCTION(func, ...) \
-  ::hlslib::internal::_Dataflow::Get().AddFunction(func, __VA_ARGS__)
+  ::hlslib::_Dataflow::Get().AddFunction(func, __VA_ARGS__)
+#define HLSLIB_DATAFLOW_FINALIZE() ::hlslib::_Dataflow::Get().Join();
 }
-#define HLSLIB_DATAFLOW_FINALIZE() ::hlslib::internal::_Dataflow::Get().Join();
 #endif
 
 } // End namespace hlslib
