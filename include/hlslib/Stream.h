@@ -9,6 +9,13 @@
 // This macro must be defined when synthesizing. Synthesis will fail otherwise.
 #ifdef HLSLIB_SYNTHESIS
 
+// If the macro HLSLIB_STREAM_SYNCHRONIZE is set, every stream object will only
+// allow reads and writes ATTEMPTS in lockstep. This way, no single dataflow
+// function will run ahead of others.
+// This is left optional, as it will not work for all kernels, and can result in
+// deadlocks. If such a situation occurs, the synchronization method will print
+// a deadlock warning to stderr after a few seconds.
+
 #include <hls_stream.h>
 #include <iostream>
 #include <sstream>
