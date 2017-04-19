@@ -1,3 +1,7 @@
+/// @author    Johannes de Fine Licht (johannes.definelicht@inf.ethz.ch)
+/// @date      April 2017
+/// @copyright This software is copyrighted under the BSD 3-Clause License. 
+
 #include "MultiStageAdd.h"
 #include "hlslib/Simulation.h"
 
@@ -5,6 +9,7 @@ void AxiToStream(Data_t const *memory, hlslib::Stream<Data_t> &stream) {
 AxiToStream:
   for (int i = 0; i < kNumElements; ++i) {
     #pragma HLS PIPELINE
+    // We can use optimistic because HLSLIB_STREAM_SYNCHRONIZE is set
     hlslib::WriteOptimistic(stream, memory[i], 1);
   }
 }

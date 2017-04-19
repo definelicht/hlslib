@@ -1,3 +1,7 @@
+/// @author    Johannes de Fine Licht (johannes.definelicht@inf.ethz.ch)
+/// @date      April 2017
+/// @copyright This software is copyrighted under the BSD 3-Clause License. 
+
 #include "hlslib/DataPack.h"
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
