@@ -17,8 +17,6 @@
 // a deadlock warning to stderr after a few seconds.
 
 #include <hls_stream.h>
-#include <iostream>
-#include <sstream>
 
 namespace hlslib {
 
@@ -108,57 +106,84 @@ namespace hlslib {
 template <typename T>
 class Stream;
 
+/// Attempt to read from a stream, blocking until a value can be read. Useful
+/// for inter-process communication and generally asynchronous behavior.
 template <typename T>
 T ReadBlocking(Stream<T> &stream) {
   return stream.ReadBlocking();
 }
 
+/// Attempt to read from a stream, throwing an exception if no value is
+/// available. Useful for internal buffers and some synchronized dataflow
+/// applications.
 template <typename T>
 T ReadOptimistic(Stream<T> &stream) {
   return stream.ReadOptimistic();
 }
 
+/// Attempts to read from a stream, returning whether a value was read or not. 
+/// Useful when a different action should be performed when the stream is empty.
 template <typename T>
 bool ReadNonBlocking(Stream<T> &stream, T &output) {
   return stream.ReadNonBlocking(output);
 }
 
+/// Attempt to write to a stream, blocking until a value can be written. Useful
+/// for inter-process communication and generally asynchronous behavior.
 template <typename T>
 void WriteBlocking(Stream<T> &stream, T const &val, int size) {
   stream.WriteBlocking(val, size);
 }
 
+/// Attempt to write to a stream, throwing an exception if the stream is full.
+/// Useful for internal buffers and some synchronized dataflow applications.
 template <typename T>
 void WriteOptimistic(Stream<T> &stream, T const &val, int size) {
   stream.WriteOptimistic(val, size);
 }
 
+/// Attempts to write to a stream, returning whether a value was written or not. 
+/// Useful when a different action should be performed when the stream is full.
 template <typename T>
 bool WriteNonBlocking(Stream<T> &stream, T const &val, int size) {
   return stream.WriteNonBlocking(val, size);
 }
 
+/// Check if the stream is empty. Using this in kernel code essentially
+/// implements non-blocking behavior, and should be used with caution.
 template <typename T>
 bool IsEmpty(Stream<T> &stream) {
   return stream.IsEmpty();
 }
 
+/// If running simulation, returns whether the stream is empty. If running in
+/// hardware, this always returns false.
+/// This is useful when simulating blocking behavior of non loop-based codes
+/// where the entire function is invoked every cycle.
 template <typename T>
 bool IsEmptySimulationOnly(Stream<T> &stream) {
   return stream.IsEmpty();
 }
 
+/// Check if the stream is full. Using this in kernel code essentially
+/// implements non-blocking behavior, and should be used with caution.
 template <typename T>
 bool IsFull(Stream<T> &stream, int size) {
   return stream.IsFull(size);
 }
 
+/// If running simulation, returns whether the stream is full. If running in
+/// hardware, this always returns false.
+/// This is useful when simulating blocking behavior of non loop-based codes
+/// where the entire function is invoked every cycle.
 template <typename T>
 bool IsFullSimulationOnly(Stream<T> &stream, int size) {
   return stream.IsFull(size);
 }
 
-
+/// Custom stream implementation, whose constructor mimics that of hls::stream.
+/// All other methods should be called via the free functions, as they do not
+/// conform to the interface of hls::stream.
 template <typename T>
 class Stream {
 
