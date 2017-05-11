@@ -51,11 +51,13 @@ public:
   DataPack<T, width>& operator=(DataPack<T, width> &&other) {
     #pragma HLS INLINE
     data_ = other.data_;
+    return *this;
   }
 
   DataPack<T, width>& operator=(DataPack<T, width> const &other) {
     #pragma HLS INLINE
     data_ = other.data_;
+    return *this;
   }
 
   T Get(int i) const {
