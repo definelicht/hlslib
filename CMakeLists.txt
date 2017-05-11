@@ -41,10 +41,13 @@ if(SDAccel_FOUND)
   add_test(TestSDAccelHostCode TestSDAccelHostCode)
 endif()
 
-# Unit tests of DataPack 
+# Unit tests 
 add_executable(TestDataPack test/TestDataPack.cpp)
 target_link_libraries(TestDataPack hls)
 add_test(TestDataPack TestDataPack)
+add_executable(TestReduce test/TestReduce.cpp)
+target_link_libraries(TestReduce hls)
+add_test(TestReduce TestReduce)
 
 # Test dataflow simulation along with Stream class
 find_package(Threads)
@@ -53,6 +56,15 @@ if(Threads_FOUND)
   target_link_libraries(TestStream hls ${CMAKE_THREAD_LIBS_INIT})
   add_test(TestStream TestStream)
 endif()
+
+# Test synthesis of reduction
+set(HLSLIB_PROJECT_NAME "Reduce")
+set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/Reduce.cpp")
+set(HLSLIB_ENTRY_FUNCTION "Reduce")
+set(HLSLIB_TARGET_TIMING "5")
+configure_file(scripts/Synthesis.tcl.in SynthesizeReduce.tcl)
+add_custom_target(synthesize_reduce
+  COMMAND ${HLSLIB_HLS} -f SynthesizeReduce.tcl) 
 
 # Multi stage add to test streams and multi-threaded simulation of loop-based
 # dataflow kernels
