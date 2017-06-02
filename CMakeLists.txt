@@ -6,7 +6,7 @@ project(hlslib CXX)
 
 # User options
 set(HLSLIB_PART_NAME "xcku115-flvb2104-2-e" CACHE STRING "Part name for HLS.")
-set(HLSLIB_DSA_NAME "xilinx:xil-accel-rd-ku115:4ddr-xpr:3.2" CACHE STRING
+set(HLSLIB_DSA_NAME "xilinx:xil-accel-rd-ku115:4ddr-xpr:3.3" CACHE STRING
     "DSA string for xocc.")
 
 # Include custom Find<Module>.cmake scripts to enable searching for SDAccel
@@ -27,9 +27,7 @@ else()
 endif()
 
 include_directories(include)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -DHLSLIB_STREAM_SYNCHRONIZE")
-
-add_library(hls kernels/MultiStageAdd.cpp)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 enable_testing()
 
@@ -43,18 +41,22 @@ endif()
 
 # Unit tests 
 add_executable(TestDataPack test/TestDataPack.cpp)
-target_link_libraries(TestDataPack hls)
+target_link_libraries(TestDataPack)
 add_test(TestDataPack TestDataPack)
 add_executable(TestReduce test/TestReduce.cpp)
-target_link_libraries(TestReduce hls)
+target_link_libraries(TestReduce)
 add_test(TestReduce TestReduce)
 
-# Test dataflow simulation along with Stream class
+# Test kernels in software
 find_package(Threads)
 if(Threads_FOUND)
-  add_executable(TestStream test/TestStream.cpp)
-  target_link_libraries(TestStream hls ${CMAKE_THREAD_LIBS_INIT})
+  add_executable(TestStream test/TestStream.cpp kernels/MultiStageAdd.cpp)
+  target_link_libraries(TestStream ${CMAKE_THREAD_LIBS_INIT})
   add_test(TestStream TestStream)
+  target_compile_options(TestStream PRIVATE "-DHLSLIB_STREAM_SYNCHRONIZE")
+  add_executable(TestAccumulateFloat test/TestAccumulateFloat.cpp kernels/AccumulateFloat.cpp)
+  target_link_libraries(TestAccumulateFloat ${CMAKE_THREAD_LIBS_INIT})
+  add_test(TestAccumulateFloat TestAccumulateFloat)
 endif()
 
 # Test synthesis of reduction
@@ -86,5 +88,27 @@ if(SDAccel_FOUND)
     --xdevice ${HLSLIB_DSA_NAME}
     --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="${CMAKE_CXX_FLAGS} -DHLSLIB_SYNTHESIS")
   add_executable(RunMultiStageAdd.exe host/RunMultiStageAdd.cpp)
-  target_link_libraries(RunMultiStageAdd.exe hls ${SDAccel_LIBRARIES}) 
+  target_link_libraries(RunMultiStageAdd.exe ${SDAccel_LIBRARIES}) 
+endif()
+
+# Test kernel for pipelined accumulation of floating point numbers 
+set(HLSLIB_PROJECT_NAME "AccumulateFloat")
+set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/AccumulateFloat.cpp")
+set(HLSLIB_ENTRY_FUNCTION "AccumulateFloat")
+set(HLSLIB_TARGET_TIMING "5")
+configure_file(scripts/Synthesis.tcl.in SynthesizeAccumulateFloat.tcl)
+add_custom_target(synthesize_accumulate_float
+  COMMAND ${HLSLIB_HLS} -f SynthesizeAccumulateFloat.tcl) 
+if(SDAccel_FOUND)
+  add_custom_target(kernel_accumulate_float
+    COMMAND ${SDAccel_XOCC} 
+    -t hw
+    -o AccumulateFloat.xclbin
+    -I${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/kernels/AccumulateFloat.cpp
+    --kernel AccumulateFloat
+    --xdevice ${HLSLIB_DSA_NAME}
+    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="${CMAKE_CXX_FLAGS} -DHLSLIB_SYNTHESIS")
+  add_executable(RunAccumulateFloat.exe host/RunAccumulateFloat.cpp)
+  target_link_libraries(RunAccumulateFloat.exe ${SDAccel_LIBRARIES}) 
 endif()
