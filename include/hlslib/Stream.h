@@ -6,6 +6,10 @@
 
 #include <cstddef>
 
+// Time in seconds until a blocking call on a stream should timeout and emit a
+// warning before going back to sleep
+constexpr int kSecondsToTimeout = 3;
+
 // This macro must be defined when synthesizing. Synthesis will fail otherwise.
 #ifdef HLSLIB_SYNTHESIS
 
@@ -212,7 +216,7 @@ public:
     (void)lock; // Silence unused warning
 #ifdef HLSLIB_STREAM_SYNCHRONIZE
     while (!readNext_) {
-      if (cvSync_.wait_for(lock, std::chrono::seconds(3)) ==
+      if (cvSync_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
           std::cv_status::timeout) {
         std::stringstream ss;
         ss << "Stream synchronization stuck on \"" << name_
@@ -236,7 +240,13 @@ public:
         std::cout << ss.str();
       }
       slept = true;
-      cvRead_.wait(lock);
+      if (cvRead_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
+          std::cv_status::timeout) {
+        std::stringstream ss;
+        ss << "Stream \"" << name_
+           << "\" is stuck as being EMPTY. Possibly a deadlock?" << std::endl;
+        std::cerr << ss.str();
+      }
     }
     if (kStreamVerbose && slept) {
       std::stringstream ss;
@@ -277,7 +287,7 @@ public:
     (void)lock; // Silence unused warning
 #ifdef HLSLIB_STREAM_SYNCHRONIZE
     while (readNext_) {
-      if (cvSync_.wait_for(lock, std::chrono::seconds(3)) ==
+      if (cvSync_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
           std::cv_status::timeout) {
         std::stringstream ss;
         ss << "Stream synchronization stuck on \"" << name_
@@ -302,7 +312,13 @@ public:
         std::cout << ss.str();
       }
       slept = true;
-      cvWrite_.wait(lock);
+      if (cvWrite_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
+          std::cv_status::timeout) {
+        std::stringstream ss;
+        ss << "Stream \"" << name_
+           << "\" is stuck as being FULL. Possibly a deadlock?" << std::endl;
+        std::cerr << ss.str();
+      }
     }
     if (kStreamVerbose && slept) {
       std::stringstream ss;
