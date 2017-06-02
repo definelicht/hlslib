@@ -4,41 +4,14 @@
 
 #pragma once
 
+#include <hlslib/Operators.h>
+
 // This header implementations reduction using a binary tree, allowing a fully
 // pipelined reduction of a static sized array.
 // Using the reduction requires passing an operator that implements the
 // functions "Reduce" and "identity", as in the examples given below.
 
 namespace hlslib {
-
-// Operators
-
-template <typename T>
-struct Add {
-  static T Reduce(T const &a, T const &b) { return a + b; }
-  static constexpr T identity() { return 0; }
-private:
-  Add() = delete;
-  ~Add() = delete;
-};
-
-template <typename T>
-struct Multiply {
-  static T Reduce(T const &a, T const &b) { return a * b; }
-  static constexpr T identity() { return 1; }
-private:
-  Multiply() = delete;
-  ~Multiply() = delete;
-};
-
-template <typename T>
-struct And {
-  static T Reduce(T const &a, T const &b) { return a && b; }
-  static constexpr T identity() { return true; }
-private:
-  And() = delete;
-  ~And() = delete;
-};
 
 namespace { // Internals
 
@@ -53,7 +26,7 @@ struct TreeReduceImplementation {
   Reduction:
     for (int i = 0; i < halfWidth; ++i) {
       #pragma HLS UNROLL
-      reduced[i] = Operator::Reduce(arr[i * 2], arr[i * 2 + 1]);
+      reduced[i] = Operator::Apply(arr[i * 2], arr[i * 2 + 1]);
     }
     if (halfWidth != reducedSize) {
       reduced[reducedSize - 1] = arr[width - 1];
@@ -69,7 +42,7 @@ template <typename T, class Operator>
 struct TreeReduceImplementation<T, Operator, 2> {
   static T f(T arr[2]) {
     #pragma HLS INLINE
-    return Operator::Reduce(arr[0], arr[1]);
+    return Operator::Apply(arr[0], arr[1]);
   }
 private:
   TreeReduceImplementation() = delete;
