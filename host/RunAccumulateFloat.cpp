@@ -7,6 +7,7 @@
 #include <iostream>
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
+#include <random>
 
 TEST_CASE("AccumulateFloat", "[AccumulateFloat]") {
 
@@ -14,26 +15,46 @@ TEST_CASE("AccumulateFloat", "[AccumulateFloat]") {
   hlslib::ocl::Context context;
   std::cout << "Done." << std::endl;
 
-  std::cout << "Initializing memory..." << std::flush;
-  auto memDevice = context.MakeBuffer<DataPack_t, hlslib::ocl::Access::read>(
-      hlslib::ocl::MemoryBank::bank0, 1);
-  DataPack_t memHost(static_cast<Data_t>(1));
-  memDevice.CopyFromHost(&memHost);
+  std::cout << "Initializing device memory..." << std::flush;
+  auto inputDevice = context.MakeBuffer<DataPack_t, hlslib::ocl::Access::read>(
+      hlslib::ocl::MemoryBank::bank0, kSize * kIterations);
+  auto outputDevice = context.MakeBuffer<DataPack_t, hlslib::ocl::Access::write>(
+      hlslib::ocl::MemoryBank::bank0, kIterations);
+  std::cout << " Done." << std::endl;
+  
+  std::cout << "Copying input to device..." << std::flush;
+  std::vector<DataPack_t> inputHost(kSize * kIterations);
+  std::random_device rd;
+  std::default_random_engine re(rd());
+  std::uniform_real_distribution<Data_t> dist(1, 10);
+  for (int i = 0; i < kSize * kIterations; ++i) {
+    for (int w = 0; w < kDataWidth; ++w) {
+      inputHost[i][w] = dist(re);
+    }
+  }
+  inputDevice.CopyFromHost(inputHost.data());
   std::cout << " Done." << std::endl;
 
   std::cout << "Creating kernel..." << std::flush;
-  auto kernel = context.MakeKernel("RunAccumulateFloat.xclbin",
-                                   "AccumulateFloat", memDevice, memDevice);
+  auto kernel = context.MakeKernel("AccumulateFloat.xclbin", "AccumulateFloat",
+                                   inputDevice, outputDevice);
   std::cout << " Done." << std::endl;
 
   std::cout << "Executing kernel..." << std::flush;
-  kernel.ExecuteTask();
+  auto elapsed = kernel.ExecuteTask();
   std::cout << " Done." << std::endl;
 
+  std::cout << "Kernel ran in " << elapsed.first << " seconds.\n";
+
   std::cout << "Verifying result..." << std::flush;
-  memDevice.CopyToHost(&memHost);
-  for (int i = 0; i < kDataWidth; ++i) {
-    REQUIRE(memHost[i] == kSize); 
+  std::vector<DataPack_t> outputHost(kIterations);
+  outputDevice.CopyToHost(outputHost.data());
+  const auto reference = NaiveAccumulate(inputHost);
+  for (int i = 0; i < kIterations; ++i) {
+    for (int w = 0; w < kDataWidth; ++w) {
+      const auto diff = std::abs(outputHost[i][w] - reference[i][w]);
+      REQUIRE(diff < 1e-3); 
+    }
   }
   std::cout << " Done." << std::endl;
 

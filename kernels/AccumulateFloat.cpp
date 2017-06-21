@@ -10,9 +10,7 @@ void Read(DataPack_t const *memoryIn, hlslib::Stream<DataPack_t> &streamIn) {
   DataPack_t val;
   for (auto i = 0; i < kIterations * kSize; ++i) {
     #pragma HLS PIPELINE
-    if (i == 0) {
-      val = *memoryIn;
-    }
+    val = memoryIn[i];
     hlslib::WriteBlocking(streamIn, val, 1);
   }
 }
@@ -21,9 +19,7 @@ void Write(hlslib::Stream<DataPack_t> &streamOut, DataPack_t *memoryOut) {
   for (auto i = 0; i < kIterations; ++i) {
     #pragma HLS PIPELINE
     const auto read = hlslib::ReadBlocking(streamOut);
-    if (i == kIterations - 1) {
-      *memoryOut = read;
-    }
+    memoryOut[i] = read;
   }
 }
 
@@ -38,7 +34,7 @@ void AccumulateFloat(DataPack_t const *memoryIn, DataPack_t *memoryOut) {
   static hlslib::Stream<DataPack_t> pipeOut("pipeOut");
   HLSLIB_DATAFLOW_INIT();
   HLSLIB_DATAFLOW_FUNCTION(Read, memoryIn, pipeIn);
-  hlslib::Accumulate<Data_t, kDataWidth, hlslib::Add<Data_t>, kLatency, kSize,
+  hlslib::Accumulate<Data_t, kDataWidth, Operator, kLatency, kSize,
                      kIterations>(pipeIn, pipeOut);
   HLSLIB_DATAFLOW_FUNCTION(Write, pipeOut, memoryOut);
   HLSLIB_DATAFLOW_FINALIZE();
