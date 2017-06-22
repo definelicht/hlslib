@@ -8,6 +8,8 @@
 
 namespace hlslib {
 
+namespace op {
+
 template <typename T>
 struct Add {
   static T Apply(T const &a, T const &b) { return a + b; }
@@ -52,5 +54,26 @@ private:
   Max() = delete;
   ~Max() = delete;
 };
+
+// TODO: should this be decoupled from DataPack? It could rely on the index
+//       operator and have T be the vector class.
+template <class Operator, typename T, int width>
+struct Wide {
+  static T Apply(T const &a, T const &b) {
+    #pragma HLS INLINE
+    T res;
+    for (int w = 0; w < width; ++w) {
+      #pragma HLS UNROLL
+      res[w] = Operator::Apply(a[w], b[w]);
+    }
+    return res;
+  }
+  static T identity() { return T(Operator::identity()); }
+private:
+  Wide() = delete;
+  ~Wide() = delete;
+};
+
+} // End namespace op
 
 } // End namespace hlslib

@@ -60,8 +60,7 @@ TEST_CASE(kKernelName, kKernelName) {
   std::vector<DataPack_t> outputHost(kIterations);
   outputDevice.CopyToHost(outputHost.data());
   const auto reference =
-      NaiveAccumulate<Data_t, kDataWidth, Operator, kSize, kIterations>(
-          inputHost);
+      NaiveAccumulate<DataPack_t, Operator, kSize, kIterations>(inputHost);
   for (int i = 0; i < kIterations; ++i) {
     for (int w = 0; w < kDataWidth; ++w) {
       const auto diff = std::abs(outputHost[i][w] - reference[i][w]);

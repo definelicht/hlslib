@@ -34,7 +34,7 @@ TEST_CASE(kKernelName, kKernelName) {
   std::vector<DataPack_t> result(kSize);
   HLSLIB_ACCUMULATE_KERNEL(memory.data(), result.data());
   const auto reference =
-      NaiveAccumulate<Data_t, kDataWidth, Operator, kSize, kIterations>(memory);
+      NaiveAccumulate<DataPack_t, Operator, kSize, kIterations>(memory);
   for (int i = 0; i < kIterations; ++i) {
     for (int w = 0; w < kDataWidth; ++w) {
       const auto diff = std::abs(result[i][w] - reference[i][w]);

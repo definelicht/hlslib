@@ -26,16 +26,13 @@ void Write(hlslib::Stream<T> &streamOut, T *memoryOut) {
   }
 }
 
-template <typename T, int width, class Operator, int size, int iterations>
-std::vector<hlslib::DataPack<T, width>>
-NaiveAccumulate(std::vector<hlslib::DataPack<T, width>> &vec) {
-  std::vector<hlslib::DataPack<T, width>> result(iterations);
+template <typename T, class Operator, int size, int iterations>
+std::vector<T> NaiveAccumulate(std::vector<T> &vec) {
+  std::vector<T> result(iterations);
   for (int i = 0; i < iterations; ++i) {
-    hlslib::DataPack<T, width> acc = Operator::identity();
+    T acc = Operator::identity();
     for (int j = 0; j < size; ++j) {
-      for (int w = 0; w < width; ++w) {
-        acc[w] = Operator::Apply(acc[w], vec[i * size + j][w]);
-      }
+      acc = Operator::Apply(acc, vec[i * size + j]);
     }
     result[i] = acc;
   }

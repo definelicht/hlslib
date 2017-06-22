@@ -32,13 +32,10 @@ namespace hlslib {
 
 namespace {
 
-template <typename T, int width, class Operator, int latency, int size,
-          int iterations>
+template <typename T, class Operator, int latency, int size, int iterations>
 struct AccumulateImpl {
-  using DataPack_t = DataPack<T, width>;
-  static void AccumulateIterate(Stream<DataPack_t> &input,
-                                Stream<DataPack_t> &fromFeedback,
-                                Stream<DataPack_t> &toFeedback) {
+  static void AccumulateIterate(Stream<T> &input, Stream<T> &fromFeedback,
+                                Stream<T> &toFeedback) {
   AccumulateIterate_Iterations:
     for (int i = 0; i < iterations; ++i) {
     AcumulateIterate_Size:
@@ -47,26 +44,21 @@ struct AccumulateImpl {
         for (int k = 0; k < latency; ++k) {
           #pragma HLS PIPELINE
           #pragma HLS LOOP_FLATTEN
-          DataPack_t a, b, result;
-          a = hlslib::ReadBlocking(input);
+          const T a = hlslib::ReadBlocking(input);
+          T b;
           if (j > 0) {
             b = hlslib::ReadOptimistic(fromFeedback);
           } else {
-            b.Fill(Operator::identity());
+            b = Operator::identity();
           }
-        AccumulateIterate_SIMD:
-          for (int w = 0; w < width; ++w) {
-            #pragma HLS UNROLL
-            result[w] = Operator::Apply(a[w], b[w]);
-          }
+          const auto result = Operator::Apply(a, b);
           hlslib::WriteBlocking(toFeedback, result, 1);
         }
       }
     }
   }
-  static void AccumulateFeedback(Stream<DataPack_t> &fromIterate,
-                                 Stream<DataPack_t> &toIterate,
-                                 Stream<DataPack_t> &output) {
+  static void AccumulateFeedback(Stream<T> &fromIterate, Stream<T> &toIterate,
+                                 Stream<T> &output) {
   AccumulateFeedback_Iterations:
     for (int i = 0; i < iterations; ++i) {
     AccumulateFeedback_Size:
@@ -87,32 +79,26 @@ struct AccumulateImpl {
       }
     }
   }
-  static void AccumulateReduce(Stream<DataPack_t> &fromFeedback,
-                               Stream<DataPack_t> &output) {
+  static void AccumulateReduce(Stream<T> &fromFeedback, Stream<T> &output) {
   AccumulateReduce_Iterations:
     for (int i = 0; i < iterations; ++i) {
       #pragma HLS PIPELINE II=latency
-      DataPack_t result(Operator::identity());
+      T result(Operator::identity());
     AccumulateReduce_Latency:
       for (int j = 0; j < latency; ++j) {
         const auto read = hlslib::ReadBlocking(fromFeedback);
-      AccumulateReduce_Width:
-        for (int w = 0; w < width; ++w) {
-          #pragma HLS UNROLL
-          result[w] = Operator::Apply(result[w], read[w]);
-        }
+        result = Operator::Apply(result, read);
       }
       hlslib::WriteBlocking(output, result, 1);
     }
   }
-  static void AccumulateEntry(Stream<DataPack_t> &in,
-                              Stream<DataPack_t> &out) {
+  static void AccumulateEntry(Stream<T> &in, Stream<T> &out) {
     #pragma HLS INLINE
     static_assert(size % latency == 0, "Size must be divisable by latency.");
-    static Stream<DataPack_t> toFeedback("toFeedback");
-    static Stream<DataPack_t> fromFeedback("fromFeedback");
+    static Stream<T> toFeedback("toFeedback");
+    static Stream<T> fromFeedback("fromFeedback");
     #pragma HLS STREAM variable=fromFeedback depth=latency
-    static Stream<DataPack_t> toReduce("toReduce");
+    static Stream<T> toReduce("toReduce");
   #ifndef HLSLIB_SYNTHESIS
     // TODO: why doesn't this work with __VA__ARGS__?
     HLSLIB_DATAFLOW_FUNCTION(AccumulateIterate, in, fromFeedback, toFeedback);
@@ -128,31 +114,25 @@ struct AccumulateImpl {
 };
 
 /// Trivial implementation for single cycle latency
-template <typename T, int width, class Operator, int size, int iterations>
-struct AccumulateImpl<T, width, Operator, 1, size, iterations> {
-  using DataPack_t = DataPack<T, width>;
-  static void AccumulateEntry(Stream<DataPack_t> &in,
-                              Stream<DataPack_t> &out) {
+template <typename T, class Operator, int size, int iterations>
+struct AccumulateImpl<T, Operator, 1, size, iterations> {
+  static void AccumulateEntry(Stream<T> &in, Stream<T> &out) {
     #pragma HLS INLINE
     HLSLIB_DATAFLOW_FUNCTION(AccumulateSimple, in, out);
   }
-  static void AccumulateSimple(Stream<DataPack_t> &in,
-                               Stream<DataPack_t> &out) {
+  static void AccumulateSimple(Stream<T> &in, Stream<T> &out) {
     // When adding labels to this function, Vivado HLS 2017.1 fails with:
     // WARNING: [XFORM 203-302] Region 'AccumulateSimple_Size' (include/hlslib/Accumulate.h:145, include/hlslib/Accumulate.h:145) has multiple begin anchors
   // AccumulateSimple_Iterations:
     for (int i = 0; i < iterations; ++i) {
-      DataPack_t acc;
+      T acc;
     // AccumulateSimple_Size:
       for (int j = 0; j < size; ++j) {
         #pragma HLS LOOP_FLATTEN
         #pragma HLS PIPELINE
         const auto a = hlslib::ReadBlocking(in);
-        const auto b = (j > 0) ? acc : DataPack_t(Operator::identity());
-        for (int w = 0; w < width; ++w) {
-          #pragma HLS UNROLL
-          acc[w] = Operator::Apply(a[w], b[w]);
-        }
+        const auto b = (j > 0) ? acc : T(Operator::identity());
+        acc = Operator::Apply(a, b);
         if (j == size - 1) {
           hlslib::WriteBlocking(out, acc, 1);
         }
@@ -163,13 +143,11 @@ struct AccumulateImpl<T, width, Operator, 1, size, iterations> {
 
 } // End anonymous namespace
 
-template <typename T, int width, class Operator, int latency, int size,
-          int iterations>
-void Accumulate(Stream<DataPack<T, width>> &in,
-                Stream<DataPack<T, width>> &out) {
-  #pragma HLS INLINE
-  AccumulateImpl<T, width, Operator, latency, size,
-                 iterations>::AccumulateEntry(in, out);
+template <typename T, class Operator, int latency, int size, int iterations>
+void Accumulate(Stream<T> &in, Stream<T> &out) {
+#pragma HLS INLINE
+  AccumulateImpl<T, Operator, latency, size, iterations>::AccumulateEntry(in,
+                                                                          out);
 }
 
 } // End namespace hlslib

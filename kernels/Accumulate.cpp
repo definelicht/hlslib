@@ -38,8 +38,8 @@ void HLSLIB_ACCUMULATE_KERNEL_NAME(DataPack_t const *memoryIn,
   static hlslib::Stream<DataPack_t> pipeOut("pipeOut");
   HLSLIB_DATAFLOW_INIT();
   HLSLIB_DATAFLOW_FUNCTION(ReadAccumulate, memoryIn, pipeIn);
-  hlslib::Accumulate<Data_t, kDataWidth, Operator, kLatency, kSize,
-                     kIterations>(pipeIn, pipeOut);
+  hlslib::Accumulate<DataPack_t, Operator, kLatency, kSize, kIterations>(
+      pipeIn, pipeOut);
   HLSLIB_DATAFLOW_FUNCTION(WriteAccumulate, pipeOut, memoryOut);
   HLSLIB_DATAFLOW_FINALIZE();
 }

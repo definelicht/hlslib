@@ -13,7 +13,8 @@ using DataPack_t = hlslib::DataPack<Data_t, kDataWidth>;
 constexpr int kLatency = 14;
 constexpr int kSize = 10 * kLatency;
 constexpr int kIterations = 100;
-using Operator = hlslib::Add<Data_t>;
+using Operator =
+    hlslib::op::Wide<hlslib::op::Add<Data_t>, DataPack_t, kDataWidth>;
 constexpr char const *kKernelName = "AccumulateFloat";
 constexpr char const *kKernelFile = "AccumulateFloat.xclbin";
 
