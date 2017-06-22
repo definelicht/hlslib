@@ -88,6 +88,8 @@ bool IsFullSimulationOnly(Stream<T> &stream, int) {
   return false;
 }
 
+template <typename T> void SetName(Stream<T> &stream, const char *) {}
+
 }
 
 #else 
@@ -185,6 +187,13 @@ bool IsFullSimulationOnly(Stream<T> &stream, int size) {
   return stream.IsFull(size);
 }
 
+/// Set the name of a stream. Useful when initializing arrays of streams that
+/// cannot be constructed individually. Currently only raw strings are supported.
+template <typename T>
+void SetName(Stream<T> &stream, const char *name) {
+  stream.set_name(name);
+}
+
 /// Custom stream implementation, whose constructor mimics that of hls::stream.
 /// All other methods should be called via the free functions, as they do not
 /// conform to the interface of hls::stream.
@@ -211,6 +220,10 @@ public:
                 << " elements at destruction.\n";
     }
   }
+
+  std::string const &name() const { return name_; }
+
+  void set_name(std::string const &name) { name_ = name; }
 
   void ReadSynchronize(std::unique_lock<std::mutex> &lock) {
     (void)lock; // Silence unused warning
