@@ -2,14 +2,23 @@
 /// @date      June 2017
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
+#include "AccumulateCommon.h"
 #include "hlslib/SDAccel.h"
+#include <random>
+#ifdef HLSLIB_COMPILE_ACCUMULATE_FLOAT
 #include "AccumulateFloat.h"
+using Dist_t = std::uniform_real_distribution<Data_t>;
+#elif defined(HLSLIB_COMPILE_ACCUMULATE_INT)
+#include "AccumulateInt.h"
+using Dist_t = std::uniform_int_distribution<Data_t>;
+#else
+#error "Must be compiled for either float or int"
+#endif
 #include <iostream>
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
-#include <random>
 
-TEST_CASE("AccumulateFloat", "[AccumulateFloat]") {
+TEST_CASE(kKernelName, kKernelName) {
 
   std::cout << "Initializing OpenCL context..." << std::endl;
   hlslib::ocl::Context context;
@@ -18,15 +27,16 @@ TEST_CASE("AccumulateFloat", "[AccumulateFloat]") {
   std::cout << "Initializing device memory..." << std::flush;
   auto inputDevice = context.MakeBuffer<DataPack_t, hlslib::ocl::Access::read>(
       hlslib::ocl::MemoryBank::bank0, kSize * kIterations);
-  auto outputDevice = context.MakeBuffer<DataPack_t, hlslib::ocl::Access::write>(
-      hlslib::ocl::MemoryBank::bank0, kIterations);
+  auto outputDevice =
+      context.MakeBuffer<DataPack_t, hlslib::ocl::Access::write>(
+          hlslib::ocl::MemoryBank::bank0, kIterations);
   std::cout << " Done." << std::endl;
   
   std::cout << "Copying input to device..." << std::flush;
   std::vector<DataPack_t> inputHost(kSize * kIterations);
   std::random_device rd;
   std::default_random_engine re(rd());
-  std::uniform_real_distribution<Data_t> dist(1, 10);
+  Dist_t dist(1, 10);
   for (int i = 0; i < kSize * kIterations; ++i) {
     for (int w = 0; w < kDataWidth; ++w) {
       inputHost[i][w] = dist(re);
@@ -36,8 +46,8 @@ TEST_CASE("AccumulateFloat", "[AccumulateFloat]") {
   std::cout << " Done." << std::endl;
 
   std::cout << "Creating kernel..." << std::flush;
-  auto kernel = context.MakeKernel("AccumulateFloat.xclbin", "AccumulateFloat",
-                                   inputDevice, outputDevice);
+  auto kernel =
+      context.MakeKernel(kKernelFile, kKernelName, inputDevice, outputDevice);
   std::cout << " Done." << std::endl;
 
   std::cout << "Executing kernel..." << std::flush;
@@ -49,7 +59,9 @@ TEST_CASE("AccumulateFloat", "[AccumulateFloat]") {
   std::cout << "Verifying result..." << std::flush;
   std::vector<DataPack_t> outputHost(kIterations);
   outputDevice.CopyToHost(outputHost.data());
-  const auto reference = NaiveAccumulate(inputHost);
+  const auto reference =
+      NaiveAccumulate<Data_t, kDataWidth, Operator, kSize, kIterations>(
+          inputHost);
   for (int i = 0; i < kIterations; ++i) {
     for (int w = 0; w < kDataWidth; ++w) {
       const auto diff = std::abs(outputHost[i][w] - reference[i][w]);

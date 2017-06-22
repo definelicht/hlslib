@@ -7,18 +7,18 @@
 #include "hlslib/DataPack.h"
 #include "hlslib/Operators.h"
 
-using Data_t = float;
-constexpr int kDataWidth = 4;
+using Data_t = int;
+constexpr int kDataWidth = 8;
 using DataPack_t = hlslib::DataPack<Data_t, kDataWidth>; 
-constexpr int kLatency = 14;
-constexpr int kSize = 10 * kLatency;
+constexpr int kLatency = 1;
+constexpr int kSize = 100;
 constexpr int kIterations = 100;
 using Operator = hlslib::Add<Data_t>;
-constexpr char const *kKernelName = "AccumulateFloat";
-constexpr char const *kKernelFile = "AccumulateFloat.xclbin";
+constexpr char const *kKernelName = "AccumulateInt";
+constexpr char const *kKernelFile = "AccumulateInt.xclbin";
 
 extern "C" {
 
-void AccumulateFloat(DataPack_t const *memoryIn, DataPack_t *memoryOut);
+void AccumulateInt(DataPack_t const *memoryIn, DataPack_t *memoryOut);
 
 }

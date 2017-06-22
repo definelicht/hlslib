@@ -6,7 +6,7 @@
 open_project ${HLSLIB_PROJECT_NAME} 
 open_solution ${HLSLIB_PART_NAME}  
 set_part ${HLSLIB_PART_NAME} 
-add_files -cflags "-DHLSLIB_SYNTHESIS ${CMAKE_CXX_FLAGS} -I${CMAKE_SOURCE_DIR}/include" "${HLSLIB_SRC_SYNTHESIS}" 
+add_files -cflags "-DHLSLIB_SYNTHESIS ${HLSLIB_SYNTHESIS_FLAGS} ${CMAKE_CXX_FLAGS} -I${CMAKE_SOURCE_DIR}/include" "${HLSLIB_SRC_SYNTHESIS}" 
 set_top ${HLSLIB_ENTRY_FUNCTION} 
 create_clock -period ${HLSLIB_TARGET_TIMING} -name default
 csynth_design

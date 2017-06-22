@@ -54,9 +54,14 @@ if(Threads_FOUND)
   target_link_libraries(TestStream ${CMAKE_THREAD_LIBS_INIT})
   add_test(TestStream TestStream)
   target_compile_options(TestStream PRIVATE "-DHLSLIB_STREAM_SYNCHRONIZE")
-  add_executable(TestAccumulateFloat test/TestAccumulateFloat.cpp kernels/AccumulateFloat.cpp)
+  add_executable(TestAccumulateFloat test/TestAccumulate.cpp kernels/Accumulate.cpp)
+  target_compile_options(TestAccumulateFloat PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
   target_link_libraries(TestAccumulateFloat ${CMAKE_THREAD_LIBS_INIT})
   add_test(TestAccumulateFloat TestAccumulateFloat)
+  add_executable(TestAccumulateInt test/TestAccumulate.cpp kernels/Accumulate.cpp)
+  target_compile_options(TestAccumulateInt PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
+  target_link_libraries(TestAccumulateInt ${CMAKE_THREAD_LIBS_INIT})
+  add_test(TestAccumulateInt TestAccumulateInt)
 endif()
 
 # Test synthesis of reduction
@@ -93,9 +98,10 @@ endif()
 
 # Test kernel for pipelined accumulation of floating point numbers 
 set(HLSLIB_PROJECT_NAME "AccumulateFloat")
-set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/AccumulateFloat.cpp")
+set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/Accumulate.cpp")
 set(HLSLIB_ENTRY_FUNCTION "AccumulateFloat")
 set(HLSLIB_TARGET_TIMING "5")
+set(HLSLIB_SYNTHESIS_FLAGS "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
 configure_file(scripts/Synthesis.tcl.in SynthesizeAccumulateFloat.tcl)
 add_custom_target(synthesize_accumulate_float
   COMMAND ${HLSLIB_HLS} -f SynthesizeAccumulateFloat.tcl) 
@@ -105,10 +111,35 @@ if(SDAccel_FOUND)
     -t hw
     -o AccumulateFloat.xclbin
     -I${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/kernels/AccumulateFloat.cpp
+    ${CMAKE_SOURCE_DIR}/kernels/Accumulate.cpp
     --kernel AccumulateFloat
     --xdevice ${HLSLIB_DSA_NAME}
-    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="${CMAKE_CXX_FLAGS} -DHLSLIB_SYNTHESIS")
-  add_executable(RunAccumulateFloat.exe host/RunAccumulateFloat.cpp)
+    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="${CMAKE_CXX_FLAGS} -DHLSLIB_SYNTHESIS -DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
+  add_executable(RunAccumulateFloat.exe host/RunAccumulate.cpp)
+  target_compile_options(RunAccumulateFloat.exe PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
   target_link_libraries(RunAccumulateFloat.exe ${SDAccel_LIBRARIES}) 
+endif()
+
+# Test kernel for pipelined accumulation of integer numbers 
+set(HLSLIB_PROJECT_NAME "AccumulateInt")
+set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/Accumulate.cpp")
+set(HLSLIB_ENTRY_FUNCTION "AccumulateInt")
+set(HLSLIB_TARGET_TIMING "5")
+set(HLSLIB_SYNTHESIS_FLAGS "-DHLSLIB_COMPILE_ACCUMULATE_INT")
+configure_file(scripts/Synthesis.tcl.in SynthesizeAccumulateInt.tcl)
+add_custom_target(synthesize_accumulate_int
+  COMMAND ${HLSLIB_HLS} -f SynthesizeAccumulateInt.tcl) 
+if(SDAccel_FOUND)
+  add_custom_target(kernel_accumulate_int
+    COMMAND ${SDAccel_XOCC} 
+    -t hw
+    -o AccumulateInt.xclbin
+    -I${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/kernels/Accumulate.cpp
+    --kernel AccumulateInt
+    --xdevice ${HLSLIB_DSA_NAME}
+    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="${CMAKE_CXX_FLAGS} -DHLSLIB_SYNTHESIS -DHLSLIB_COMPILE_ACCUMULATE_INT")
+  add_executable(RunAccumulateInt.exe host/RunAccumulate.cpp)
+  target_compile_options(RunAccumulateInt.exe PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
+  target_link_libraries(RunAccumulateInt.exe ${SDAccel_LIBRARIES}) 
 endif()
