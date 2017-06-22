@@ -27,132 +27,108 @@
 // For example, for single precision floating point addition at 300 MHz, the
 // latency of Iterate is 10 and the latency of bounce is 2. A latency of 14 is 
 // enough to successfully run accumulation.
+//
+// Due to a bug where Vivado HLS (as of 2017.1) considers all streams static,
+// the three functions cannot be factored into a generic function here, as
+// calling it multiple times would result in dataflow errors on the internal
+// streams. Instead call them as follows:
+//
+//   Stream<T> toFeedback("fromFeedback");
+//   Stream<T> fromFeedback("fromFeedback");
+//   #pragma HLS STREAM variable=fromFeedback depth=latency
+//   Stream<T> toReduce("toReduce");
+//   HLSLIB_DATAFLOW_FUNCTION(AccumulateIterate, in, fromFeedback, toFeedback);
+//   HLSLIB_DATAFLOW_FUNCTION(AccumulateFeedback, toFeedback, fromFeedback,
+//                            toReduce);
+//   AccumulateReduce(toReduce, out);
+//
+// For convenience, a function for reducing with a single cycle latency
+// operation is also included as AccumulateSimple.
 
 namespace hlslib {
 
-namespace {
+template <typename T, class Operator, int latency, int size, int iterations>
+void AccumulateIterate(Stream<T> &input, Stream<T> &fromFeedback,
+                       Stream<T> &toFeedback) {
+AccumulateIterate_Iterations:
+  for (int i = 0; i < iterations; ++i) {
+  AcumulateIterate_Size:
+    for (int j = 0; j < size / latency; ++j) {
+    AccumulateIterate_Latency:
+      for (int k = 0; k < latency; ++k) {
+        #pragma HLS PIPELINE
+        #pragma HLS LOOP_FLATTEN
+        const T a = hlslib::ReadBlocking(input);
+        T b;
+        if (j > 0) {
+          b = hlslib::ReadOptimistic(fromFeedback);
+        } else {
+          b = Operator::identity();
+        }
+        const auto result = Operator::Apply(a, b);
+        hlslib::WriteBlocking(toFeedback, result, 1);
+      }
+    }
+  }
+}
 
 template <typename T, class Operator, int latency, int size, int iterations>
-struct AccumulateImpl {
-  static void AccumulateIterate(Stream<T> &input, Stream<T> &fromFeedback,
-                                Stream<T> &toFeedback) {
-  AccumulateIterate_Iterations:
-    for (int i = 0; i < iterations; ++i) {
-    AcumulateIterate_Size:
-      for (int j = 0; j < size / latency; ++j) {
-      AccumulateIterate_Latency:
-        for (int k = 0; k < latency; ++k) {
-          #pragma HLS PIPELINE
-          #pragma HLS LOOP_FLATTEN
-          const T a = hlslib::ReadBlocking(input);
-          T b;
-          if (j > 0) {
-            b = hlslib::ReadOptimistic(fromFeedback);
-          } else {
-            b = Operator::identity();
-          }
-          const auto result = Operator::Apply(a, b);
-          hlslib::WriteBlocking(toFeedback, result, 1);
+void AccumulateFeedback(Stream<T> &toFeedback, Stream<T> &fromFeedback,
+                        Stream<T> &toReduce) {
+AccumulateFeedback_Iterations:
+  for (int i = 0; i < iterations; ++i) {
+  AccumulateFeedback_Size:
+    for (int j = 0; j < size / latency; ++j) {
+    AccumulateFeedback_Latency:
+      for (int k = 0; k < latency; ++k) {
+        #pragma HLS PIPELINE
+        #pragma HLS LOOP_FLATTEN
+        const auto read = hlslib::ReadBlocking(toFeedback);
+        if (j < size / latency - 1) {
+          // Feedback back
+          hlslib::WriteBlocking(fromFeedback, read, latency);
+        } else {
+          // Write to output
+          hlslib::WriteBlocking(toReduce, read, 1);
         }
       }
     }
   }
-  static void AccumulateFeedback(Stream<T> &fromIterate, Stream<T> &toIterate,
-                                 Stream<T> &output) {
-  AccumulateFeedback_Iterations:
-    for (int i = 0; i < iterations; ++i) {
-    AccumulateFeedback_Size:
-      for (int j = 0; j < size / latency; ++j) {
-      AccumulateFeedback_Latency:
-        for (int k = 0; k < latency; ++k) {
-          #pragma HLS PIPELINE
-          #pragma HLS LOOP_FLATTEN
-          const auto read = hlslib::ReadBlocking(fromIterate);
-          if (j < size / latency - 1) {
-            // Feedback back
-            hlslib::WriteBlocking(toIterate, read, latency);
-          } else {
-            // Write to output
-            hlslib::WriteBlocking(output, read, 1);
-          }
-        }
-      }
+}
+
+template <typename T, class Operator, int latency, int size, int iterations>
+void AccumulateReduce(Stream<T> &toReduce, Stream<T> &output) {
+AccumulateReduce_Iterations:
+  for (int i = 0; i < iterations; ++i) {
+    #pragma HLS PIPELINE II=latency
+    T result(Operator::identity());
+  AccumulateReduce_Latency:
+    for (int j = 0; j < latency; ++j) {
+      const auto read = hlslib::ReadBlocking(toReduce);
+      result = Operator::Apply(result, read);
     }
+    hlslib::WriteBlocking(output, result, 1);
   }
-  static void AccumulateReduce(Stream<T> &fromFeedback, Stream<T> &output) {
-  AccumulateReduce_Iterations:
-    for (int i = 0; i < iterations; ++i) {
-      #pragma HLS PIPELINE II=latency
-      T result(Operator::identity());
-    AccumulateReduce_Latency:
-      for (int j = 0; j < latency; ++j) {
-        const auto read = hlslib::ReadBlocking(fromFeedback);
-        result = Operator::Apply(result, read);
-      }
-      hlslib::WriteBlocking(output, result, 1);
-    }
-  }
-  static void AccumulateEntry(Stream<T> &in, Stream<T> &out) {
-    #pragma HLS INLINE
-    static_assert(size % latency == 0, "Size must be divisable by latency.");
-#ifndef HLSLIB_SYNTHESIS
-    // We need to record the constructed streams so they don't get deconstructed
-    // when this function returns.
-    Stream<T> &fromFeedback = _Dataflow::Get().EmplaceStream<T>("fromFeedback");
-    Stream<T> &toFeedback = _Dataflow::Get().EmplaceStream<T>("toFeedback");
-    Stream<T> &toReduce = _Dataflow::Get().EmplaceStream<T>("toReduce");
-    _Dataflow::Get().AddFunction(AccumulateIterate, in, fromFeedback,
-                                 toFeedback);
-    _Dataflow::Get().AddFunction(AccumulateFeedback, toFeedback, fromFeedback,
-                                 toReduce);
-    _Dataflow::Get().AddFunction(AccumulateReduce, toReduce, out);
-#else
-    Stream<T> toFeedback("fromFeedback");
-    Stream<T> fromFeedback("fromFeedback");
-    #pragma HLS STREAM variable=fromFeedback depth=latency
-    Stream<T> toReduce("toReduce");
-    AccumulateIterate(in, fromFeedback, toFeedback);
-    AccumulateFeedback(toFeedback, fromFeedback, toReduce);
-    AccumulateReduce(toReduce, out);
-#endif
-  }
-};
+}
 
 /// Trivial implementation for single cycle latency
 template <typename T, class Operator, int size, int iterations>
-struct AccumulateImpl<T, Operator, 1, size, iterations> {
-  static void AccumulateEntry(Stream<T> &in, Stream<T> &out) {
-    #pragma HLS INLINE
-    HLSLIB_DATAFLOW_FUNCTION(AccumulateSimple, in, out);
-  }
-  static void AccumulateSimple(Stream<T> &in, Stream<T> &out) {
-    // When adding labels to this function, Vivado HLS 2017.1 fails with:
-    // WARNING: [XFORM 203-302] Region 'AccumulateSimple_Size' (include/hlslib/Accumulate.h:145, include/hlslib/Accumulate.h:145) has multiple begin anchors
-  // AccumulateSimple_Iterations:
-    for (int i = 0; i < iterations; ++i) {
-      T acc;
-    // AccumulateSimple_Size:
-      for (int j = 0; j < size; ++j) {
-        #pragma HLS LOOP_FLATTEN
-        #pragma HLS PIPELINE
-        const auto a = hlslib::ReadBlocking(in);
-        const auto b = (j > 0) ? acc : T(Operator::identity());
-        acc = Operator::Apply(a, b);
-        if (j == size - 1) {
-          hlslib::WriteBlocking(out, acc, 1);
-        }
+void AccumulateSimple(Stream<T> &in, Stream<T> &out) {
+AccumulateSimple_Iterations:
+  for (int i = 0; i < iterations; ++i) {
+    T acc;
+  AccumulateSimple_Size:
+    for (int j = 0; j < size; ++j) {
+      #pragma HLS LOOP_FLATTEN
+      #pragma HLS PIPELINE
+      const auto a = hlslib::ReadBlocking(in);
+      const auto b = (j > 0) ? acc : T(Operator::identity());
+      acc = Operator::Apply(a, b);
+      if (j == size - 1) {
+        hlslib::WriteBlocking(out, acc, 1);
       }
     }
   }
-};
-
-} // End anonymous namespace
-
-template <typename T, class Operator, int latency, int size, int iterations>
-void Accumulate(Stream<T> &in, Stream<T> &out) {
-#pragma HLS INLINE
-  AccumulateImpl<T, Operator, latency, size, iterations>::AccumulateEntry(in,
-                                                                          out);
 }
 
 } // End namespace hlslib
