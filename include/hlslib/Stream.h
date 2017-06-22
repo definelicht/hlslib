@@ -90,7 +90,7 @@ bool IsFullSimulationOnly(Stream<T> &stream, int) {
 
 template <typename T> void SetName(Stream<T> &stream, const char *) {}
 
-}
+} // End namespace hlslib
 
 #else 
 
@@ -194,11 +194,14 @@ void SetName(Stream<T> &stream, const char *name) {
   stream.set_name(name);
 }
 
+/// For internal use. Used to store arrays of streams of different types
+class _StreamBase {};
+
 /// Custom stream implementation, whose constructor mimics that of hls::stream.
 /// All other methods should be called via the free functions, as they do not
 /// conform to the interface of hls::stream.
 template <typename T>
-class Stream {
+class Stream : public _StreamBase {
 
 public:
 

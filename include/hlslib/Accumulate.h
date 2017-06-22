@@ -95,21 +95,26 @@ struct AccumulateImpl {
   static void AccumulateEntry(Stream<T> &in, Stream<T> &out) {
     #pragma HLS INLINE
     static_assert(size % latency == 0, "Size must be divisable by latency.");
-    static Stream<T> toFeedback("toFeedback");
-    static Stream<T> fromFeedback("fromFeedback");
+#ifndef HLSLIB_SYNTHESIS
+    // We need to record the constructed streams so they don't get deconstructed
+    // when this function returns.
+    Stream<T> &fromFeedback = _Dataflow::Get().EmplaceStream<T>("fromFeedback");
+    Stream<T> &toFeedback = _Dataflow::Get().EmplaceStream<T>("toFeedback");
+    Stream<T> &toReduce = _Dataflow::Get().EmplaceStream<T>("toReduce");
+    _Dataflow::Get().AddFunction(AccumulateIterate, in, fromFeedback,
+                                 toFeedback);
+    _Dataflow::Get().AddFunction(AccumulateFeedback, toFeedback, fromFeedback,
+                                 toReduce);
+    _Dataflow::Get().AddFunction(AccumulateReduce, toReduce, out);
+#else
+    Stream<T> toFeedback("fromFeedback");
+    Stream<T> fromFeedback("fromFeedback");
     #pragma HLS STREAM variable=fromFeedback depth=latency
-    static Stream<T> toReduce("toReduce");
-  #ifndef HLSLIB_SYNTHESIS
-    // TODO: why doesn't this work with __VA__ARGS__?
-    HLSLIB_DATAFLOW_FUNCTION(AccumulateIterate, in, fromFeedback, toFeedback);
-    HLSLIB_DATAFLOW_FUNCTION(AccumulateFeedback, toFeedback, fromFeedback,
-                             toReduce);
-    HLSLIB_DATAFLOW_FUNCTION(AccumulateReduce, toReduce, out);
-  #else
+    Stream<T> toReduce("toReduce");
     AccumulateIterate(in, fromFeedback, toFeedback);
     AccumulateFeedback(toFeedback, fromFeedback, toReduce);
     AccumulateReduce(toReduce, out);
-  #endif
+#endif
   }
 };
 
