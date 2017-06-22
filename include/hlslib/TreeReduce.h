@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <hlslib/Operators.h>
-
 // This header implementations reduction using a binary tree, allowing a fully
 // pipelined reduction of a static sized array.
 // Using the reduction requires passing an operator that implements the

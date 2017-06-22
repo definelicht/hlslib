@@ -20,9 +20,10 @@
 // top level function to join the dataflow threads.
 // HLSLIB_DATAFLOW_INIT currently has no purpose, but is included for symmetry.
 //
-// TODO: HLSLIB_DATAFLOW_FUNCTION does not work when calling templates function.
-//       Look into e.g. using VA args from C instead of preprocessor macros, or
-//       always use variadic templates if newer Vivado HLS start supporting it.
+// TODO: HLSLIB_DATAFLOW_FUNCTION does not work when calling templated
+//       functions. Look into e.g. using VA args from C instead of preprocessor
+//       macros, or always use variadic templates if newer Vivado HLS start
+//       supporting it.
 
 namespace hlslib {
 
