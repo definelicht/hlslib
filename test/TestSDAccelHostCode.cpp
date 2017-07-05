@@ -6,7 +6,7 @@
 #include <iostream>
 
 using Data_t = int;
-constexpr int kMemSize = 1<<18;
+constexpr int kMemSize = 1<<28;
 
 int main() {
 
@@ -49,7 +49,7 @@ int main() {
     std::cout << "Verifying values..." << std::flush;
     for (auto &e : mem1Host) {
       if (e != 5) {
-        std::cerr << "Unexpected value returned from device." << std::endl;
+        std::cerr << " Unexpected value returned from device." << std::endl;
         return 3;
       }
     }
