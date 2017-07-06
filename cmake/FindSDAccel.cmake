@@ -46,10 +46,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
   set(SDACCEL_RUNTIME_LIBS ${SDACCEL_ROOT_DIR}/runtime/lib/x86_64)
   mark_as_advanced(SDACCEL_RUNTIME_LIBS)
 
-  find_library(SDAccel_LIBOPENCL OpenCL PATHS ${SDACCEL_RUNTIME_LIBS}
-               NO_DEFAULT_PATH)
-  mark_as_advanced(SDAccel_LIBOPENCL)
-
   find_library(SDAccel_LIBXILINXOPENCL xilinxopencl PATHS ${SDACCEL_RUNTIME_LIBS}
                NO_DEFAULT_PATH)
   mark_as_advanced(SDAccel_LIBXILINXOPENCL)
@@ -59,10 +55,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
   mark_as_advanced(SDAccel_LIBFLOATINGPOINT)
 
   # Only succeed if all libraries were found
-  if(SDAccel_LIBOPENCL AND SDAccel_LIBXILINXOPENCL AND
-     SDAccel_LIBFLOATINGPOINT)
-    set(SDAccel_LIBRARIES ${SDAccel_LIBOPENCL} 
-        ${SDAccel_LIBXILINXOPENCL} ${SDAccel_LIBFLOATINGPOINT}
+  if(SDAccel_LIBXILINXOPENCL AND SDAccel_LIBFLOATINGPOINT)
+    set(SDAccel_LIBRARIES ${SDAccel_LIBXILINXOPENCL} ${SDAccel_LIBFLOATINGPOINT}
         CACHE STRING "SDAccel runtime libraries.")
   endif()
 
