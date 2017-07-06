@@ -14,6 +14,8 @@ Some of these headers are interdependent, while others can be included standalon
 * A template tcl-file that can be used with CMake or another templating engine to produce a high-level synthesis script
 * `CMakeLists.txt` that builds a number of tests to verify hlslib functionality, doubling as a reference for how to integrate HLS projects with CMake using the provided module files 
 * An example of how to use the Simulation and Stream headers, at `kernels/MultiStageAdd.cpp`, both as a host-only simulation (`test/TestMultiStageAdd.cpp`), and as a hardware kernel (`host/RunMultiStageAdd.cpp`) 
+* `include/hlslib/Accumulate.h`, which includes a streaming implementation of accumulation, including for type/operator combinations with a non-zero latency (such as floating point addition). Example kernels of usage for both integer and floating point types are included as `kernel/AccumulateInt.cpp` and `kernel/AccumulateFloat.cpp`, respectively. 
+* `include/hlslib/Operators.h`, which includes some commonly used operators as functors to be plugged into templated functions such as `TreeReduce` and `Accumulate`.
 
 ## Installation
 
@@ -23,7 +25,7 @@ When an hlslib header is included, compilation must allow C++11 features, and th
 
 ## Compatibility
 
-The code within has been tested with SDx 2016.3 and Vivado HLS 2016.4 for the HLS code, and GCC 5.3.0 for host/simulation code. There is no plan to accommodate older versions of any of these tools, although there is no principal reason why older versions should not work. 
+The code within has been tested with SDx 2016.3 and Vivado HLS 2016.4 for the HLS code, and GCC 5.3.0 for host/simulation code. There is no plan to accommodate older versions of any of these tools, although there is no principal reason why older versions should not work. Newer versions of the tools are expected to work. If this is not the case, it should be considered a bug. 
 
 # Useful information
 
@@ -35,9 +37,10 @@ The following is sufficient as of SDx 2016.3:
 
 ```shell
 #!/bin/sh
-export XILINX_OPENCL=<path to DSA folder>/xbinst/pkg/pcie
-export XCL_PLATFORM=<DSA string (e.g. "xilinx_adm-pcie-7v3_1ddr_3_0")>
+export XILINX_OPENCL=<path to installed DSA>/xbinst
+export PATH=$XILINX_OPENCL/runtime/bin:$PATH
 unset XILINX_SDACCEL
+unset XILINX_SDX
 unset XCL_EMULATION_MODE
 ```
 
@@ -55,11 +58,13 @@ SDAccel sets the option `relax_ii_for_timing`, and a conservative clock uncertai
 ```
 _xocc_<source file>_<kernel file>.dir/impl/build/system/<kernel file>/bitstream/<kernel file>_ipi/ipiimpl/ipiimpl.runs/impl_1/<"vivado_hls" or "runme">.log
 ```
+In newer versions of SDAccel, the final initiation interval determined by Vivado HLS is printed to standard output when running xocc. However, this output is suppressed after 100 messages, so for large kernels it is necessary to verify either the `runme.log` or `vivado_hls.log` file.
 
 ### Power report crash
 
 While building a project, Vivado generates a number of GUI-reports, even when running `xocc` on the command line. These reports have an internal limit of 64 MB per _section_. For very large projects these sections can exceed 64 MB, causing Vivado to crash with an error like "Unable to write <report name>.rpx as it exceeds maximum size of 64 MB".
-So far there does not seem to be a solution to this error.
+
+As of SDx 2017.1, the workaround is to disable reporting by setting the property `project.runs.noReportGeneration=1`.
 
 ### Stream pragma error
 
