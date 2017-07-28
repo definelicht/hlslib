@@ -34,9 +34,9 @@ public:
 
   DataPack() : data_() {}
 
-  DataPack(DataPack<T, width> const &other) : data_(other.data_) {}
+  DataPack(DataPack<T, width> const &other) = default;
 
-  DataPack(DataPack<T, width> &&other) : data_(other.data_) {}
+  DataPack(DataPack<T, width> &&other) = default;
 
   DataPack(T const &value) : data_() {
     #pragma HLS INLINE

@@ -647,6 +647,11 @@ public:
 
   }
 
+  ~Kernel() {
+    clReleaseKernel(kernel_);
+    clReleaseProgram(program_);
+  }
+
   /// Execute the kernel as an OpenCL task and returns the time elapsed as
   /// reported by SDAccel (first) and as measured manually with chrono (second).
   std::pair<double, double> ExecuteTask() {
