@@ -16,6 +16,7 @@ Some of these headers are interdependent, while others can be included standalon
 * An example of how to use the Simulation and Stream headers, at `kernels/MultiStageAdd.cpp`, both as a host-only simulation (`test/TestMultiStageAdd.cpp`), and as a hardware kernel (`host/RunMultiStageAdd.cpp`) 
 * `include/hlslib/Accumulate.h`, which includes a streaming implementation of accumulation, including for type/operator combinations with a non-zero latency (such as floating point addition). Example kernels of usage for both integer and floating point types are included as `kernel/AccumulateInt.cpp` and `kernel/AccumulateFloat.cpp`, respectively. 
 * `include/hlslib/Operators.h`, which includes some commonly used operators as functors to be plugged into templated functions such as `TreeReduce` and `Accumulate`.
+* `include/hlslib/Axi.h`, which implements the AXI Stream interface and the bus interfaces required by the DataMover IP, enabling the use of a command stream-based memory interface for HLS kernels if packaged as an RTL kernel where the DataMover IP is connected to the AXI interfaces.
 
 ## Installation
 
