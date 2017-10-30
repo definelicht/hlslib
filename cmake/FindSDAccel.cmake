@@ -35,6 +35,9 @@ find_program(SDAccel_XOCC xocc PATHS ${SDACCEL_ROOT_DIR}/bin NO_DEFAULT_PATH)
 find_program(SDAccel_VIVADO_HLS vivado_hls
              PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/bin NO_DEFAULT_PATH)
 
+find_program(SDAccel_VIVADO vivado
+             PATHS ${SDACCEL_ROOT_DIR}/Vivado/bin NO_DEFAULT_PATH)
+
 find_path(SDAccel_HLS_INCLUDE_DIR hls_stream.h
           PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/include NO_DEFAULT_PATH)
 mark_as_advanced(SDAccel_HLS_INCLUDE_DIR)
