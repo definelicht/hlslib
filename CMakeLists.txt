@@ -6,7 +6,7 @@ project(hlslib CXX)
 
 # User options
 set(HLSLIB_PART_NAME "xcku115-flvb2104-2-e" CACHE STRING "Part name for HLS.")
-set(HLSLIB_DSA_NAME "xilinx:xil-accel-rd-ku115:4ddr-xpr:3.3" CACHE STRING
+set(HLSLIB_DSA_NAME "xilinx:xil-accel-rd-ku115:4ddr-xpr:4.0" CACHE STRING
     "DSA string for xocc.")
 
 # Include custom Find<Module>.cmake scripts to enable searching for SDAccel
