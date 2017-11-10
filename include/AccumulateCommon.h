@@ -8,8 +8,8 @@
 #include "hlslib/Stream.h"
 #include <vector>
 
-template <typename T, int iterations>
-void Read(T const *memoryIn, hlslib::Stream<T> &streamIn) {
+template <typename T>
+void Read(T const *memoryIn, hlslib::Stream<T> &streamIn, int iterations) {
   for (int i = 0; i < iterations; ++i) {
     #pragma HLS PIPELINE
     const auto val = memoryIn[i];
@@ -17,8 +17,8 @@ void Read(T const *memoryIn, hlslib::Stream<T> &streamIn) {
   }
 }
 
-template <typename T, int iterations>
-void Write(hlslib::Stream<T> &streamOut, T *memoryOut) {
+template <typename T>
+void Write(hlslib::Stream<T> &streamOut, T *memoryOut, int iterations) {
   for (int i = 0; i < iterations; ++i) {
     #pragma HLS PIPELINE
     const auto read = hlslib::ReadBlocking(streamOut);

@@ -7,11 +7,15 @@
 #include "hlslib/Accumulate.h"
 #include "hlslib/Simulation.h"
 
-void AccumulateFloat(DataPack_t const *memoryIn, DataPack_t *memoryOut) {
+void AccumulateFloat(DataPack_t const *memoryIn, DataPack_t *memoryOut,
+                     int size, int iterations) {
+
   #pragma HLS INTERFACE m_axi port=memoryIn  offset=slave bundle=gmem0
   #pragma HLS INTERFACE m_axi port=memoryOut offset=slave bundle=gmem1
   #pragma HLS INTERFACE s_axilite port=memoryIn  bundle=control
   #pragma HLS INTERFACE s_axilite port=memoryOut bundle=control
+  #pragma HLS INTERFACE s_axilite port=size bundle=control
+  #pragma HLS INTERFACE s_axilite port=iterations bundle=control
   #pragma HLS INTERFACE s_axilite port=return    bundle=control
   #pragma HLS DATAFLOW
 
@@ -23,32 +27,29 @@ void AccumulateFloat(DataPack_t const *memoryIn, DataPack_t *memoryOut) {
 #ifndef HLSLIB_SYNTHESIS
   hlslib::Stream<DataPack_t> fromFeedback("fromFeedback");
   HLSLIB_DATAFLOW_INIT();
-  HLSLIB_DATAFLOW_FUNCTION(Read<DataPack_t, kIterations * kSize>, memoryIn,
-                           pipeIn);
+  HLSLIB_DATAFLOW_FUNCTION(Read<DataPack_t>, memoryIn, pipeIn,
+                           iterations * size);
   HLSLIB_DATAFLOW_FUNCTION(
-      hlslib::AccumulateIterate<DataPack_t, Operator, kLatency, kSize,
-                                kIterations>,
-      pipeIn, fromFeedback, toFeedback);
+      hlslib::AccumulateIterate<DataPack_t, Operator, kLatency>, pipeIn,
+      fromFeedback, toFeedback, size, iterations);
   HLSLIB_DATAFLOW_FUNCTION(
-      hlslib::AccumulateFeedback<DataPack_t, Operator, kLatency, kSize,
-                                 kIterations>,
-      toFeedback, fromFeedback, toReduce);
+      hlslib::AccumulateFeedback<DataPack_t, Operator, kLatency>,
+      toFeedback, fromFeedback, toReduce, size, iterations);
   HLSLIB_DATAFLOW_FUNCTION(
-      hlslib::AccumulateReduce<DataPack_t, Operator, kLatency, kSize,
-                               kIterations>,
-      toReduce, pipeOut);
-  HLSLIB_DATAFLOW_FUNCTION(Write<DataPack_t, kIterations>, pipeOut, memoryOut);
+      hlslib::AccumulateReduce<DataPack_t, Operator, kLatency>,
+      toReduce, pipeOut, size, iterations);
+  HLSLIB_DATAFLOW_FUNCTION(Write<DataPack_t>, pipeOut, memoryOut, iterations);
   HLSLIB_DATAFLOW_FINALIZE();
 #else
   hls::stream<DataPack_t> fromFeedback("fromFeedback");
   #pragma HLS STREAM variable=fromFeedback depth=kLatency
-  Read<DataPack_t, kIterations * kSize>(memoryIn, pipeIn);
-  hlslib::AccumulateIterate<DataPack_t, Operator, kLatency, kSize, kIterations>(
-      pipeIn, fromFeedback, toFeedback);
-  hlslib::AccumulateFeedback<DataPack_t, Operator, kLatency, kSize,
-                             kIterations>(toFeedback, fromFeedback, toReduce);
-  hlslib::AccumulateReduce<DataPack_t, Operator, kLatency, kSize, kIterations>(
-      toReduce, pipeOut);
-  Write<DataPack_t, kIterations>(pipeOut, memoryOut);
+  Read<DataPack_t>(memoryIn, pipeIn, iterations * size);
+  hlslib::AccumulateIterate<DataPack_t, Operator, kLatency>(
+      pipeIn, fromFeedback, toFeedback, size, iterations);
+  hlslib::AccumulateFeedback<DataPack_t, Operator, kLatency>(
+      toFeedback, fromFeedback, toReduce, size, iterations);
+  hlslib::AccumulateReduce<DataPack_t, Operator, kLatency>(
+      toReduce, pipeOut, size, iterations);
+  Write<DataPack_t>(pipeOut, memoryOut, iterations);
 #endif
 }

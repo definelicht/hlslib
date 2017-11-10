@@ -32,7 +32,7 @@ TEST_CASE(kKernelName, kKernelName) {
     }
   }
   std::vector<DataPack_t> result(kSize);
-  HLSLIB_ACCUMULATE_KERNEL(memory.data(), result.data());
+  HLSLIB_ACCUMULATE_KERNEL(memory.data(), result.data(), kSize, kIterations);
   const auto reference =
       NaiveAccumulate<DataPack_t, Operator, kSize, kIterations>(memory);
   for (int i = 0; i < kIterations; ++i) {

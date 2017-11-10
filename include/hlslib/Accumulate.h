@@ -35,23 +35,24 @@
 // calling it multiple times would result in dataflow errors on the internal
 // streams. Instead call them as follows:
 //
-//   Stream<T> toFeedback("fromFeedback");
-//   Stream<T> fromFeedback("fromFeedback");
+//   hlslib::Stream<T> toFeedback("fromFeedback");
+//   hlslib::Stream<T> fromFeedback("fromFeedback");
 //   #pragma HLS STREAM variable=fromFeedback depth=latency
 //   Stream<T> toReduce("toReduce");
-//   HLSLIB_DATAFLOW_FUNCTION(AccumulateIterate, in, fromFeedback, toFeedback);
-//   HLSLIB_DATAFLOW_FUNCTION(AccumulateFeedback, toFeedback, fromFeedback,
-//                            toReduce);
-//   AccumulateReduce(toReduce, out);
+//   HLSLIB_DATAFLOW_FUNCTION(hlslib::AccumulateIterate, in, fromFeedback,
+//                            toFeedback);
+//   HLSLIB_DATAFLOW_FUNCTION(hlslib::AccumulateFeedback, toFeedback,
+//                            fromFeedback, toReduce);
+//   HLSLIB_DATAFLOW_FUNCTION(hlslib::AccumulateReduce(toReduce, out);
 //
 // For convenience, a function for reducing with a single cycle latency
 // operation is also included as AccumulateSimple.
 
 namespace hlslib {
 
-template <typename T, class Operator, int latency, int size, int iterations>
+template <typename T, class Operator, int latency>
 void AccumulateIterate(Stream<T> &input, Stream<T> &fromFeedback,
-                       Stream<T> &toFeedback) {
+                       Stream<T> &toFeedback, int size, int iterations) {
 AccumulateIterate_Iterations:
   for (int i = 0; i < iterations; ++i) {
   AcumulateIterate_Size:
@@ -74,9 +75,9 @@ AccumulateIterate_Iterations:
   }
 }
 
-template <typename T, class Operator, int latency, int size, int iterations>
+template <typename T, class Operator, int latency>
 void AccumulateFeedback(Stream<T> &toFeedback, Stream<T> &fromFeedback,
-                        Stream<T> &toReduce) {
+                        Stream<T> &toReduce, int size, int iterations) {
 AccumulateFeedback_Iterations:
   for (int i = 0; i < iterations; ++i) {
   AccumulateFeedback_Size:
@@ -98,8 +99,9 @@ AccumulateFeedback_Iterations:
   }
 }
 
-template <typename T, class Operator, int latency, int size, int iterations>
-void AccumulateReduce(Stream<T> &toReduce, Stream<T> &output) {
+template <typename T, class Operator, int latency>
+void AccumulateReduce(Stream<T> &toReduce, Stream<T> &output, int size,
+                      int iterations) {
 AccumulateReduce_Iterations:
   for (int i = 0; i < iterations; ++i) {
     #pragma HLS PIPELINE II=latency
@@ -114,8 +116,8 @@ AccumulateReduce_Iterations:
 }
 
 /// Trivial implementation for single cycle latency
-template <typename T, class Operator, int size, int iterations>
-void AccumulateSimple(Stream<T> &in, Stream<T> &out) {
+template <typename T, class Operator>
+void AccumulateSimple(Stream<T> &in, Stream<T> &out, int size, int iterations) {
 AccumulateSimple_Iterations:
   for (int i = 0; i < iterations; ++i) {
     T acc;

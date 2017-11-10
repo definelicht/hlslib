@@ -7,12 +7,15 @@
 #include "hlslib/Accumulate.h"
 #include "hlslib/Simulation.h"
 
-void AccumulateInt(DataPack_t const *memoryIn, DataPack_t *memoryOut) {
+void AccumulateInt(DataPack_t const *memoryIn, DataPack_t *memoryOut, int size,
+                   int iterations) {
   #pragma HLS INTERFACE m_axi port=memoryIn  offset=slave bundle=gmem0
   #pragma HLS INTERFACE m_axi port=memoryOut offset=slave bundle=gmem1
-  #pragma HLS INTERFACE s_axilite port=memoryIn  bundle=control
-  #pragma HLS INTERFACE s_axilite port=memoryOut bundle=control
-  #pragma HLS INTERFACE s_axilite port=return    bundle=control
+  #pragma HLS INTERFACE s_axilite port=memoryIn   bundle=control
+  #pragma HLS INTERFACE s_axilite port=memoryOut  bundle=control
+  #pragma HLS INTERFACE s_axilite port=size       bundle=control
+  #pragma HLS INTERFACE s_axilite port=iterations bundle=control
+  #pragma HLS INTERFACE s_axilite port=return     bundle=control
   #pragma HLS DATAFLOW
   static hlslib::Stream<DataPack_t> pipeIn("pipeIn");
   static hlslib::Stream<DataPack_t> pipeOut("pipeOut");
@@ -20,18 +23,18 @@ void AccumulateInt(DataPack_t const *memoryIn, DataPack_t *memoryOut) {
   // functions with multiple template arguments
 #ifndef HLSLIB_SYNTHESIS
   HLSLIB_DATAFLOW_INIT();
-  hlslib::_Dataflow::Get().AddFunction(Read<DataPack_t, kIterations * kSize>,
-                                       memoryIn, pipeIn);
+  hlslib::_Dataflow::Get().AddFunction(Read<DataPack_t>, memoryIn, pipeIn,
+                                       iterations * size);
   hlslib::_Dataflow::Get().AddFunction(
-      hlslib::AccumulateSimple<DataPack_t, Operator, kSize, kIterations>,
-      pipeIn, pipeOut);
-  hlslib::_Dataflow::Get().AddFunction(Write<DataPack_t, kIterations>, pipeOut,
-                                       memoryOut);
+      hlslib::AccumulateSimple<DataPack_t, Operator>, pipeIn, pipeOut,
+      iterations, size);
+  hlslib::_Dataflow::Get().AddFunction(Write<DataPack_t>, pipeOut,
+                                       memoryOut, iterations);
   HLSLIB_DATAFLOW_FINALIZE();
 #else
-  Read<DataPack_t, kIterations * kSize>(memoryIn, pipeIn);
-  hlslib::AccumulateSimple<DataPack_t, Operator, kSize, kIterations>(pipeIn,
-                                                                     pipeOut);
-  Write<DataPack_t, kIterations>(pipeOut, memoryOut);
+  Read<DataPack_t>(memoryIn, pipeIn, iterations * size);
+  hlslib::AccumulateSimple<DataPack_t, Operator>(pipeIn, pipeOut, size,
+                                                 iterations);
+  Write<DataPack_t>(pipeOut, memoryOut, iterations);
 #endif
 }

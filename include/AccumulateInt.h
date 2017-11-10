@@ -20,6 +20,6 @@ constexpr char const *kKernelFile = "AccumulateInt.xclbin";
 
 extern "C" {
 
-void AccumulateInt(DataPack_t const *memoryIn, DataPack_t *memoryOut);
-
+void AccumulateInt(DataPack_t const *memoryIn, DataPack_t *memoryOut, int size,
+                   int iterations);
 }
