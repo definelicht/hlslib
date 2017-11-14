@@ -75,7 +75,7 @@ AccumulateIterate_Iterations:
   }
 }
 
-template <typename T, class Operator, int latency>
+template <typename T, int latency>
 void AccumulateFeedback(Stream<T> &toFeedback, Stream<T> &fromFeedback,
                         Stream<T> &toReduce, int size, int iterations) {
 AccumulateFeedback_Iterations:
