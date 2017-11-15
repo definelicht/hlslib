@@ -33,7 +33,7 @@ void AccumulateFloat(DataPack_t const *memoryIn, DataPack_t *memoryOut,
       hlslib::AccumulateIterate<DataPack_t, Operator, kLatency>, pipeIn,
       fromFeedback, toFeedback, size, iterations);
   HLSLIB_DATAFLOW_FUNCTION(
-      hlslib::AccumulateFeedback<DataPack_t, Operator, kLatency>,
+      hlslib::AccumulateFeedback<DataPack_t, kLatency>,
       toFeedback, fromFeedback, toReduce, size, iterations);
   HLSLIB_DATAFLOW_FUNCTION(
       hlslib::AccumulateReduce<DataPack_t, Operator, kLatency>,
@@ -46,7 +46,7 @@ void AccumulateFloat(DataPack_t const *memoryIn, DataPack_t *memoryOut,
   Read<DataPack_t>(memoryIn, pipeIn, iterations * size);
   hlslib::AccumulateIterate<DataPack_t, Operator, kLatency>(
       pipeIn, fromFeedback, toFeedback, size, iterations);
-  hlslib::AccumulateFeedback<DataPack_t, Operator, kLatency>(
+  hlslib::AccumulateFeedback<DataPack_t, kLatency>(
       toFeedback, fromFeedback, toReduce, size, iterations);
   hlslib::AccumulateReduce<DataPack_t, Operator, kLatency>(
       toReduce, pipeOut, size, iterations);
