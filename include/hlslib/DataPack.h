@@ -225,10 +225,10 @@ hlslib::DataPack<T, width> operator op( \
   } \
   return res; \
 } \
-template <typename T, int width> \
+template <typename T, typename U, int width> \
 hlslib::DataPack<T, width> operator op( \
     hlslib::DataPack<T, width> const &a, \
-    T const &b) { \
+    U const &b) { \
   _Pragma("HLS INLINE") \
   hlslib::DataPack<T, width> res; \
   for (int i = 0; i < width; ++i) { \
@@ -237,9 +237,9 @@ hlslib::DataPack<T, width> operator op( \
   } \
   return res; \
 } \
-template <typename T, int width> \
+template <typename T, typename U, int width> \
 hlslib::DataPack<T, width> operator op( \
-    T const &a, \
+    U const &a, \
     hlslib::DataPack<T, width> const &b) { \
   _Pragma("HLS INLINE") \
   hlslib::DataPack<T, width> res; \
@@ -259,10 +259,10 @@ hlslib::DataPack<T, width> operator inplace( \
     a[i] inplace b[i]; \
   } \
 } \
-template <typename T, int width> \
+template <typename T, typename U, int width> \
 hlslib::DataPack<T, width> operator inplace( \
     hlslib::DataPack<T, width> const &a, \
-    T const &b) { \
+    U const &b) { \
   _Pragma("HLS INLINE") \
   for (int i = 0; i < width; ++i) { \
     _Pragma("HLS UNROLL") \
