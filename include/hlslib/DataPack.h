@@ -99,6 +99,18 @@ public:
     }
   }
 
+  template <unsigned outWidth>
+  DataPack<T, outWidth> Range(const unsigned at) const {
+    #pragma HLS INLINE
+    static_assert(outWidth < width, "Invalid width");
+    DataPack<T, outWidth> out;
+    for (int i = 0; i < outWidth; ++i) {
+      #pragma HLS UNROLL
+      out[i] = Get(at + i);
+    }
+    return out;
+  }
+
   void operator<<(T const arr[width]) {
     #pragma HLS INLINE
     Pack(arr);
