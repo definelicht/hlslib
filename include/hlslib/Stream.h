@@ -358,6 +358,10 @@ public:
     queue_.emplace(val);
     cvRead_.notify_all();
   }
+
+  void WriteBlocking(T const &val) {
+    WriteBlocking(val, 1);
+  }
   
   void WriteOptimistic(T const &val, int size) {
     std::unique_lock<std::mutex> lock(mutex_);
