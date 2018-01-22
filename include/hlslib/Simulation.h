@@ -37,29 +37,54 @@ namespace hlslib {
 #else
 namespace {
 class _Dataflow {
+
 private:
   inline _Dataflow() {}
   inline ~_Dataflow() { this->Join(); }
-public:
+
+  template <typename T>
+  struct non_deducible {
+    using type = T;
+  };
+
+  template <typename T>
+  using non_deducible_t = typename non_deducible<T>::type;
+
+  template <typename T>
+  std::reference_wrapper<T> passed_by(T& t, std::true_type) {
+    return std::ref(t);
+  }
+
+  template <typename T>
+  T&& passed_by(T&& t, std::false_type) {
+    return std::forward<T>(t);
+  }
+
+ public:
   inline static _Dataflow& Get() { // Singleton pattern
     static _Dataflow df;
     return df; 
   }
-  template <class Function, typename... Args>
-  void AddFunction(Function &&func, Args&&... args) {
-    threads_.emplace_back([&](){ func(args...); });
+
+  template <class Ret, typename... Args>
+  void AddFunction(Ret (*func)(Args...), non_deducible_t<Args>... args) {
+    threads_.emplace_back(func, passed_by(std::forward<Args>(args),
+                                          std::is_reference<Args>{})...);
   }
+
   template <typename T, typename... Args>
   Stream<T>& EmplaceStream(Args&&... args) {
     streams_.emplace_back(std::unique_ptr<Stream<T>>(new Stream<T>(args...)));
     return *static_cast<Stream<T> *>(streams_.back().get());
   }
+
   inline void Join() {
     for (auto &t : threads_) {
       t.join();
     }
     threads_.clear();
   }
+
 private:
   std::vector<std::thread> threads_{};
   std::vector<std::unique_ptr<_StreamBase>> streams_{};
