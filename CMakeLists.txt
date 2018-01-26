@@ -62,6 +62,10 @@ if(Threads_FOUND)
   target_compile_options(TestAccumulateInt PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
   target_link_libraries(TestAccumulateInt ${CMAKE_THREAD_LIBS_INIT})
   add_test(TestAccumulateInt TestAccumulateInt)
+  add_executable(TestSimulationForwarding test/TestSimulationForwarding.cpp)
+  target_compile_options(TestSimulationForwarding PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
+  target_link_libraries(TestSimulationForwarding ${CMAKE_THREAD_LIBS_INIT})
+  add_test(TestSimulationForwarding TestSimulationForwarding)
 endif()
 
 # Test synthesis of reduction
