@@ -262,24 +262,37 @@ hlslib::DataPack<T, width> operator op( \
   return res; \
 } \
 template <typename T, int width> \
-hlslib::DataPack<T, width> operator inplace( \
-    hlslib::DataPack<T, width> const &a, \
+hlslib::DataPack<T, width> &operator inplace( \
+    hlslib::DataPack<T, width> &a, \
     hlslib::DataPack<T, width> const &b) { \
   _Pragma("HLS INLINE") \
   for (int i = 0; i < width; ++i) { \
     _Pragma("HLS UNROLL") \
-    a[i] inplace b[i]; \
+    a.Set(i, a.Get(i) op b[i]); \
   } \
+  return a; \
 } \
 template <typename T, typename U, int width> \
-hlslib::DataPack<T, width> operator inplace( \
-    hlslib::DataPack<T, width> const &a, \
+hlslib::DataPack<T, width> &operator inplace( \
+    hlslib::DataPack<T, width> &a, \
+    hlslib::DataPackProxy<U, width> const &b) { \
+  _Pragma("HLS INLINE") \
+  for (int i = 0; i < width; ++i) { \
+    _Pragma("HLS UNROLL") \
+    a[i] inplace b.Get(); \
+  } \
+  return a; \
+} \
+template <typename T, typename U, int width> \
+hlslib::DataPack<T, width> &operator inplace( \
+    hlslib::DataPack<T, width> &a, \
     U const &b) { \
   _Pragma("HLS INLINE") \
   for (int i = 0; i < width; ++i) { \
     _Pragma("HLS UNROLL") \
     a[i] inplace b; \
   } \
+  return a; \
 }
 HLSLIB_DATAPACK_BINARY_OP(+, +=);
 HLSLIB_DATAPACK_BINARY_OP(*, *=);
