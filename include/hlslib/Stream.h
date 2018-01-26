@@ -5,6 +5,16 @@
 #pragma once
 
 #include <cstddef>
+#ifdef HLSLIB_SYNTHESIS
+#include <hls_stream.h>
+#else
+#include <condition_variable>
+#include <iostream>
+#include <mutex>
+#include <queue>
+#include <sstream>
+#include <string>
+#endif
 
 // Time in seconds until a blocking call on a stream should timeout and emit a
 // warning before going back to sleep
@@ -19,8 +29,6 @@ constexpr int kSecondsToTimeout = 3;
 // This is left optional, as it will not work for all kernels, and can result in
 // deadlocks. If such a situation occurs, the synchronization method will print
 // a deadlock warning to stderr after a few seconds.
-
-#include <hls_stream.h>
 
 namespace hlslib {
 
@@ -99,13 +107,6 @@ template <typename T> void SetName(Stream<T> &stream, const char *) {}
 } // End namespace hlslib
 
 #else 
-
-#include <condition_variable>
-#include <iostream>
-#include <mutex>
-#include <queue>
-#include <sstream>
-#include <string>
 
 #ifdef HLSLIB_DEBUG_STREAM
 constexpr bool kStreamVerbose = true;
