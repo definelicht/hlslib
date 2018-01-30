@@ -289,6 +289,11 @@ public:
     return front;
   }
 
+  // Compatibility with Vivado HLS interface
+  T read() {
+    return ReadBlocking();
+  }
+
   T ReadOptimistic() {
     std::unique_lock<std::mutex> lock(mutex_);
     ReadSynchronize(lock);
@@ -301,7 +306,7 @@ public:
     return front;
   }
 
-  bool ReadBlocking(T &output) {
+  bool ReadNonBlocking(T &output) {
     std::unique_lock<std::mutex> lock(mutex_);
     ReadSynchronize(lock);
     if (queue_.empty()) {
@@ -361,6 +366,11 @@ public:
   }
 
   void WriteBlocking(T const &val) {
+    WriteBlocking(val, 1);
+  }
+
+  // Compatibility with Vivado HLS interface
+  void write(T const &val) {
     WriteBlocking(val, 1);
   }
   
