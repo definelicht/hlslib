@@ -10,6 +10,7 @@
 #else
 #include <condition_variable>
 #include <iostream>
+#include <limits>
 #include <mutex>
 #include <queue>
 #include <sstream>
@@ -291,7 +292,7 @@ public:
 
   // Compatibility with Vivado HLS interface
   T read() {
-    return ReadBlocking();
+    return ReadOptimistic();
   }
 
   T ReadOptimistic() {
@@ -371,7 +372,7 @@ public:
 
   // Compatibility with Vivado HLS interface
   void write(T const &val) {
-    WriteBlocking(val, 1);
+    WriteOptimistic(val, std::numeric_limits<int>::max());
   }
   
   void WriteOptimistic(T const &val, int size) {
