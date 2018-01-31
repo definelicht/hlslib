@@ -7,7 +7,7 @@
 #ifndef HLSLIB_SYNTHESIS
 #include <thread>
 #include <vector>
-#include "hlslib/Stream.h"
+// #include "hlslib/Stream.h"
 #endif
 
 // This header provides functionality to simulate dataflow functions that
@@ -72,11 +72,11 @@ private:
                                           std::is_reference<Args>{})...);
   }
 
-  template <typename T, typename... Args>
-  Stream<T>& EmplaceStream(Args&&... args) {
-    streams_.emplace_back(std::unique_ptr<Stream<T>>(new Stream<T>(args...)));
-    return *static_cast<Stream<T> *>(streams_.back().get());
-  }
+  // template <typename T, typename... Args>
+  // Stream<T>& EmplaceStream(Args&&... args) {
+  //   streams_.emplace_back(std::unique_ptr<Stream<T>>(new Stream<T>(args...)));
+  //   return *static_cast<Stream<T> *>(streams_.back().get());
+  // }
 
   inline void Join() {
     for (auto &t : threads_) {
@@ -87,7 +87,7 @@ private:
 
 private:
   std::vector<std::thread> threads_{};
-  std::vector<std::unique_ptr<_StreamBase>> streams_{};
+  // std::vector<std::unique_ptr<_StreamBase>> streams_{};
 };
 #define HLSLIB_DATAFLOW_INIT() 
 #define HLSLIB_DATAFLOW_FUNCTION(func, ...) \
