@@ -5,12 +5,12 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #ifdef HLSLIB_SYNTHESIS
 #include <hls_stream.h>
 #else
 #include <condition_variable>
 #include <iostream>
-#include <limits>
 #include <mutex>
 #include <queue>
 #include <sstream>
@@ -46,6 +46,7 @@ class Stream;
 /// for inter-process communication and generally asynchronous behavior.
 template <typename T>
 T ReadBlocking(Stream<T> &stream) {
+  #pragma HLS INLINE
   return stream.ReadBlocking();
 }
 
@@ -54,6 +55,7 @@ T ReadBlocking(Stream<T> &stream) {
 /// applications.
 template <typename T>
 T ReadOptimistic(Stream<T> &stream) {
+  #pragma HLS INLINE
   return stream.ReadOptimistic();
 }
 
@@ -61,6 +63,7 @@ T ReadOptimistic(Stream<T> &stream) {
 /// Useful when a different action should be performed when the stream is empty.
 template <typename T>
 bool ReadNonBlocking(Stream<T> &stream, T &output) {
+  #pragma HLS INLINE
   return stream.ReadNonBlocking(output);
 }
 
@@ -68,6 +71,7 @@ bool ReadNonBlocking(Stream<T> &stream, T &output) {
 /// for inter-process communication and generally asynchronous behavior.
 template <typename T>
 void WriteBlocking(Stream<T> &stream, T const &val, int size) {
+  #pragma HLS INLINE
   stream.WriteBlocking(val, size);
 }
 
@@ -75,6 +79,7 @@ void WriteBlocking(Stream<T> &stream, T const &val, int size) {
 /// for inter-process communication and generally asynchronous behavior.
 template <typename T>
 void WriteBlocking(Stream<T> &stream, T const &val) {
+  #pragma HLS INLINE
   stream.WriteBlocking(val);
 }
 
@@ -82,6 +87,7 @@ void WriteBlocking(Stream<T> &stream, T const &val) {
 /// Useful for internal buffers and some synchronized dataflow applications.
 template <typename T>
 void WriteOptimistic(Stream<T> &stream, T const &val, int size) {
+  #pragma HLS INLINE
   stream.WriteOptimistic(val, size);
 }
 
@@ -89,6 +95,7 @@ void WriteOptimistic(Stream<T> &stream, T const &val, int size) {
 /// Useful when a different action should be performed when the stream is full.
 template <typename T>
 bool WriteNonBlocking(Stream<T> &stream, T const &val, int size) {
+  #pragma HLS INLINE
   return stream.WriteNonBlocking(val, size);
 }
 
@@ -96,6 +103,7 @@ bool WriteNonBlocking(Stream<T> &stream, T const &val, int size) {
 /// implements non-blocking behavior, and should be used with caution.
 template <typename T>
 bool IsEmpty(Stream<T> &stream) {
+  #pragma HLS INLINE
   return stream.IsEmpty();
 }
 
@@ -105,6 +113,7 @@ bool IsEmpty(Stream<T> &stream) {
 /// where the entire function is invoked every cycle.
 template <typename T>
 bool IsEmptySimulationOnly(Stream<T> &stream) {
+  #pragma HLS INLINE
   return stream.IsEmpty();
 }
 
@@ -112,6 +121,7 @@ bool IsEmptySimulationOnly(Stream<T> &stream) {
 /// implements non-blocking behavior, and should be used with caution.
 template <typename T>
 bool IsFull(Stream<T> &stream, int size) {
+  #pragma HLS INLINE
   return stream.IsFull(size);
 }
 
@@ -121,6 +131,7 @@ bool IsFull(Stream<T> &stream, int size) {
 /// where the entire function is invoked every cycle.
 template <typename T>
 bool IsFullSimulationOnly(Stream<T> &stream, int size) {
+  #pragma HLS INLINE
   return stream.IsFull(size);
 }
 
@@ -146,15 +157,22 @@ class Stream : public _StreamBase {
 
 public:
 
-  Stream() : Stream("(unnamed)", 1) {}
+  Stream() : Stream("(unnamed)", 1) {
+    #pragma HLS INLINE
+  }
 
-  Stream(char const *const name) : Stream(name, 1) {}
+  Stream(char const *const name) : Stream(name, 1) {
+    #pragma HLS INLINE
+  }
 
-  Stream(size_t capacity) : Stream("(unnamed)", capacity) {}
+  Stream(size_t capacity) : Stream("(unnamed)", capacity) {
+    #pragma HLS INLINE
+  }
 
   Stream(char const *const name, size_t capacity)
 #ifdef HLSLIB_SYNTHESIS
       : stream_(name) {
+    #pragma HLS INLINE
     #pragma HLS STREAM variable=stream_ depth=capacity 
 #else
       : name_(name), capacity_(capacity) {
@@ -197,6 +215,7 @@ public:
 
   T ReadBlocking() {
 #ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     return stream_.read();
 #else
     std::unique_lock<std::mutex> lock(mutex_);
@@ -231,11 +250,13 @@ public:
 
   // Compatibility with Vivado HLS interface
   T read() {
+    #pragma HLS INLINE
     return ReadOptimistic();
   }
 
   T ReadOptimistic() {
 #ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     return stream_.read();
 #else
     std::unique_lock<std::mutex> lock(mutex_);
@@ -252,6 +273,7 @@ public:
 
   bool ReadNonBlocking(T &output) {
 #ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     return stream_.read_nb(output);
 #else
     std::unique_lock<std::mutex> lock(mutex_);
@@ -287,6 +309,7 @@ public:
   
   void WriteBlocking(T const &val, size_t capacity) {
 #ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     stream_.write(val);
 #else
     std::unique_lock<std::mutex> lock(mutex_);
@@ -320,16 +343,23 @@ public:
   }
 
   void WriteBlocking(T const &val) {
+#ifndef HLSLIB_SYNTHESIS
     WriteBlocking(val, capacity_);
+#else
+    #pragma HLS INLINE
+    WriteBlocking(val, std::numeric_limits<int>::max());
+#endif
   }
 
   // Compatibility with Vivado HLS interface
   void write(T const &val) {
+    #pragma HLS INLINE
     WriteOptimistic(val, std::numeric_limits<int>::max());
   }
   
   void WriteOptimistic(T const &val, size_t capacity) {
 #ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     stream_.write(val);
 #else
     std::unique_lock<std::mutex> lock(mutex_);
@@ -343,11 +373,17 @@ public:
   }
 
   void WriteOptimistic(T const &val) {
+#ifndef HLSLIB_SYNTHESIS
     WriteOptimistic(val, capacity_);
+#else
+    #pragma HLS INLINE
+    WriteOptimistic(val, std::numeric_limits<int>::max());
+#endif
   }
 
   bool WriteNonBlocking(T const &val, size_t capacity) {
 #ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     return stream_.write_nb(val);
 #else
     std::unique_lock<std::mutex> lock(mutex_);
@@ -362,11 +398,17 @@ public:
   }
 
   bool WriteNonBlocking(T const &val) {
+#ifndef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     return WriteNonBlocking(val, capacity_); 
+#else
+    return WriteNonBlocking(val, std::numeric_limits<int>::max());
+#endif
   }
 
   bool IsEmpty() const {
 #ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     return stream_.empty();
 #else
     std::lock_guard<std::mutex> lock(mutex_);
@@ -376,6 +418,7 @@ public:
 
   bool IsFull(size_t capacity) const {
 #ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     return stream_.full();
 #else
     std::lock_guard<std::mutex> lock(mutex_);
@@ -384,11 +427,17 @@ public:
   }
 
   bool IsFull() const {
+#ifndef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     return IsFull(capacity_);
+#else
+    return IsFull(std::numeric_limits<int>::max());
+#endif
   }
 
   size_t Size() const {
 #ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
     return stream_.size();
 #else
     std::lock_guard<std::mutex> lock(mutex_);
