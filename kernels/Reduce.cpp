@@ -1,11 +1,12 @@
 /// @author    Johannes de Fine Licht (johannes.definelicht@inf.ethz.ch)
 /// @date      May 2017
-/// @copyright This software is copyrighted under the BSD 3-Clause License. 
+/// @copyright This software is copyrighted under the BSD 3-Clause License.
 
-#include "hlslib/TreeReduce.h"
 #include "hlslib/DataPack.h"
-#include "hlslib/Stream.h"
+#include "hlslib/Operators.h"
 #include "hlslib/Simulation.h"
+#include "hlslib/Stream.h"
+#include "hlslib/TreeReduce.h"
 
 constexpr int kIterations = 2048;
 constexpr int kFloatWidth = 8;
@@ -21,7 +22,7 @@ FloatSum:
     float arr[kFloatWidth];
     read >> arr;
     const auto result =
-        hlslib::TreeReduce<float, hlslib::Add<float>, kFloatWidth>(arr);
+        hlslib::TreeReduce<float, hlslib::op::Add<float>, kFloatWidth>(arr);
     hlslib::WriteBlocking(out, result, 1);
   }
 }
@@ -34,7 +35,7 @@ BoolAll:
     bool arr[kBoolWidth];
     read >> arr;
     const auto result =
-        hlslib::TreeReduce<bool, hlslib::And<bool>, kBoolWidth>(arr);
+        hlslib::TreeReduce<bool, hlslib::op::And<bool>, kBoolWidth>(arr);
     hlslib::WriteBlocking(out, result, 1);
   }
 }
