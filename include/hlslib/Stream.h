@@ -445,6 +445,12 @@ public:
 #endif
   }
 
+  void set_name(std::string const &name) {
+#ifndef HLSLIB_SYNTHESIS
+    name_ = name;
+#endif
+  }
+
 private:
 #ifndef HLSLIB_SYNTHESIS
   mutable std::mutex mutex_{};
