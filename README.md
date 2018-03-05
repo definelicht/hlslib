@@ -66,16 +66,3 @@ In newer versions of SDAccel, the final initiation interval determined by Vivado
 While building a project, Vivado generates a number of GUI-reports, even when running `xocc` on the command line. These reports have an internal limit of 64 MB per _section_. For very large projects these sections can exceed 64 MB, causing Vivado to crash with an error like "Unable to write <report name>.rpx as it exceeds maximum size of 64 MB".
 
 As of SDx 2017.1, the workaround is to disable reporting by setting the property `project.runs.noReportGeneration=1`.
-
-### Stream pragma error
-
-As of SDx 2016.3, there seems to be an error when trying to set `#pragma HLS STREAM` for stream variables that are redirected through `typedef` or `using`. So far the only (and rather tedious) workaround we have found is to use `#ifdef`s to include two versions of the stream definitions, such as below:
-
-```C++
-#ifdef HLSLIB_SYNTHESIS
-hls::stream<int> pipe;
-#pragma HLS STREAM variable=pipe depth=kPipeDepth
-#else
-hlslib::Stream<int> pipe;
-#endif
-```
