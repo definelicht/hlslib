@@ -254,6 +254,11 @@ public:
     return ReadOptimistic();
   }
 
+  T Pop() {
+    #pragma HLS INLINE
+    return ReadBlocking();
+  }
+
   T ReadOptimistic() {
 #ifdef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
@@ -355,6 +360,11 @@ public:
   void write(T const &val) {
     #pragma HLS INLINE
     WriteOptimistic(val, std::numeric_limits<int>::max());
+  }
+
+  void Push(T const &val) {
+    #pragma HLS INLINE
+    WriteBlocking(val);
   }
   
   void WriteOptimistic(T const &val, size_t capacity) {
