@@ -62,12 +62,26 @@ public:
 
   T Get(int i) const {
     #pragma HLS INLINE
+#ifndef HLSLIB_SYNTHESIS
+    if (i < 0 || i >= width) {
+      std::stringstream ss;
+      ss << "Index " << i << " out of range for DataPack of width " << width;
+      throw std::out_of_range(ss.str());
+    }
+#endif
     Pack_t temp = data_.range((i + 1) * kBits - 1, i * kBits);
     return *reinterpret_cast<T const *>(&temp);
   }
 
   void Set(int i, T value) {
     #pragma HLS INLINE
+#ifndef HLSLIB_SYNTHESIS
+    if (i < 0 || i >= width) {
+      std::stringstream ss;
+      ss << "Index " << i << " out of range for DataPack of width " << width;
+      throw std::out_of_range(ss.str());
+    }
+#endif
     Pack_t temp = *reinterpret_cast<Pack_t const *>(&value);
     data_.range((i + 1) * kBits - 1, i * kBits) = temp;
   }
