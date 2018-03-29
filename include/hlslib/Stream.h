@@ -455,7 +455,7 @@ public:
 #endif
   }
 
-  void set_name(std::string const &name) {
+  void set_name(char const *const name) {
 #ifndef HLSLIB_SYNTHESIS
     name_ = name;
 #endif
