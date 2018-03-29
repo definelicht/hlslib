@@ -101,4 +101,4 @@ include(FindPackageHandleStandardArgs)
 # if all listed variables were found.
 find_package_handle_standard_args(SDAccel DEFAULT_MSG
   SDAccel_XOCC SDAccel_VIVADO_HLS SDAccel_INCLUDE_DIRS
-  SDAccel_LIBRARIES)
+  SDAccel_LIBRARIES SDAccel_VERSION)
