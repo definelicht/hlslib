@@ -32,14 +32,22 @@ endif()
 
 find_program(SDAccel_XOCC xocc PATHS ${SDACCEL_ROOT_DIR}/bin NO_DEFAULT_PATH)
 
+# Get version number string
+get_filename_component(SDAccel_VERSION ${SDACCEL_ROOT_DIR} NAME)
+
 find_program(SDAccel_VIVADO_HLS vivado_hls
-             PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/bin NO_DEFAULT_PATH)
+             PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/bin
+             PATHS ${SDACCEL_ROOT_DIR}/../../Vivado/${SDAccel_VERSION}/bin NO_DEFAULT_PATH)
 
 find_program(SDAccel_VIVADO vivado
-             PATHS ${SDACCEL_ROOT_DIR}/Vivado/bin NO_DEFAULT_PATH)
+             PATHS ${SDACCEL_ROOT_DIR}/Vivado/bin
+             PATHS ${SDACCEL_ROOT_DIR}/../../Vivado/${SDAccel_VERSION}/bin
+             NO_DEFAULT_PATH)
 
 find_path(SDAccel_HLS_INCLUDE_DIR hls_stream.h
-          PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/include NO_DEFAULT_PATH)
+          PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/include
+          ${SDACCEL_ROOT_DIR}/../../Vivado/${SDAccel_VERSION}/include
+          NO_DEFAULT_PATH)
 mark_as_advanced(SDAccel_HLS_INCLUDE_DIR)
 
 # Currently only x86 support
@@ -54,7 +62,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
   mark_as_advanced(SDAccel_LIBXILINXOPENCL)
 
   find_library(SDAccel_LIBFLOATINGPOINT Ip_floating_point_v7_0_bitacc_cmodel
-               PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/lnx64/tools/fpo_v7_0)
+               PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/lnx64/tools/fpo_v7_0
+               ${SDACCEL_ROOT_DIR}/../../Vivado/${SDAccel_VERSION}/lnx64/tools/fpo_v7_0)
   mark_as_advanced(SDAccel_LIBFLOATINGPOINT)
 
   # Only succeed if all libraries were found
