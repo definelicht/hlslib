@@ -202,7 +202,7 @@ public:
       if (cvSync_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
           std::cv_status::timeout) {
         std::stringstream ss;
-        ss << "Stream synchronization stuck on \"" << name_
+        ss << "Stream synchronization stuck on reading \"" << name_
            << "\". Possibly a deadlock?" << std::endl;
         std::cerr << ss.str();
       }
@@ -301,7 +301,7 @@ public:
       if (cvSync_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
           std::cv_status::timeout) {
         std::stringstream ss;
-        ss << "Stream synchronization stuck on \"" << name_
+        ss << "Stream synchronization stuck on writing \"" << name_
            << "\". Possibly a deadlock?" << std::endl;
         std::cerr << ss.str();
       }
