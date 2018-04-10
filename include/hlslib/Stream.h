@@ -39,7 +39,7 @@ constexpr bool kStreamVerbose = false;
 
 namespace hlslib {
 
-template <typename T>
+template <typename T, unsigned capacity = 1>
 class Stream;
 
 /// Attempt to read from a stream, blocking until a value can be read. Useful
@@ -149,19 +149,23 @@ template <typename T> void SetName(Stream<T> &stream, const char *) {}
 /// For internal use. Used to store arrays of streams of different types
 class _StreamBase {};
 
-/// Custom stream implementation, whose constructor mimics that of hls::stream.
-/// All other methods should be called via the free functions, as they do not
-/// conform to the interface of hls::stream.
-template <typename T>
+/// Custom stream implementation, implementing thread-safe and blocking Push
+/// and Pop, as well as read/write conforming to the hls::stream interface.
+/// The capacityDefault template parameter is a convenience override used
+/// when instantiating arrays of streams, as the capacity cannot be passed
+/// to the constructor then.
+/// The constructor argument is always favored over the template argument, if
+/// specified.
+template <typename T, unsigned capacityDefault>
 class Stream : public _StreamBase {
 
 public:
 
-  Stream() : Stream("(unnamed)", 1) {
+  Stream() : Stream("(unnamed)", capacityDefault) {
     #pragma HLS INLINE
   }
 
-  Stream(char const *const name) : Stream(name, 1) {
+  Stream(char const *const name) : Stream(name, capacityDefault) {
     #pragma HLS INLINE
   }
 
