@@ -1,6 +1,6 @@
 /// @author    Johannes de Fine Licht (johannes.definelicht@inf.ethz.ch)
 /// @date      April 2016
-/// @copyright This software is copyrighted under the BSD 3-Clause License. 
+/// @copyright This software is copyrighted under the BSD 3-Clause License.
 
 #pragma once
 
@@ -20,26 +20,38 @@ namespace hlslib {
 
 namespace ocl {
 
+//#############################################################################
+// Enumerations
+//#############################################################################
+
+/// Enum for type of memory access to device buffers. Will cause the
+/// the appropriate binary flags to be set when allocating OpenCL buffers.
+enum class Access { read, write, readWrite };
+
+/// Mapping to specific memory banks on the FPGA. Xilinx-specific.
+enum class MemoryBank { bank0, bank1, bank2, bank3 };
+
+//#############################################################################
+// OpenCL exceptions
+//#############################################################################
+
 class ConfigurationError : public std::logic_error {
-
-public:
-
+ public:
   ConfigurationError(std::string const &message) : std::logic_error(message) {}
 
   ConfigurationError(char const *const message) : std::logic_error(message) {}
-
 };
 
 class RuntimeError : public std::runtime_error {
-
-public:
-
+ public:
   RuntimeError(std::string const &message) : std::runtime_error(message) {}
 
   RuntimeError(char const *const message) : std::runtime_error(message) {}
-
 };
 
+//#############################################################################
+// Internal functionality
+//#############################################################################
 
 namespace {
 
@@ -48,13 +60,13 @@ constexpr bool verbose = true;
 constexpr size_t kMaxCount = 16;
 constexpr size_t kMaxString = 128;
 
-constexpr cl_mem_flags kXilinxMemPointer = 1<<31;
-constexpr unsigned kXilinxBuffer = 1<<0; 
-constexpr unsigned kXilinxPipe   = 1<<1; 
-constexpr unsigned kXilinxBank0  = 1<<8; 
-constexpr unsigned kXilinxBank1  = 1<<9; 
-constexpr unsigned kXilinxBank2  = 1<<10; 
-constexpr unsigned kXilinxBank3  = 1<<11; 
+constexpr cl_mem_flags kXilinxMemPointer = 1 << 31;
+constexpr unsigned kXilinxBuffer = 1 << 0;
+constexpr unsigned kXilinxPipe = 1 << 1;
+constexpr unsigned kXilinxBank0 = 1 << 8;
+constexpr unsigned kXilinxBank1 = 1 << 9;
+constexpr unsigned kXilinxBank2 = 1 << 10;
+constexpr unsigned kXilinxBank3 = 1 << 11;
 
 struct ExtendedMemoryPointer {
   unsigned flags;
@@ -91,8 +103,11 @@ void ThrowRuntimeError(std::string const &message) {
 #endif
 }
 
-std::vector<cl_platform_id> GetAvailablePlatforms() {
+//-----------------------------------------------------------------------------
+// Free functions (for internal use)
+//-----------------------------------------------------------------------------
 
+std::vector<cl_platform_id> GetAvailablePlatforms() {
   std::vector<cl_platform_id> platforms(kMaxCount);
   cl_uint platformCount;
   cl_int errorCode =
@@ -118,7 +133,6 @@ std::string GetPlatformVendor(cl_platform_id platformId) {
 }
 
 cl_platform_id FindPlatformByVendor(std::string const &desiredVendor) {
-
   cl_platform_id platformId{};
 
   auto available = GetAvailablePlatforms();
@@ -147,20 +161,19 @@ cl_platform_id FindPlatformByVendor(std::string const &desiredVendor) {
   return platformId;
 }
 
-std::vector<cl_device_id>
-GetAvailableDevices(cl_platform_id const &platformId) {
-
+std::vector<cl_device_id> GetAvailableDevices(
+    cl_platform_id const &platformId) {
   std::vector<cl_device_id> devices(kMaxCount);
   cl_uint deviceCount;
-  auto errorCode = clGetDeviceIDs(platformId, CL_DEVICE_TYPE_ALL,
-                                  kMaxCount, devices.data(), &deviceCount);
+  auto errorCode = clGetDeviceIDs(platformId, CL_DEVICE_TYPE_ALL, kMaxCount,
+                                  devices.data(), &deviceCount);
 
   if (errorCode != CL_SUCCESS) {
     ThrowConfigurationError("Failed to retrieve device IDs.");
     return {};
   }
 
-  devices.resize(deviceCount); 
+  devices.resize(deviceCount);
   return devices;
 }
 
@@ -177,7 +190,6 @@ std::string GetDeviceName(cl_device_id const &deviceId) {
 
 cl_device_id FindDeviceByName(cl_platform_id const &platformId,
                               std::string const &desiredDevice) {
-
   cl_device_id device;
   auto available = GetAvailableDevices(platformId);
   if (available.size() == 0) {
@@ -226,7 +238,9 @@ cl_command_queue CreateCommandQueue(cl_context const &context,
                                     cl_device_id const &deviceId) {
   cl_int errorCode;
   auto commandQueue = clCreateCommandQueue(
-      context, deviceId, CL_QUEUE_PROFILING_ENABLE, &errorCode);
+      context, deviceId,
+      CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE,
+      &errorCode);
   if (errorCode != CL_SUCCESS) {
     ThrowRuntimeError("Failed to create command queue.");
     return {};
@@ -234,32 +248,25 @@ cl_command_queue CreateCommandQueue(cl_context const &context,
   return commandQueue;
 }
 
-} // End anonymous namespace
+}  // End anonymous namespace
 
-enum class Access {
-  read,
-  write,
-  readWrite 
-};
-
-enum class MemoryBank {
-  bank0,
-  bank1,
-  bank2,
-  bank3
-};
+// Forward declarations for use in MakeProgram and MakeKernel signatures 
 
 template <typename, Access>
 class Buffer;
 
 class Kernel;
 
+class Program;
+
+//#############################################################################
+// Context
+//#############################################################################
+
 class Context {
-
-public:
+ public:
   /// Performs initialization of the requested device
-  Context(std::string const &vendorName, std::string const &deviceName) {
-
+  inline Context(std::string const &vendorName, std::string const &deviceName) {
     // Find requested OpenCL platform
     platformId_ = FindPlatformByVendor(vendorName);
 
@@ -271,13 +278,12 @@ public:
     commandQueue_ = CreateCommandQueue(context_, deviceId_);
   }
 
-  /// Performs initialization of first available device of requested vendor 
-  Context() {
-
+  /// Performs initialization of first available device of requested vendor
+  inline Context() {
     // Find requested OpenCL platform
     platformId_ = FindPlatformByVendor("Xilinx");
 
-    auto devices = GetAvailableDevices(platformId_); 
+    auto devices = GetAvailableDevices(platformId_);
     if (devices.size() == 0) {
       ThrowConfigurationError("No OpenCL devices found for platform.");
       return;
@@ -294,60 +300,55 @@ public:
 
   Context(Context const &) = delete;
   Context(Context &&) = default;
-  Context& operator=(Context const &) = delete;
-  Context& operator=(Context &&) = default;
+  Context &operator=(Context const &) = delete;
+  Context &operator=(Context &&) = default;
 
-  ~Context() {
+  inline ~Context() {
     clReleaseContext(context_);
     clReleaseCommandQueue(commandQueue_);
   }
 
-  cl_device_id const &deviceId() const {
-    return deviceId_;
-  }
+  /// Create an OpenCL program from the given binary, from which kernels can be
+  /// instantiated and executed.
+  Program MakeProgram(std::string const &path);
 
-  std::string DeviceName() const {
-    return GetDeviceName(deviceId_);
-  }
+  /// Returns the internal OpenCL device id.
+  inline cl_device_id const &deviceId() const { return deviceId_; }
 
-  cl_context const &context() const {
-    return context_;
-  }
+  inline std::string DeviceName() const { return GetDeviceName(deviceId_); }
 
-  cl_command_queue const &commandQueue() const {
-    return commandQueue_;
-  }
+  /// Returns the internal OpenCL execution context.
+  inline cl_context const &context() const { return context_; }
+
+  /// Returns the internal OpenCL command queue.
+  inline cl_command_queue const &commandQueue() const { return commandQueue_; }
 
   template <typename T, Access access>
   Buffer<T, access> MakeBuffer();
 
   template <typename T, Access access, typename... Ts>
-  Buffer<T, access> MakeBuffer(MemoryBank memoryBank, Ts&&... args);
+  Buffer<T, access> MakeBuffer(MemoryBank memoryBank, Ts &&... args);
 
-  template <typename... Ts>
-  Kernel MakeKernel(std::string const &path, std::string const &kernelName,
-                    Ts &&... args);
-
-private:
+ private:
   cl_platform_id platformId_{};
   cl_device_id deviceId_{};
   cl_context context_{};
   cl_command_queue commandQueue_{};
 
-}; // End class Context 
+};  // End class Context
 
+//#############################################################################
+// Buffer
+//#############################################################################
 
 template <typename T, Access access>
 class Buffer {
-
-public:
+ public:
   Buffer() : context_(nullptr), nElements_(0) {}
 
-  Buffer(Buffer<T, access> const &other) = delete; 
+  Buffer(Buffer<T, access> const &other) = delete;
 
-  Buffer(Buffer<T, access> &&other) : Buffer() {
-    swap(*this, other);
-  }
+  Buffer(Buffer<T, access> &&other) : Buffer() { swap(*this, other); }
 
   /// Allocate and copy to device.
   template <typename IteratorType, typename = typename std::enable_if<
@@ -356,20 +357,19 @@ public:
   Buffer(Context const &context, MemoryBank memoryBank, IteratorType begin,
          IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
-
     auto extendedPointer = CreateExtendedPointer(begin, memoryBank);
 
     cl_mem_flags flags = CL_MEM_COPY_HOST_PTR | kXilinxMemPointer;
     switch (access) {
-    case Access::read:
-      flags |= CL_MEM_READ_ONLY;
-      break;
-    case Access::write:
-      flags |= CL_MEM_WRITE_ONLY;
-      break;
-    case Access::readWrite:
-      flags |= CL_MEM_READ_WRITE;
-      break;
+      case Access::read:
+        flags |= CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        flags |= CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        flags |= CL_MEM_READ_WRITE;
+        break;
     }
 
     cl_int errorCode;
@@ -381,27 +381,25 @@ public:
       ThrowRuntimeError("Failed to initialize and copy to device memory.");
       return;
     }
-
   }
 
   /// Allocate device memory but don't perform any transfers.
   Buffer(Context const &context, MemoryBank memoryBank, size_t nElements)
       : context_(&context), nElements_(nElements) {
-
     T *dummy = nullptr;
     auto extendedPointer = CreateExtendedPointer(dummy, memoryBank);
 
     cl_mem_flags flags = kXilinxMemPointer;
     switch (access) {
-    case Access::read:
-      flags |= CL_MEM_READ_ONLY;
-      break;
-    case Access::write:
-      flags |= CL_MEM_WRITE_ONLY;
-      break;
-    case Access::readWrite:
-      flags |= CL_MEM_READ_WRITE;
-      break;
+      case Access::read:
+        flags |= CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        flags |= CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        flags |= CL_MEM_READ_WRITE;
+        break;
     }
 
     cl_int errorCode;
@@ -413,7 +411,6 @@ public:
       ThrowRuntimeError("Failed to initialize device memory.");
       return;
     }
-      
   }
 
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
@@ -439,7 +436,6 @@ public:
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   void CopyFromHost(IteratorType source) {
-
     cl_event event;
     // We cannot pass a const pointer to clCreateBuffer even though the function
     // should be read only, so we allow a const_cast
@@ -501,25 +497,24 @@ public:
 
   size_t nElements() const { return nElements_; }
 
-private:
-
+ private:
   template <typename IteratorType>
   ExtendedMemoryPointer CreateExtendedPointer(IteratorType begin,
                                               MemoryBank memoryBank) {
     ExtendedMemoryPointer extendedPointer;
     switch (memoryBank) {
-    case MemoryBank::bank0:
-      extendedPointer.flags = kXilinxBank0;
-      break;
-    case MemoryBank::bank1:
-      extendedPointer.flags = kXilinxBank1;
-      break;
-    case MemoryBank::bank2:
-      extendedPointer.flags = kXilinxBank2;
-      break;
-    case MemoryBank::bank3:
-      extendedPointer.flags = kXilinxBank3;
-      break;
+      case MemoryBank::bank0:
+        extendedPointer.flags = kXilinxBank0;
+        break;
+      case MemoryBank::bank1:
+        extendedPointer.flags = kXilinxBank1;
+        break;
+      case MemoryBank::bank2:
+        extendedPointer.flags = kXilinxBank2;
+        break;
+      case MemoryBank::bank3:
+        extendedPointer.flags = kXilinxBank3;
+        break;
     }
     // The target address will not be changed, but OpenCL only accepts
     // non-const, so do a const_cast here
@@ -534,54 +529,26 @@ private:
   cl_mem devicePtr_{};
   size_t nElements_;
 
-}; // End class Buffer 
+};  // End class Buffer
 
-class Kernel {
+//#############################################################################
+// Program
+//#############################################################################
 
-private:
+/// Represents an OpenCL program, which can contain multiple kernels. This is
+/// relevant for FPGA bitstreams generated from multiple OpenCL kernels, or
+/// that use multiple compute units mapped to different outputs, as we need
+/// to address different kernels within the same program.
+class Program {
 
-  template <typename T, Access access>
-  void SetKernelArguments(size_t index, Buffer<T, access> &arg) {
-    auto errorCode =
-        clSetKernelArg(kernel_, index, sizeof(cl_mem), &arg.devicePtr());
-    if (errorCode != CL_SUCCESS) {
-      std::stringstream ss;
-      ss << "Failed to set kernel argument " << index << ".";
-      ThrowConfigurationError(ss.str());
-      return;
-    }
-  }
-
-  template <typename T>
-  void SetKernelArguments(size_t index, T arg) {
-    auto errorCode = clSetKernelArg(kernel_, index, sizeof(T), &arg);
-    if (errorCode != CL_SUCCESS) {
-      std::stringstream ss;
-      ss << "Failed to set kernel argument " << index << ".";
-      ThrowConfigurationError(ss.str());
-      return;
-    }
-  }
-
-  template <typename T, typename... Ts>
-  void SetKernelArguments(size_t index, T &arg, Ts &... args) {
-    SetKernelArguments(index, arg);
-    SetKernelArguments(index + 1, args...);
-  }
-
-public:
-
-  /// Load kernel from binary file
-  template <typename... Ts>
-  Kernel(Context const &context, std::string const &path,
-         std::string const &kernelName, Ts &... kernelArgs)
-      : context_(context) {
-
-    std::ifstream input(path,
-                        std::ios::in | std::ios::binary | std::ios::ate);
+ public:
+  /// Load program from binary file
+  inline Program(Context const &context, std::string const &path)
+      : context_(context), path_(path) {
+    std::ifstream input(path, std::ios::in | std::ios::binary | std::ios::ate);
     if (!input.is_open()) {
       std::stringstream ss;
-      ss << "Failed to open kernel file \"" << path << "\".";
+      ss << "Failed to open program file \"" << path << "\".";
       ThrowConfigurationError(ss.str());
       return;
     }
@@ -601,7 +568,7 @@ public:
 
     // Create OpenCL program
     cl_int binaryStatus;
-    // Since this is just binary data the reinterpret_cast should be safe
+    // Since this is just binary data the reinterpret_cast *should* be safe
     const unsigned char *binaryData =
         reinterpret_cast<const unsigned char *>(fileContent.data());
     program_ = clCreateProgramWithBinary(
@@ -631,45 +598,110 @@ public:
       ThrowConfigurationError(ss.str());
       return;
     }
+  }
 
+  inline ~Program() { clReleaseProgram(program_); }
+
+  // Returns the reference Context object.
+  inline Context const &context() const { return context_; }
+
+  // Returns the internal OpenCL program object.
+  inline cl_program const &program() const { return program_; }
+
+  // Returns the path to the loaded program
+  inline std::string const &path() const { return path_; }
+
+  /// Create a kernel with the specified name contained in this loaded OpenCL
+  /// program, binding the argument to the passed ones.
+  template <typename... Ts>
+  Kernel MakeKernel(std::string const &kernelName, Ts &&... args);
+
+ private:
+  Context const &context_;
+  cl_program program_{};
+  std::string path_;
+};
+
+//#############################################################################
+// Kernel
+//#############################################################################
+
+class Kernel {
+ private:
+  template <typename T, Access access>
+  void SetKernelArguments(size_t index, Buffer<T, access> &arg) {
+    auto errorCode =
+        clSetKernelArg(kernel_, index, sizeof(cl_mem), &arg.devicePtr());
+    if (errorCode != CL_SUCCESS) {
+      std::stringstream ss;
+      ss << "Failed to set kernel argument " << index << ".";
+      ThrowConfigurationError(ss.str());
+      return;
+    }
+  }
+
+  template <typename T>
+  void SetKernelArguments(size_t index, T arg) {
+    auto errorCode = clSetKernelArg(kernel_, index, sizeof(T), &arg);
+    if (errorCode != CL_SUCCESS) {
+      std::stringstream ss;
+      ss << "Failed to set kernel argument " << index << ".";
+      ThrowConfigurationError(ss.str());
+      return;
+    }
+  }
+
+  template <typename T, typename... Ts>
+  void SetKernelArguments(size_t index, T &arg, Ts &... args) {
+    SetKernelArguments(index, arg);
+    SetKernelArguments(index + 1, args...);
+  }
+
+ public:
+  /// Load kernel from binary file
+  template <typename... Ts>
+  Kernel(Program &program, std::string const &kernelName,
+         Ts &... kernelArgs)
+      : program_(program) {
     // Create executable compute kernel
-    kernel_ = clCreateKernel(program_, kernelName.data(), &errorCode);
+    cl_int errorCode;
+    kernel_ = clCreateKernel(program_.program(), &kernelName[0], &errorCode);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to create kernel with name \"" << kernelName
-         << "\" from binary file \"" << path << "\".";
+         << "\" from program \"" << program_.path() << "\".";
       ThrowConfigurationError(ss.str());
       return;
     }
 
-    // Pass kernel arguments 
+    // Pass kernel arguments
     SetKernelArguments(0, kernelArgs...);
-
   }
 
-  ~Kernel() {
-    clReleaseKernel(kernel_);
-    clReleaseProgram(program_);
-  }
+  inline ~Kernel() { clReleaseKernel(kernel_); }
+
+  inline Program const &program() const { return program_; }
+
+  inline cl_kernel kernel() const { return kernel_; }
 
   /// Execute the kernel as an OpenCL task and returns the time elapsed as
   /// reported by SDAccel (first) and as measured manually with chrono (second).
-  std::pair<double, double> ExecuteTask() {
+  inline std::pair<double, double> ExecuteTask() {
     return ExecuteRange<1>({{1}}, {{1}});
   }
 
   /// Execute the kernel as an OpenCL NDRange and returns the time elapsed as
   /// reported by SDAccel (first) and as measured manually with chrono (second).
   template <unsigned dims>
-  std::pair<double, double>
-  ExecuteRange(std::array<size_t, dims> const &globalSize,
-               std::array<size_t, dims> const &localSize) {
+  std::pair<double, double> ExecuteRange(
+      std::array<size_t, dims> const &globalSize,
+      std::array<size_t, dims> const &localSize) {
     cl_event event;
     static std::array<size_t, dims> offsets = {};
     const auto start = std::chrono::high_resolution_clock::now();
-    auto errorCode = clEnqueueNDRangeKernel(context_.commandQueue(), kernel_,
-                                            dims, &offsets[0], &globalSize[0],
-                                            &localSize[0], 0, nullptr, &event);
+    auto errorCode = clEnqueueNDRangeKernel(
+        program_.context().commandQueue(), kernel_, dims, &offsets[0],
+        &globalSize[0], &localSize[0], 0, nullptr, &event);
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to execute kernel.");
       return {};
@@ -683,18 +715,21 @@ public:
     cl_ulong timeStart, timeEnd;
     clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
                             sizeof(timeStart), &timeStart, nullptr);
-    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END,
-                            sizeof(timeEnd), &timeEnd, nullptr);
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(timeEnd),
+                            &timeEnd, nullptr);
     const double elapsedSDAccel = 1e-9 * (timeEnd - timeStart);
     return {elapsedSDAccel, elapsedChrono};
   }
 
-private:
-  Context const &context_;
-  cl_program program_{};
+ private:
+  Program &program_;
   cl_kernel kernel_{};
 
-}; // End class Kernel
+};  // End class Kernel
+
+//#############################################################################
+// Implementations
+//#############################################################################
 
 template <typename T, Access access>
 Buffer<T, access> Context::MakeBuffer() {
@@ -702,17 +737,19 @@ Buffer<T, access> Context::MakeBuffer() {
 }
 
 template <typename T, Access access, typename... Ts>
-Buffer<T, access> Context::MakeBuffer(MemoryBank memoryBank, Ts&&... args) {
+Buffer<T, access> Context::MakeBuffer(MemoryBank memoryBank, Ts &&... args) {
   return Buffer<T, access>(*this, memoryBank, args...);
 }
 
-template <typename... Ts>
-Kernel Context::MakeKernel(std::string const &path,
-                           std::string const &kernelName,
-                           Ts&&... args) {
-  return Kernel(*this, path, kernelName, args...);
+Program Context::MakeProgram(std::string const &path) {
+  return Program(*this, path);
 }
 
-} // End namespace ocl 
+template <typename... Ts>
+Kernel Program::MakeKernel(std::string const &kernelName, Ts &&... args) {
+  return Kernel(*this, kernelName, args...);
+}
 
-} // End namespace hlslib
+}  // End namespace ocl
+
+}  // End namespace hlslib
