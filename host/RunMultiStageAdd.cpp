@@ -22,8 +22,8 @@ TEST_CASE("MultiStageAddDevice", "[MultiStageAddDevice]") {
   std::cout << " Done." << std::endl;
 
   std::cout << "Creating kernel..." << std::flush;
-  auto kernel = context.MakeKernel("MultiStageAdd.xclbin", "MultiStageAdd",
-                                   memDevice, memDevice);
+  auto program = context.MakeProgram("MultiStageAdd.xclbin");
+  auto kernel = program.MakeKernel("MultiStageAdd", memDevice, memDevice);
   std::cout << " Done." << std::endl;
 
   std::cout << "Executing kernel..." << std::flush;

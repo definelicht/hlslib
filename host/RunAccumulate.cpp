@@ -46,8 +46,8 @@ TEST_CASE(kKernelName, kKernelName) {
   std::cout << " Done." << std::endl;
 
   std::cout << "Creating kernel..." << std::flush;
-  auto kernel =
-      context.MakeKernel(kKernelFile, kKernelName, inputDevice, outputDevice);
+  auto program = context.MakeProgram(kKernelFile);
+  auto kernel = program.MakeKernel(kKernelName, inputDevice, outputDevice);
   std::cout << " Done." << std::endl;
 
   std::cout << "Executing kernel..." << std::flush;
