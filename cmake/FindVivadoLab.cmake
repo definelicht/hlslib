@@ -1,4 +1,4 @@
-# Author:  Johannes de Fine Licht (johannes.definelicht@inf.ethz.ch)
+# Author:  Johannes de Fine Licht (definelicht@inf.ethz.ch)
 # Created: March 2017 
 # This software is copyrighted under the BSD 3-Clause License. 
 #
