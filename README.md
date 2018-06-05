@@ -18,6 +18,12 @@ Some of these headers are interdependent, while others can be included standalon
 * `include/hlslib/Operators.h`, which includes some commonly used operators as functors to be plugged into templated functions such as `TreeReduce` and `Accumulate`.
 * `include/hlslib/Axi.h`, which implements the AXI Stream interface and the bus interfaces required by the DataMover IP, enabling the use of a command stream-based memory interface for HLS kernels if packaged as an RTL kernel where the DataMover IP is connected to the AXI interfaces.
 
+## An example
+
+If you prefer to learn by example, take a look at our implementation matrix-matrix multiplication, which uses the core features of this library:
+
+https://github.com/spcl/gemm_hls
+
 ## Installation
 
 The source code provided in this repository can be used on a file-by-file basis, and as such does not need to be compiled/installed. Rather, header files (located in `include/hlslib`) and CMake module files (located in `cmake`) can simply be copied to the source directory of an HLS project.
