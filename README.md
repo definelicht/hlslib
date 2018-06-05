@@ -20,7 +20,7 @@ Some of these headers are interdependent, while others can be included standalon
 
 ## An example
 
-If you prefer to learn by example, take a look at our implementation matrix-matrix multiplication, which uses the core features of this library:
+For an real life example of using the core features of `hlslib`, take a look at our matrix-matrix multiplication code:
 
 https://github.com/spcl/gemm_hls
 
