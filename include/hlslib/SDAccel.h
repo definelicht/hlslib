@@ -337,6 +337,11 @@ class Context {
 
 };  // End class Context
 
+inline Context& GlobalContext() {
+  static Context singleton;
+  return singleton;
+}
+
 //#############################################################################
 // Buffer
 //#############################################################################
@@ -435,13 +440,11 @@ class Buffer {
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  void CopyFromHost(IteratorType source) {
+  void CopyFromHost(int deviceOffset, int numElements, IteratorType source) {
     cl_event event;
-    // We cannot pass a const pointer to clCreateBuffer even though the function
-    // should be read only, so we allow a const_cast
     auto errorCode =
-        clEnqueueWriteBuffer(context_->commandQueue(), devicePtr_, CL_TRUE, 0,
-                             sizeof(T) * nElements_,
+        clEnqueueWriteBuffer(context_->commandQueue(), devicePtr_, CL_TRUE,
+                             deviceOffset, sizeof(T) * numElements,
                              const_cast<T *>(&(*source)), 0, nullptr, &event);
     if (errorCode != CL_SUCCESS) {
       throw std::runtime_error("Failed to copy data to device.");
@@ -452,16 +455,30 @@ class Buffer {
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  void CopyToHost(IteratorType target) {
+  void CopyFromHost(IteratorType source) {
+    return CopyFromHost(0, nElements_, source);
+  }
+
+  template <typename IteratorType, typename = typename std::enable_if<
+                                       IsIteratorOfType<IteratorType, T>() &&
+                                       IsRandomAccess<IteratorType>()>::type>
+  void CopyToHost(int deviceOffset, int numElements, IteratorType target) {
     cl_event event;
-    auto errorCode = clEnqueueReadBuffer(context_->commandQueue(), devicePtr_,
-                                         CL_TRUE, 0, sizeof(T) * nElements_,
-                                         &(*target), 0, nullptr, &event);
+    auto errorCode = clEnqueueReadBuffer(
+        context_->commandQueue(), devicePtr_, CL_TRUE, deviceOffset,
+        sizeof(T) * numElements, &(*target), 0, nullptr, &event);
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy back memory from device.");
       return;
     }
     clWaitForEvents(1, &event);
+  }
+
+  template <typename IteratorType, typename = typename std::enable_if<
+                                       IsIteratorOfType<IteratorType, T>() &&
+                                       IsRandomAccess<IteratorType>()>::type>
+  void CopyToHost(IteratorType target) {
+    return CopyToHost(0, nElements_, target);
   }
 
   template <Access accessType>
