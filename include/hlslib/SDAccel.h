@@ -267,6 +267,7 @@ class Context {
  public:
   /// Performs initialization of the requested device
   inline Context(std::string const &vendorName, std::string const &deviceName) {
+#ifndef HLSLIB_SIMULATE_OPENCL
     // Find requested OpenCL platform
     platformId_ = FindPlatformByVendor(vendorName);
 
@@ -276,10 +277,12 @@ class Context {
     context_ = CreateComputeContext(deviceId_);
 
     commandQueue_ = CreateCommandQueue(context_, deviceId_);
+#endif
   }
 
   /// Performs initialization of first available device of requested vendor
   inline Context() {
+#ifndef HLSLIB_SIMULATE_OPENCL
     // Find requested OpenCL platform
     platformId_ = FindPlatformByVendor("Xilinx");
 
@@ -296,6 +299,7 @@ class Context {
     context_ = CreateComputeContext(deviceId_);
 
     commandQueue_ = CreateCommandQueue(context_, deviceId_);
+#endif
   }
 
   inline Context(Context const &) = delete;
@@ -304,8 +308,10 @@ class Context {
   inline Context &operator=(Context &&) = default;
 
   inline ~Context() {
+#ifndef HLSLIB_SIMULATE_OPENCL
     clReleaseContext(context_);
     clReleaseCommandQueue(commandQueue_);
+#endif
   }
 
   /// Create an OpenCL program from the given binary, from which kernels can be
@@ -315,7 +321,13 @@ class Context {
   /// Returns the internal OpenCL device id.
   inline cl_device_id const &deviceId() const { return deviceId_; }
 
-  inline std::string DeviceName() const { return GetDeviceName(deviceId_); }
+  inline std::string DeviceName() const {
+#ifndef HLSLIB_SIMULATE_OPENCL
+    return GetDeviceName(deviceId_);
+#else
+    return "Simulation";  
+#endif
+  }
 
   /// Returns the internal OpenCL execution context.
   inline cl_context const &context() const { return context_; }
@@ -348,6 +360,7 @@ inline Context& GlobalContext() {
 
 template <typename T, Access access>
 class Buffer {
+
  public:
   Buffer() : context_(nullptr), nElements_(0) {}
 
@@ -362,6 +375,8 @@ class Buffer {
   Buffer(Context const &context, MemoryBank memoryBank, IteratorType begin,
          IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
+
+#ifndef HLSLIB_SIMULATE_OPENCL
     auto extendedPointer = CreateExtendedPointer(begin, memoryBank);
 
     cl_mem_flags flags = CL_MEM_COPY_HOST_PTR | kXilinxMemPointer;
@@ -386,11 +401,16 @@ class Buffer {
       ThrowRuntimeError("Failed to initialize and copy to device memory.");
       return;
     }
+#else
+    devicePtr = std::vector<T>(nElements_);
+    std::copy(begin, end, devicePtr_.begin());
+#endif
   }
 
   /// Allocate device memory but don't perform any transfers.
   Buffer(Context const &context, MemoryBank memoryBank, size_t nElements)
       : context_(&context), nElements_(nElements) {
+#ifndef HLSLIB_SIMULATE_OPENCL
     T *dummy = nullptr;
     auto extendedPointer = CreateExtendedPointer(dummy, memoryBank);
 
@@ -416,6 +436,9 @@ class Buffer {
       ThrowRuntimeError("Failed to initialize device memory.");
       return;
     }
+#else
+    devicePtr_ = std::vector<T>(nElements_);
+#endif
   }
 
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
@@ -432,15 +455,18 @@ class Buffer {
   }
 
   ~Buffer() {
+#ifndef HLSLIB_SIMULATE_OPENCL
     if (nElements_ > 0) {
       clReleaseMemObject(devicePtr_);
     }
+#endif
   }
 
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   void CopyFromHost(int deviceOffset, int numElements, IteratorType source) {
+#ifndef HLSLIB_SIMULATE_OPENCL
     cl_event event;
     auto errorCode =
         clEnqueueWriteBuffer(context_->commandQueue(), devicePtr_, CL_TRUE,
@@ -450,6 +476,9 @@ class Buffer {
       throw std::runtime_error("Failed to copy data to device.");
     }
     clWaitForEvents(1, &event);
+#else
+    std::copy(source, source + numElements, devicePtr_.begin() + deviceOffset);
+#endif
   }
 
   template <typename IteratorType, typename = typename std::enable_if<
@@ -463,6 +492,7 @@ class Buffer {
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   void CopyToHost(int deviceOffset, int numElements, IteratorType target) {
+#ifndef HLSLIB_SIMULATE_OPENCL
     cl_event event;
     auto errorCode = clEnqueueReadBuffer(
         context_->commandQueue(), devicePtr_, CL_TRUE, deviceOffset,
@@ -472,6 +502,10 @@ class Buffer {
       return;
     }
     clWaitForEvents(1, &event);
+#else
+    std::copy(devicePtr_.begin() + deviceOffset,
+              devicePtr_.begin() + deviceOffset + numElements, target);
+#endif
   }
 
   template <typename IteratorType, typename = typename std::enable_if<
@@ -484,6 +518,7 @@ class Buffer {
   template <Access accessType>
   void CopyToDevice(Buffer<T, accessType> &other, size_t offsetSource,
                     size_t offsetDestination, size_t count) {
+#ifndef HLSLIB_SIMULATE_OPENCL
     if (offsetSource + count > nElements_ ||
         offsetDestination + count > other.nElements()) {
       ThrowRuntimeError("Device to device copy interval out of range.");
@@ -497,6 +532,10 @@ class Buffer {
       return;
     }
     clWaitForEvents(1, &event);
+#else
+    std::copy(devicePtr_.begin() + offsetSource,
+              devicePtr_ + offsetSource + count, other.devicePtr_.begin());
+#endif
   }
 
   template <Access accessType>
@@ -508,9 +547,16 @@ class Buffer {
     CopyToDevice(other, 0, 0, nElements_);
   }
 
+  
+#ifndef HLSLIB_SIMULATE_OPENCL
   cl_mem const &devicePtr() const { return devicePtr_; }
 
   cl_mem &devicePtr() { return devicePtr_; }
+#else
+  T const *devicePtr() const { return devicePtr_.data(); }
+
+  T *devicePtr() { return devicePtr_.data(); }
+#endif
 
   size_t nElements() const { return nElements_; }
 
@@ -543,7 +589,11 @@ class Buffer {
   }
 
   Context const *context_;
+#ifndef HLSLIB_SIMULATE_OPENCL
   cl_mem devicePtr_{};
+#else
+  std::vector<T> devicePtr_{};
+#endif
   size_t nElements_;
 
 };  // End class Buffer
