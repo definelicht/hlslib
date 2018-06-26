@@ -298,10 +298,10 @@ class Context {
     commandQueue_ = CreateCommandQueue(context_, deviceId_);
   }
 
-  Context(Context const &) = delete;
-  Context(Context &&) = default;
-  Context &operator=(Context const &) = delete;
-  Context &operator=(Context &&) = default;
+  inline Context(Context const &) = delete;
+  inline Context(Context &&) = default;
+  inline Context &operator=(Context const &) = delete;
+  inline Context &operator=(Context &&) = default;
 
   inline ~Context() {
     clReleaseContext(context_);
@@ -310,7 +310,7 @@ class Context {
 
   /// Create an OpenCL program from the given binary, from which kernels can be
   /// instantiated and executed.
-  Program MakeProgram(std::string const &path);
+  inline Program MakeProgram(std::string const &path);
 
   /// Returns the internal OpenCL device id.
   inline cl_device_id const &deviceId() const { return deviceId_; }
