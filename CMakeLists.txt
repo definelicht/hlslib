@@ -72,7 +72,7 @@ endif()
 set(HLSLIB_PROJECT_NAME "Reduce")
 set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/Reduce.cpp")
 set(HLSLIB_ENTRY_FUNCTION "Reduce")
-set(HLSLIB_TARGET_TIMING "5")
+set(HLSLIB_TARGET_CLOCK "200")
 configure_file(scripts/Synthesis.tcl.in SynthesizeReduce.tcl)
 add_custom_target(synthesize_reduce
   COMMAND ${HLSLIB_HLS} -f SynthesizeReduce.tcl) 
