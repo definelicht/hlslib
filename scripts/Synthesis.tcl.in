@@ -9,5 +9,11 @@ set_part ${HLSLIB_PART_NAME}
 add_files -cflags "-DHLSLIB_SYNTHESIS ${HLSLIB_SYNTHESIS_FLAGS} ${CMAKE_CXX_FLAGS} -I${CMAKE_SOURCE_DIR}/include" "${HLSLIB_SRC_SYNTHESIS}" 
 set_top ${HLSLIB_ENTRY_FUNCTION} 
 create_clock -period ${HLSLIB_TARGET_CLOCK}MHz -name default
+# SDAccel default options
+config_rtl -register_reset
+config_interface -m_axi_addr64
+config_schedule -relax_ii_for_timing
+config_compile -pipeline_loops 64
+config_compile -name_max_length 256
 csynth_design
 exit
