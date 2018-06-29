@@ -29,6 +29,7 @@ class DataPack {
 public:
 
   static constexpr int kBits = 8 * sizeof(T);
+  static constexpr int kWidth = width;
   using Pack_t = ap_uint<kBits>;
   using Internal_t = ap_uint<width * kBits>;
 
