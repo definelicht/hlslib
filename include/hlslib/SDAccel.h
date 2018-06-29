@@ -517,17 +517,17 @@ class Buffer {
   }
 
   template <Access accessType>
-  void CopyToDevice(Buffer<T, accessType> &other, size_t offsetSource,
-                    size_t offsetDestination, size_t count) {
+  void CopyToDevice(size_t offsetSource, size_t numElements,
+                    Buffer<T, accessType> &other, size_t offsetDestination) {
 #ifndef HLSLIB_SIMULATE_OPENCL
-    if (offsetSource + count > nElements_ ||
-        offsetDestination + count > other.nElements()) {
+    if (offsetSource + numElements > nElements_ ||
+        offsetDestination + numElements > other.nElements()) {
       ThrowRuntimeError("Device to device copy interval out of range.");
     }
     cl_event event;
     auto errorCode = clEnqueueCopyBuffer(
         context_->commandQueue(), devicePtr_, other.devicePtr(), offsetSource,
-        offsetDestination, count * sizeof(T), 0, nullptr, &event);
+        offsetDestination, numElements * sizeof(T), 0, nullptr, &event);
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy from device to device.");
       return;
@@ -535,8 +535,15 @@ class Buffer {
     clWaitForEvents(1, &event);
 #else
     std::copy(devicePtr_.begin() + offsetSource,
-              devicePtr_ + offsetSource + count, other.devicePtr_.begin());
+              devicePtr_.begin() + offsetSource + numElements,
+              other.devicePtr_.begin() + offsetDestination);
 #endif
+  }
+
+  template <Access accessType>
+  void CopyToDevice(size_t offsetSource, size_t numElements,
+                    Buffer<T, accessType> &other) {
+    CopyToDevice(offsetSource, numElements, other, 0);
   }
 
   template <Access accessType>
@@ -545,7 +552,7 @@ class Buffer {
       ThrowRuntimeError(
           "Device to device copy issued for buffers of different size.");
     }
-    CopyToDevice(other, 0, 0, nElements_);
+    CopyToDevice(0, nElements_, other, 0);
   }
 
   
