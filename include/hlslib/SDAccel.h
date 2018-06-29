@@ -762,13 +762,13 @@ class Kernel {
   }
 
   template <class F, typename... Ts>
-  static std::function<void(void)> Bind(F &f, Ts &&... args) {
+  static std::function<void(void)> Bind(F &&f, Ts &&... args) {
     return std::bind(f, UnpackPointers(std::forward<Ts>(args))...); 
   }
 
  public:
 
-  /// Also past the kernel function as a host function signature. This helps to
+  /// Also pass the kernel function as a host function signature. This helps to
   /// verify that the arguments are correct, and allows calling the host
   /// function in simulation mode.
   template <typename F, typename... Ts>
