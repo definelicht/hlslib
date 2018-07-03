@@ -890,6 +890,11 @@ Program Context::MakeProgram(std::string const &path) {
   return Program(*this, path);
 }
 
+template <typename... Ts>
+Kernel Program::MakeKernel(std::string const &kernelName, Ts &&... args) {
+  return Kernel(*this, kernelName, std::forward<Ts>(args)...);
+}
+
 template <typename F, typename... Ts>
 Kernel Program::MakeKernel(F &&hostFunction, std::string const &kernelName,
                            Ts &&... args) {
