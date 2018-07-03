@@ -79,6 +79,15 @@ configure_file(scripts/Synthesis.tcl.in SynthesizeReduce.tcl)
 add_custom_target(synthesize_reduce
   COMMAND ${HLSLIB_HLS} -f SynthesizeReduce.tcl) 
 
+# Test synthesis of flatten 
+set(HLSLIB_PROJECT_NAME "Flatten")
+set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/Flatten.cpp")
+set(HLSLIB_ENTRY_FUNCTION "Flatten")
+set(HLSLIB_TARGET_CLOCK "200")
+configure_file(scripts/Synthesis.tcl.in SynthesizeFlatten.tcl)
+add_custom_target(synthesize_flatten
+  COMMAND ${HLSLIB_HLS} -f SynthesizeFlatten.tcl) 
+
 # Multi stage add to test streams and multi-threaded simulation of loop-based
 # dataflow kernels
 set(HLSLIB_PROJECT_NAME "MultiStageAdd")
@@ -107,7 +116,7 @@ set(HLSLIB_PROJECT_NAME "AccumulateFloat")
 set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/AccumulateFloat.cpp")
 set(HLSLIB_ENTRY_FUNCTION "AccumulateFloat")
 set(HLSLIB_TARGET_TIMING "5")
-set(HLSLIB_SYNTHESIS_FLAGS "-std=c++11 -DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
+set(HLSLIB_SYNTHESIS_FLAGS "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
 configure_file(scripts/Synthesis.tcl.in SynthesizeAccumulateFloat.tcl)
 add_custom_target(synthesize_accumulate_float
   COMMAND ${HLSLIB_HLS} -f SynthesizeAccumulateFloat.tcl) 
