@@ -7,6 +7,7 @@
 #include <array>
 #include <chrono>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <iterator>
 #include <sstream>
@@ -516,17 +517,17 @@ class Buffer {
   }
 
   template <Access accessType>
-  void CopyToDevice(Buffer<T, accessType> &other, size_t offsetSource,
-                    size_t offsetDestination, size_t count) {
+  void CopyToDevice(size_t offsetSource, size_t numElements,
+                    Buffer<T, accessType> &other, size_t offsetDestination) {
 #ifndef HLSLIB_SIMULATE_OPENCL
-    if (offsetSource + count > nElements_ ||
-        offsetDestination + count > other.nElements()) {
+    if (offsetSource + numElements > nElements_ ||
+        offsetDestination + numElements > other.nElements()) {
       ThrowRuntimeError("Device to device copy interval out of range.");
     }
     cl_event event;
     auto errorCode = clEnqueueCopyBuffer(
         context_->commandQueue(), devicePtr_, other.devicePtr(), offsetSource,
-        offsetDestination, count * sizeof(T), 0, nullptr, &event);
+        offsetDestination, numElements * sizeof(T), 0, nullptr, &event);
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy from device to device.");
       return;
@@ -534,8 +535,15 @@ class Buffer {
     clWaitForEvents(1, &event);
 #else
     std::copy(devicePtr_.begin() + offsetSource,
-              devicePtr_ + offsetSource + count, other.devicePtr_.begin());
+              devicePtr_.begin() + offsetSource + numElements,
+              other.devicePtr_.begin() + offsetDestination);
 #endif
+  }
+
+  template <Access accessType>
+  void CopyToDevice(size_t offsetSource, size_t numElements,
+                    Buffer<T, accessType> &other) {
+    CopyToDevice(offsetSource, numElements, other, 0);
   }
 
   template <Access accessType>
@@ -544,7 +552,7 @@ class Buffer {
       ThrowRuntimeError(
           "Device to device copy issued for buffers of different size.");
     }
-    CopyToDevice(other, 0, 0, nElements_);
+    CopyToDevice(0, nElements_, other, 0);
   }
 
   
@@ -612,6 +620,7 @@ class Program {
   /// Load program from binary file
   inline Program(Context const &context, std::string const &path)
       : context_(context), path_(path) {
+#ifndef HLSLIB_SIMULATE_OPENCL
     std::ifstream input(path, std::ios::in | std::ios::binary | std::ios::ate);
     if (!input.is_open()) {
       std::stringstream ss;
@@ -665,9 +674,14 @@ class Program {
       ThrowConfigurationError(ss.str());
       return;
     }
+#endif
   }
 
-  inline ~Program() { clReleaseProgram(program_); }
+  inline ~Program() {
+#ifndef HLSLIB_SIMULATE_OPENCL
+    clReleaseProgram(program_);
+#endif    
+  }
 
   // Returns the reference Context object.
   inline Context const &context() const { return context_; }
@@ -683,6 +697,12 @@ class Program {
   template <typename... Ts>
   Kernel MakeKernel(std::string const &kernelName, Ts &&... args);
 
+  /// Additionally allows passing a function pointer to a host implementation of
+  /// the kernel function for simulation and verification purposes.
+  template <class F, typename... Ts>
+  Kernel MakeKernel(F &&hostFunction, std::string const &kernelName,
+                    Ts &&... args);
+
  private:
   Context const &context_;
   cl_program program_{};
@@ -697,8 +717,9 @@ class Kernel {
  private:
   template <typename T, Access access>
   void SetKernelArguments(size_t index, Buffer<T, access> &arg) {
+    auto devicePtr = arg.devicePtr();
     auto errorCode =
-        clSetKernelArg(kernel_, index, sizeof(cl_mem), &arg.devicePtr());
+        clSetKernelArg(kernel_, index, sizeof(cl_mem), devicePtr);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to set kernel argument " << index << ".";
@@ -724,12 +745,53 @@ class Kernel {
     SetKernelArguments(index + 1, args...);
   }
 
+  template <typename T>
+  T&& passed_by(T&& t, std::false_type) {
+    return std::forward<T>(t);
+  }
+
+  template <typename T, Access access>
+  static auto UnpackPointers(Buffer<T, access> &buffer) {
+#ifndef HLSLIB_SIMULATE_OPENCL
+    // If we are not running simulation mode, we just need to verify that the
+    // type is correct, so we pass a dummy pointer of the correct type.
+    T *ptr = nullptr;
+    return ptr;
+#else
+    // In simulation mode, unpack the buffer to the raw pointer
+    return buffer.devicePtr();
+#endif
+  }
+
+  template <typename T>
+  static auto UnpackPointers(T &&arg) {
+    return std::forward<T>(arg); 
+  }
+
+  template <class F, typename... Ts>
+  static std::function<void(void)> Bind(F &&f, Ts &&... args) {
+    return std::bind(f, UnpackPointers(std::forward<Ts>(args))...); 
+  }
+
  public:
+
+  /// Also pass the kernel function as a host function signature. This helps to
+  /// verify that the arguments are correct, and allows calling the host
+  /// function in simulation mode.
+  template <typename F, typename... Ts>
+  Kernel(Program &program, F &&hostFunction, std::string const &kernelName,
+         Ts &&... kernelArgs)
+      : Kernel(program, kernelName, std::forward<Ts>(kernelArgs)...) {
+    hostFunction_ =
+        Bind(std::forward<F>(hostFunction), std::forward<Ts>(kernelArgs)...);
+  }
+
   /// Load kernel from binary file
   template <typename... Ts>
   Kernel(Program &program, std::string const &kernelName,
-         Ts &... kernelArgs)
+         Ts &&... kernelArgs)
       : program_(program) {
+#ifndef HLSLIB_SIMULATE_OPENCL
     // Create executable compute kernel
     cl_int errorCode;
     kernel_ = clCreateKernel(program_.program(), &kernelName[0], &errorCode);
@@ -743,9 +805,14 @@ class Kernel {
 
     // Pass kernel arguments
     SetKernelArguments(0, kernelArgs...);
+#endif
   }
 
-  inline ~Kernel() { clReleaseKernel(kernel_); }
+  inline ~Kernel() {
+#ifndef HLSLIB_SIMULATE_OPENCL
+    clReleaseKernel(kernel_);
+#endif   
+  }
 
   inline Program const &program() const { return program_; }
 
@@ -766,6 +833,7 @@ class Kernel {
     cl_event event;
     static std::array<size_t, dims> offsets = {};
     const auto start = std::chrono::high_resolution_clock::now();
+#ifndef HLSLIB_SIMULATE_OPENCL
     auto errorCode = clEnqueueNDRangeKernel(
         program_.context().commandQueue(), kernel_, dims, &offsets[0],
         &globalSize[0], &localSize[0], 0, nullptr, &event);
@@ -774,11 +842,15 @@ class Kernel {
       return {};
     }
     clWaitForEvents(1, &event);
+#else
+    hostFunction_(); // Simulate by calling host function
+#endif
     const auto end = std::chrono::high_resolution_clock::now();
     const double elapsedChrono =
         1e-9 *
         std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
             .count();
+#ifndef HLSLIB_SIMULATE_OPENCL
     cl_ulong timeStart, timeEnd;
     clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
                             sizeof(timeStart), &timeStart, nullptr);
@@ -786,11 +858,17 @@ class Kernel {
                             &timeEnd, nullptr);
     const double elapsedSDAccel = 1e-9 * (timeEnd - timeStart);
     return {elapsedSDAccel, elapsedChrono};
+#else
+    return {elapsedChrono, elapsedChrono};
+#endif
   }
 
  private:
   Program &program_;
   cl_kernel kernel_{};
+  /// Host version of the kernel function. Can be used to check that the
+  /// passed signature is correct, and for simulation purposes.
+  std::function<void(void)> hostFunction_{}; 
 
 };  // End class Kernel
 
@@ -814,7 +892,14 @@ Program Context::MakeProgram(std::string const &path) {
 
 template <typename... Ts>
 Kernel Program::MakeKernel(std::string const &kernelName, Ts &&... args) {
-  return Kernel(*this, kernelName, args...);
+  return Kernel(*this, kernelName, std::forward<Ts>(args)...);
+}
+
+template <typename F, typename... Ts>
+Kernel Program::MakeKernel(F &&hostFunction, std::string const &kernelName,
+                           Ts &&... args) {
+  return Kernel(*this, std::forward<F>(hostFunction), kernelName,
+                std::forward<Ts>(args)...);
 }
 
 }  // End namespace ocl

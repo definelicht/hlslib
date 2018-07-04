@@ -27,7 +27,7 @@ else()
 endif()
 
 include_directories(include)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 enable_testing()
 
@@ -46,6 +46,8 @@ add_test(TestDataPack TestDataPack)
 add_executable(TestReduce test/TestReduce.cpp)
 target_link_libraries(TestReduce)
 add_test(TestReduce TestReduce)
+add_executable(TestFlatten test/TestFlatten.cpp)
+add_test(TestFlatten TestFlatten)
 
 # Test kernels in software
 find_package(Threads)
@@ -72,7 +74,7 @@ endif()
 set(HLSLIB_PROJECT_NAME "Reduce")
 set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/Reduce.cpp")
 set(HLSLIB_ENTRY_FUNCTION "Reduce")
-set(HLSLIB_TARGET_TIMING "5")
+set(HLSLIB_TARGET_CLOCK "200")
 configure_file(scripts/Synthesis.tcl.in SynthesizeReduce.tcl)
 add_custom_target(synthesize_reduce
   COMMAND ${HLSLIB_HLS} -f SynthesizeReduce.tcl) 
@@ -95,7 +97,7 @@ if(SDAccel_FOUND)
     ${CMAKE_SOURCE_DIR}/kernels/MultiStageAdd.cpp
     --kernel MultiStageAdd
     --xdevice ${HLSLIB_DSA_NAME}
-    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="${CMAKE_CXX_FLAGS} -DHLSLIB_SYNTHESIS")
+    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS")
   add_executable(RunMultiStageAdd.exe host/RunMultiStageAdd.cpp)
   target_link_libraries(RunMultiStageAdd.exe ${SDAccel_LIBRARIES}) 
 endif()
@@ -105,7 +107,7 @@ set(HLSLIB_PROJECT_NAME "AccumulateFloat")
 set(HLSLIB_SRC_SYNTHESIS "${CMAKE_SOURCE_DIR}/kernels/AccumulateFloat.cpp")
 set(HLSLIB_ENTRY_FUNCTION "AccumulateFloat")
 set(HLSLIB_TARGET_TIMING "5")
-set(HLSLIB_SYNTHESIS_FLAGS "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
+set(HLSLIB_SYNTHESIS_FLAGS "-std=c++11 -DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
 configure_file(scripts/Synthesis.tcl.in SynthesizeAccumulateFloat.tcl)
 add_custom_target(synthesize_accumulate_float
   COMMAND ${HLSLIB_HLS} -f SynthesizeAccumulateFloat.tcl) 
@@ -118,7 +120,7 @@ if(SDAccel_FOUND)
     ${CMAKE_SOURCE_DIR}/kernels/AccumulateFloat.cpp
     --kernel AccumulateFloat
     --xdevice ${HLSLIB_DSA_NAME}
-    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="${CMAKE_CXX_FLAGS} -DHLSLIB_SYNTHESIS -DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
+    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS -DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
   add_executable(RunAccumulateFloat.exe host/RunAccumulate.cpp)
   target_compile_options(RunAccumulateFloat.exe PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
   target_link_libraries(RunAccumulateFloat.exe ${SDAccel_LIBRARIES}) 
@@ -142,7 +144,7 @@ if(SDAccel_FOUND)
     ${CMAKE_SOURCE_DIR}/kernels/AccumulateInt.cpp
     --kernel AccumulateInt
     --xdevice ${HLSLIB_DSA_NAME}
-    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="${CMAKE_CXX_FLAGS} -DHLSLIB_SYNTHESIS -DHLSLIB_COMPILE_ACCUMULATE_INT")
+    --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS -DHLSLIB_COMPILE_ACCUMULATE_INT")
   add_executable(RunAccumulateInt.exe host/RunAccumulate.cpp)
   target_compile_options(RunAccumulateInt.exe PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
   target_link_libraries(RunAccumulateInt.exe ${SDAccel_LIBRARIES}) 
