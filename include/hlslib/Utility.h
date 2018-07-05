@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cmath>
+
 namespace hlslib {
 
 // Constexpr methods for compile-time computations

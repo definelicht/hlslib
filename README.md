@@ -8,6 +8,7 @@ This repository includes the following features for use with Vivado HLS and/or S
 * Utility classes for SDAccel host side integration, located at `include/hlslib/SDAccel.h`, including support for specifying FPGA memory banks
 * Thread-safe stream implementation, with blocking semantics to mimic hardware behavior (`include/hlslib/Stream.h`)
 * Macros to easily simulate dataflow functions using multithreading when compiled as C++, while being compatible with high-level synthesis when building for hardware (`include/hlslib/Simulation.h`)
+* Classes to flatten loop nests and keep track of indices (`include/hlslib/Flatten.h`), both for bounds known at runtime (`hlslib::Flatten`) and bounds known at compile-time (`hlslib::ConstFlatten`). Example usage can be found in `kernels/Flatten.cpp`.
 * Various compile-time functions commonly used when designing hardware, such as log2, in `include/hlslib/Utility.h`
 Some of these headers are interdependent, while others can be included standalone. Refer to the source code for details.
 * CMake module files that locate SDAccel, Vivado, Vivado HLS and Vivado Lab on the host machine, setting relevant variables for build integration with CMake
