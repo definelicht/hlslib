@@ -8,6 +8,8 @@
 #   SDAccel_LIBRARIES - Libraries required for host side code. 
 #   SDAccel_XOCC - Path to the xocc executable.
 #   SDAccel_VIVADO_HLS - Path to the Vivado HLS executable shipped with SDAccel. 
+#   SDAccel_VERSION_MAJOR - Major version of SDAccel installation
+#   SDAccel_VERSION_MINOR - Minor version of SDAccel installation
 #
 # To specify the location of SDAccel or to force this script to use a specific
 # version, set the variable SDACCEL_ROOT_DIR to the root directory of the
@@ -34,6 +36,8 @@ find_program(SDAccel_XOCC xocc PATHS ${SDACCEL_ROOT_DIR}/bin NO_DEFAULT_PATH)
 
 # Get version number string
 get_filename_component(SDAccel_VERSION ${SDACCEL_ROOT_DIR} NAME)
+string(REGEX REPLACE "([0-9]+)\\.[0-9]+" "\\1" SDAccel_MAJOR_VERSION "${SDAccel_VERSION}")
+string(REGEX REPLACE "[0-9]+\\.([0-9]+)" "\\1" SDAccel_MINOR_VERSION "${SDAccel_VERSION}")
 
 find_program(SDAccel_VIVADO_HLS vivado_hls
              PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/bin
@@ -101,4 +105,4 @@ include(FindPackageHandleStandardArgs)
 # if all listed variables were found.
 find_package_handle_standard_args(SDAccel DEFAULT_MSG
   SDAccel_XOCC SDAccel_VIVADO_HLS SDAccel_INCLUDE_DIRS
-  SDAccel_LIBRARIES SDAccel_VERSION)
+  SDAccel_LIBRARIES SDAccel_VERSION SDAccel_MAJOR_VERSION SDAccel_MINOR_VERSION)
