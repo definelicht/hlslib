@@ -56,7 +56,7 @@ class RuntimeError : public std::runtime_error {
 
 namespace {
 
-constexpr bool verbose = true;
+constexpr bool kVerbose = true;
 
 constexpr size_t kMaxCount = 16;
 constexpr size_t kMaxString = 128;
@@ -293,7 +293,7 @@ class Context {
       return;
     }
     deviceId_ = devices[0];
-    if (verbose) {
+    if (kVerbose) {
       std::cout << "Using device \"" << GetDeviceName(deviceId_) << "\".\n";
     }
 
@@ -719,7 +719,7 @@ class Kernel {
   void SetKernelArguments(size_t index, Buffer<T, access> &arg) {
     auto devicePtr = arg.devicePtr();
     auto errorCode =
-        clSetKernelArg(kernel_, index, sizeof(cl_mem), devicePtr);
+        clSetKernelArg(kernel_, index, sizeof(cl_mem), &devicePtr);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to set kernel argument " << index << ".";
@@ -743,11 +743,6 @@ class Kernel {
   void SetKernelArguments(size_t index, T &arg, Ts &... args) {
     SetKernelArguments(index, arg);
     SetKernelArguments(index + 1, args...);
-  }
-
-  template <typename T>
-  T&& passed_by(T&& t, std::false_type) {
-    return std::forward<T>(t);
   }
 
   template <typename T, Access access>
