@@ -6,7 +6,7 @@
 #include <iostream>
 
 using Data_t = int;
-constexpr int kMemSize = 1<<28;
+constexpr int kMemSize = 1<<20;
 
 int main() {
 
@@ -16,22 +16,19 @@ int main() {
     hlslib::ocl::Context context;
     std::cout << "Context created successfully." << std::endl;
 
-    std::cout << "Creating device input buffer..." << std::flush;
-    auto mem0Device = context.MakeBuffer<int, hlslib::ocl::Access::read>(
-        hlslib::ocl::MemoryBank::bank0, kMemSize);
-    std::cout << " Done." << std::endl;
-
     std::cout << "Initializing host input memory..." << std::flush;
     std::vector<Data_t> mem0Host(kMemSize, 5);
     std::cout << " Done." << std::endl;
 
-    std::cout << "Copying to device..." << std::flush;
-    mem0Device.CopyFromHost(mem0Host.cbegin());
+    std::cout << "Creating device input buffer and copying from host..."
+              << std::flush;
+    auto mem0Device = context.MakeBuffer<Data_t, hlslib::ocl::Access::read>(
+        hlslib::ocl::MemoryBank::bank0, mem0Host.cbegin(), mem0Host.cend());
     std::cout << " Done." << std::endl;
 
     std::cout << "Creating device output buffer..." << std::flush;
     auto mem1Device = context.MakeBuffer<int, hlslib::ocl::Access::write>(
-        hlslib::ocl::MemoryBank::bank0, kMemSize);
+        hlslib::ocl::MemoryBank::bank1, kMemSize);
     std::cout << " Done." << std::endl;
 
     std::cout << "Copying from input to output buffer..." << std::flush;
@@ -47,8 +44,8 @@ int main() {
     std::cout << " Done." << std::endl;
 
     std::cout << "Verifying values..." << std::flush;
-    for (auto &e : mem1Host) {
-      if (e != 5) {
+    for (int i = 0; i < kMemSize; ++i) {
+      if (mem1Host[i] != 5) {
         std::cerr << " Unexpected value returned from device." << std::endl;
         return 3;
       }

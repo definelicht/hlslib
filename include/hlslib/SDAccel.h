@@ -30,7 +30,7 @@ namespace ocl {
 enum class Access { read, write, readWrite };
 
 /// Mapping to specific memory banks on the FPGA. Xilinx-specific.
-enum class MemoryBank { bank0, bank1, bank2, bank3 };
+enum class MemoryBank { unspecified, bank0, bank1, bank2, bank3 };
 
 //#############################################################################
 // OpenCL exceptions
@@ -336,11 +336,8 @@ class Context {
   /// Returns the internal OpenCL command queue.
   inline cl_command_queue const &commandQueue() const { return commandQueue_; }
 
-  template <typename T, Access access>
-  Buffer<T, access> MakeBuffer();
-
   template <typename T, Access access, typename... Ts>
-  Buffer<T, access> MakeBuffer(MemoryBank memoryBank, Ts &&... args);
+  Buffer<T, access> MakeBuffer(Ts &&... args);
 
  private:
   cl_platform_id platformId_{};
@@ -378,9 +375,18 @@ class Buffer {
       : context_(&context), nElements_(std::distance(begin, end)) {
 
 #ifndef HLSLIB_SIMULATE_OPENCL
-    auto extendedPointer = CreateExtendedPointer(begin, memoryBank);
 
-    cl_mem_flags flags = CL_MEM_COPY_HOST_PTR | kXilinxMemPointer;
+    cl_mem_flags flags = CL_MEM_COPY_HOST_PTR;
+
+    // Allow specifying memory bank
+    ExtendedMemoryPointer extendedHostPointer;
+    void *hostPtr = const_cast<T *>(&(*begin));
+    if (memoryBank != MemoryBank::unspecified) {
+      extendedHostPointer = CreateExtendedPointer(hostPtr, memoryBank);
+      hostPtr = &extendedHostPointer;
+      flags |= kXilinxMemPointer;
+    }
+
     switch (access) {
       case Access::read:
         flags |= CL_MEM_READ_ONLY;
@@ -394,9 +400,10 @@ class Buffer {
     }
 
     cl_int errorCode;
-    devicePtr_ =
-        clCreateBuffer(context_->context(), flags, sizeof(T) * nElements_,
-                       &extendedPointer, &errorCode);
+    // If a memory bank was specified, pass the Xilinx-specific extended memory
+    // pointer. Otherwise, pass the host pointer directly.
+    devicePtr_ = clCreateBuffer(context_->context(), flags,
+                                sizeof(T) * nElements_, hostPtr, &errorCode);
 
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to initialize and copy to device memory.");
@@ -408,30 +415,44 @@ class Buffer {
 #endif
   }
 
+  template <typename IteratorType, typename = typename std::enable_if<
+                                       IsIteratorOfType<IteratorType, T>() &&
+                                       IsRandomAccess<IteratorType>()>::type>
+  Buffer(Context const &context, IteratorType begin, IteratorType end)
+      : Buffer(context, MemoryBank::unspecified, begin, end) {}
+
   /// Allocate device memory but don't perform any transfers.
   Buffer(Context const &context, MemoryBank memoryBank, size_t nElements)
       : context_(&context), nElements_(nElements) {
 #ifndef HLSLIB_SIMULATE_OPENCL
-    T *dummy = nullptr;
-    auto extendedPointer = CreateExtendedPointer(dummy, memoryBank);
 
-    cl_mem_flags flags = kXilinxMemPointer;
+    cl_mem_flags flags;
     switch (access) {
       case Access::read:
-        flags |= CL_MEM_READ_ONLY;
+        flags = CL_MEM_READ_ONLY;
         break;
       case Access::write:
-        flags |= CL_MEM_WRITE_ONLY;
+        flags = CL_MEM_WRITE_ONLY;
         break;
       case Access::readWrite:
-        flags |= CL_MEM_READ_WRITE;
+        flags = CL_MEM_READ_WRITE;
         break;
     }
 
+    // Allow specifying memory bank
+    ExtendedMemoryPointer extendedHostPointer;
+    void *hostPtr = nullptr;
+    if (memoryBank != MemoryBank::unspecified) {
+      extendedHostPointer = CreateExtendedPointer(nullptr, memoryBank);
+      // Becomes a pointer to the Xilinx extended memory pointer if a memory
+      // bank is specified
+      hostPtr = &extendedHostPointer;
+      flags |= kXilinxMemPointer;
+    }
+
     cl_int errorCode;
-    devicePtr_ =
-        clCreateBuffer(context_->context(), flags, sizeof(T) * nElements_,
-                       &extendedPointer, &errorCode);
+    devicePtr_ = clCreateBuffer(context_->context(), flags,
+                                sizeof(T) * nElements_, hostPtr, &errorCode);
 
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to initialize device memory.");
@@ -441,6 +462,9 @@ class Buffer {
     devicePtr_ = std::vector<T>(nElements_);
 #endif
   }
+
+  Buffer(Context const &context, size_t nElements)
+      : Buffer(context, MemoryBank::unspecified, nElements) {}
 
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
     std::swap(first.context_, second.context_);
@@ -569,8 +593,7 @@ class Buffer {
   size_t nElements() const { return nElements_; }
 
  private:
-  template <typename IteratorType>
-  ExtendedMemoryPointer CreateExtendedPointer(IteratorType begin,
+  ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
                                               MemoryBank memoryBank) {
     ExtendedMemoryPointer extendedPointer;
     switch (memoryBank) {
@@ -586,12 +609,14 @@ class Buffer {
       case MemoryBank::bank3:
         extendedPointer.flags = kXilinxBank3;
         break;
+      case MemoryBank::unspecified:
+        throw RuntimeError(
+            "Tried to create Xilinx extended memory"
+            " pointer for unspecified bank");
     }
     // The target address will not be changed, but OpenCL only accepts
     // non-const, so do a const_cast here
-    extendedPointer.obj =
-        const_cast<typename std::iterator_traits<IteratorType>::value_type *>(
-            &(*begin));
+    extendedPointer.obj = hostPtr;
     extendedPointer.param = nullptr;
     return extendedPointer;
   }
@@ -871,14 +896,9 @@ class Kernel {
 // Implementations
 //#############################################################################
 
-template <typename T, Access access>
-Buffer<T, access> Context::MakeBuffer() {
-  return Buffer<T, access>();
-}
-
 template <typename T, Access access, typename... Ts>
-Buffer<T, access> Context::MakeBuffer(MemoryBank memoryBank, Ts &&... args) {
-  return Buffer<T, access>(*this, memoryBank, args...);
+Buffer<T, access> Context::MakeBuffer(Ts &&... args) {
+  return Buffer<T, access>(*this, std::forward<Ts>(args)...);
 }
 
 Program Context::MakeProgram(std::string const &path) {
