@@ -5,7 +5,8 @@
 # Once done this will define:
 #   SDAccel_FOUND - Indicates whether SDAccel was found.
 #   SDAccel_INCLUDE_DIRS - Include directories for HLS. 
-#   SDAccel_LIBRARIES - Libraries required for host side code. 
+#   SDAccel_LIBRARIES - Runtime libraries required for host side code. 
+#   SDAccel_FLOATING_POINT_LIBRARY - Library required for emulation of fp16.
 #   SDAccel_XOCC - Path to the xocc executable.
 #   SDAccel_VIVADO_HLS - Path to the Vivado HLS executable shipped with SDAccel. 
 #   SDAccel_VERSION_MAJOR - Major version of SDAccel installation
@@ -65,14 +66,14 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
                NO_DEFAULT_PATH)
   mark_as_advanced(SDAccel_LIBXILINXOPENCL)
 
-  find_library(SDAccel_LIBFLOATINGPOINT Ip_floating_point_v7_0_bitacc_cmodel
+  find_library(SDAccel_FLOATING_POINT_LIBRARY Ip_floating_point_v7_0_bitacc_cmodel
                PATHS ${SDACCEL_ROOT_DIR}/Vivado_HLS/lnx64/tools/fpo_v7_0
                ${SDACCEL_ROOT_DIR}/../../Vivado/${SDAccel_VERSION}/lnx64/tools/fpo_v7_0)
-  mark_as_advanced(SDAccel_LIBFLOATINGPOINT)
+  mark_as_advanced(SDAccel_FLOATING_POINT_LIBRARY)
 
-  # Only succeed if all libraries were found
-  if(SDAccel_LIBXILINXOPENCL AND SDAccel_LIBFLOATINGPOINT)
-    set(SDAccel_LIBRARIES ${SDAccel_LIBXILINXOPENCL} ${SDAccel_LIBFLOATINGPOINT}
+  # Only succeed if libraries were found
+  if(SDAccel_LIBXILINXOPENCL)
+    set(SDAccel_LIBRARIES ${SDAccel_LIBXILINXOPENCL}
         CACHE STRING "SDAccel runtime libraries.")
   endif()
 
@@ -105,4 +106,5 @@ include(FindPackageHandleStandardArgs)
 # if all listed variables were found.
 find_package_handle_standard_args(SDAccel DEFAULT_MSG
   SDAccel_XOCC SDAccel_VIVADO_HLS SDAccel_INCLUDE_DIRS
-  SDAccel_LIBRARIES SDAccel_VERSION SDAccel_MAJOR_VERSION SDAccel_MINOR_VERSION)
+  SDAccel_LIBRARIES SDAccel_FLOATING_POINT_LIBRARY
+  SDAccel_VERSION SDAccel_MAJOR_VERSION SDAccel_MINOR_VERSION)
