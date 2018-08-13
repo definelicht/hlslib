@@ -13,18 +13,9 @@ set(HLSLIB_DSA_NAME "xilinx_vcu1525_dynamic_5_1" CACHE STRING
 # and Vivado HLS
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
-# Each tool is optional individually, but at least one is required
-find_package(SDAccel)
-find_package(VivadoHLS)
-if(NOT SDACCEL_FOUND AND NOT VivadoHLS_FOUND)
-  message(FATAL_ERROR "Either SDAccel or Vivado HLS required.")
-endif()
-include_directories(${VivadoHLS_INCLUDE_DIRS} ${SDAccel_INCLUDE_DIRS})
-if (VivadoHLS_FOUND)
-  set(HLSLIB_HLS ${VivadoHLS_BINARY})
-else()
-  set(HLSLIB_HLS ${SDAccel_VIVADO_HLS})
-endif()
+# Find SDAccel
+find_package(SDAccel REQUIRED)
+include_directories(${SDAccel_INCLUDE_DIRS})
 
 include_directories(include)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y")
@@ -83,7 +74,7 @@ set(HLSLIB_ENTRY_FUNCTION "Reduce")
 set(HLSLIB_TARGET_CLOCK "200")
 configure_file(scripts/Synthesis.tcl.in SynthesizeReduce.tcl)
 add_custom_target(synthesize_reduce
-  COMMAND ${HLSLIB_HLS} -f SynthesizeReduce.tcl) 
+  COMMAND ${SDAccel_VIVADO_HLS} -f SynthesizeReduce.tcl) 
 
 # Test synthesis of flatten 
 set(HLSLIB_PROJECT_NAME "Flatten")
@@ -92,7 +83,7 @@ set(HLSLIB_ENTRY_FUNCTION "Flatten")
 set(HLSLIB_TARGET_CLOCK "200")
 configure_file(scripts/Synthesis.tcl.in SynthesizeFlatten.tcl)
 add_custom_target(synthesize_flatten
-  COMMAND ${HLSLIB_HLS} -f SynthesizeFlatten.tcl) 
+  COMMAND ${SDAccel_VIVADO_HLS} -f SynthesizeFlatten.tcl) 
 
 # Multi stage add to test streams and multi-threaded simulation of loop-based
 # dataflow kernels
@@ -102,7 +93,7 @@ set(HLSLIB_ENTRY_FUNCTION "MultiStageAdd")
 set(HLSLIB_TARGET_TIMING "5")
 configure_file(scripts/Synthesis.tcl.in SynthesizeMultiStageAdd.tcl)
 add_custom_target(synthesize_multi_stage_add
-  COMMAND ${HLSLIB_HLS} -f SynthesizeMultiStageAdd.tcl) 
+  COMMAND ${SDAccel_VIVADO_HLS} -f SynthesizeMultiStageAdd.tcl) 
 if(SDAccel_FOUND)
   add_custom_target(kernel_multi_stage_add
     COMMAND ${SDAccel_XOCC} 
@@ -113,8 +104,8 @@ if(SDAccel_FOUND)
     --kernel MultiStageAdd
     --xdevice ${HLSLIB_DSA_NAME}
     --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS")
-  add_executable(RunMultiStageAdd.exe host/RunMultiStageAdd.cpp)
-  target_link_libraries(RunMultiStageAdd.exe ${SDAccel_LIBRARIES}) 
+  add_executable(RunMultiStageAdd host/RunMultiStageAdd.cpp)
+  target_link_libraries(RunMultiStageAdd ${SDAccel_LIBRARIES}) 
 endif()
 
 # Test kernel for pipelined accumulation of floating point numbers 
@@ -125,7 +116,7 @@ set(HLSLIB_TARGET_TIMING "5")
 set(HLSLIB_SYNTHESIS_FLAGS "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
 configure_file(scripts/Synthesis.tcl.in SynthesizeAccumulateFloat.tcl)
 add_custom_target(synthesize_accumulate_float
-  COMMAND ${HLSLIB_HLS} -f SynthesizeAccumulateFloat.tcl) 
+  COMMAND ${SDAccel_VIVADO_HLS} -f SynthesizeAccumulateFloat.tcl) 
 if(SDAccel_FOUND)
   add_custom_target(kernel_accumulate_float
     COMMAND ${SDAccel_XOCC} 
@@ -136,9 +127,9 @@ if(SDAccel_FOUND)
     --kernel AccumulateFloat
     --xdevice ${HLSLIB_DSA_NAME}
     --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS -DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
-  add_executable(RunAccumulateFloat.exe host/RunAccumulate.cpp)
-  target_compile_options(RunAccumulateFloat.exe PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
-  target_link_libraries(RunAccumulateFloat.exe ${SDAccel_LIBRARIES}) 
+  add_executable(RunAccumulateFloat host/RunAccumulate.cpp)
+  target_compile_options(RunAccumulateFloat PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
+  target_link_libraries(RunAccumulateFloat ${SDAccel_LIBRARIES}) 
 endif()
 
 # Test kernel for pipelined accumulation of integer numbers 
@@ -149,7 +140,7 @@ set(HLSLIB_TARGET_TIMING "5")
 set(HLSLIB_SYNTHESIS_FLAGS "-DHLSLIB_COMPILE_ACCUMULATE_INT")
 configure_file(scripts/Synthesis.tcl.in SynthesizeAccumulateInt.tcl)
 add_custom_target(synthesize_accumulate_int
-  COMMAND ${HLSLIB_HLS} -f SynthesizeAccumulateInt.tcl) 
+  COMMAND ${SDAccel_VIVADO_HLS} -f SynthesizeAccumulateInt.tcl) 
 if(SDAccel_FOUND)
   add_custom_target(kernel_accumulate_int
     COMMAND ${SDAccel_XOCC} 
@@ -160,7 +151,7 @@ if(SDAccel_FOUND)
     --kernel AccumulateInt
     --xdevice ${HLSLIB_DSA_NAME}
     --xp prop:kernel.${HLSLIB_ENTRY_FUNCTION}.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS -DHLSLIB_COMPILE_ACCUMULATE_INT")
-  add_executable(RunAccumulateInt.exe host/RunAccumulate.cpp)
-  target_compile_options(RunAccumulateInt.exe PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
-  target_link_libraries(RunAccumulateInt.exe ${SDAccel_LIBRARIES}) 
+  add_executable(RunAccumulateInt host/RunAccumulate.cpp)
+  target_compile_options(RunAccumulateInt PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
+  target_link_libraries(RunAccumulateInt ${SDAccel_LIBRARIES}) 
 endif()
