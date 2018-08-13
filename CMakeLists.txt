@@ -5,8 +5,8 @@ cmake_minimum_required(VERSION 2.8)
 project(hlslib CXX)
 
 # User options
-set(HLSLIB_PART_NAME "xcku115-flvb2104-2-e" CACHE STRING "Part name for HLS.")
-set(HLSLIB_DSA_NAME "xilinx:xil-accel-rd-ku115:4ddr-xpr:4.0" CACHE STRING
+set(HLSLIB_PART_NAME "xcvu9p-flgb2104-2-i" CACHE STRING "Part name for HLS.")
+set(HLSLIB_DSA_NAME "xilinx_vcu1525_dynamic_5_1" CACHE STRING
     "DSA string for xocc.")
 
 # Include custom Find<Module>.cmake scripts to enable searching for SDAccel
@@ -27,7 +27,13 @@ else()
 endif()
 
 include_directories(include)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y")
+if(((${SDAccel_MAJOR_VERSION} LESS 2018) AND (${SDAccel_MINOR_VERSION} LESS 3)) OR ${SDAccel_MAJOR_VERSION} LESS 2017)
+  message(STATUS "Targeting legacy SDx.")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHLSLIB_LEGACY_SDX=1")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHLSLIB_LEGACY_SDX=0")
+endif()
 
 enable_testing()
 

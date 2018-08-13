@@ -61,19 +61,31 @@ constexpr bool kVerbose = true;
 constexpr size_t kMaxCount = 16;
 constexpr size_t kMaxString = 128;
 
+#ifndef HLSLIB_LEGACY_SDX
+#warning "HLSLIB_LEGACY_SDX not set: assuming SDAccel 2017.4+. Set to 0 or 1 to silence this warning."
+#define HLSLIB_LEGACY_SDX 0
+#endif
+
+#if HLSLIB_LEGACY_SDX == 0
+constexpr cl_mem_flags kXilinxMemPointer = 0;
+constexpr unsigned kXilinxBank0 = XCL_MEM_DDR_BANK0;
+constexpr unsigned kXilinxBank1 = XCL_MEM_DDR_BANK1;
+constexpr unsigned kXilinxBank2 = XCL_MEM_DDR_BANK2;
+constexpr unsigned kXilinxBank3 = XCL_MEM_DDR_BANK3;
+using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
+#else
 constexpr cl_mem_flags kXilinxMemPointer = 1 << 31;
-constexpr unsigned kXilinxBuffer = 1 << 0;
-constexpr unsigned kXilinxPipe = 1 << 1;
 constexpr unsigned kXilinxBank0 = 1 << 8;
 constexpr unsigned kXilinxBank1 = 1 << 9;
 constexpr unsigned kXilinxBank2 = 1 << 10;
 constexpr unsigned kXilinxBank3 = 1 << 11;
-
 struct ExtendedMemoryPointer {
   unsigned flags;
   void *obj;
   void *param;
 };
+#endif
+
 
 template <typename IteratorType>
 constexpr bool IsRandomAccess() {
