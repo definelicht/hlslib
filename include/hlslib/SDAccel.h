@@ -67,7 +67,7 @@ constexpr size_t kMaxString = 128;
 #endif
 
 #if HLSLIB_LEGACY_SDX == 0
-constexpr cl_mem_flags kXilinxMemPointer = 0;
+constexpr cl_mem_flags kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
 constexpr unsigned kXilinxBank0 = XCL_MEM_DDR_BANK0;
 constexpr unsigned kXilinxBank1 = XCL_MEM_DDR_BANK1;
 constexpr unsigned kXilinxBank2 = XCL_MEM_DDR_BANK2;
