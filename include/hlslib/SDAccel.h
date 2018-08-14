@@ -67,7 +67,7 @@ constexpr size_t kMaxString = 128;
 #endif
 
 #if HLSLIB_LEGACY_SDX == 0
-constexpr cl_mem_flags kXilinxMemPointer = 0;
+constexpr cl_mem_flags kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
 constexpr unsigned kXilinxBank0 = XCL_MEM_DDR_BANK0;
 constexpr unsigned kXilinxBank1 = XCL_MEM_DDR_BANK1;
 constexpr unsigned kXilinxBank2 = XCL_MEM_DDR_BANK2;
@@ -388,16 +388,9 @@ class Buffer {
 
 #ifndef HLSLIB_SIMULATE_OPENCL
 
-    cl_mem_flags flags = CL_MEM_COPY_HOST_PTR;
-
-    // Allow specifying memory bank
-    ExtendedMemoryPointer extendedHostPointer;
     void *hostPtr = const_cast<T *>(&(*begin));
-    if (memoryBank != MemoryBank::unspecified) {
-      extendedHostPointer = CreateExtendedPointer(hostPtr, memoryBank);
-      hostPtr = &extendedHostPointer;
-      flags |= kXilinxMemPointer;
-    }
+
+    cl_mem_flags flags = CL_MEM_COPY_HOST_PTR;
 
     switch (access) {
       case Access::read:
@@ -409,6 +402,15 @@ class Buffer {
       case Access::readWrite:
         flags |= CL_MEM_READ_WRITE;
         break;
+    }
+
+    // Allow specifying memory bank
+    ExtendedMemoryPointer extendedHostPointer;
+    if (memoryBank != MemoryBank::unspecified) {
+      extendedHostPointer = CreateExtendedPointer(hostPtr, memoryBank);
+      // Replace hostPtr with Xilinx extended pointer
+      hostPtr = &extendedHostPointer;
+      flags |= kXilinxMemPointer;
     }
 
     cl_int errorCode;
@@ -629,7 +631,7 @@ class Buffer {
     // The target address will not be changed, but OpenCL only accepts
     // non-const, so do a const_cast here
     extendedPointer.obj = hostPtr;
-    extendedPointer.param = nullptr;
+    extendedPointer.param = 0;
     return extendedPointer;
   }
 
