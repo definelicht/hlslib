@@ -15,10 +15,9 @@ TEST_CASE("MultiStageAddDevice", "[MultiStageAddDevice]") {
   std::cout << "Done." << std::endl;
 
   std::cout << "Initializing memory..." << std::flush;
-  auto memDevice = context.MakeBuffer<int, hlslib::ocl::Access::readWrite>(
-      hlslib::ocl::MemoryBank::bank0, kNumElements);
   std::vector<Data_t> memHost(kNumElements, 0);
-  memDevice.CopyFromHost(memHost.cbegin());
+  auto memDevice = context.MakeBuffer<int, hlslib::ocl::Access::readWrite>(
+      hlslib::ocl::MemoryBank::bank0, memHost.cbegin(), memHost.cend());
   std::cout << " Done." << std::endl;
 
   std::cout << "Creating kernel..." << std::flush;

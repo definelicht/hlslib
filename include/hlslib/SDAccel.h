@@ -429,6 +429,7 @@ class Buffer {
 #endif
   }
 
+#if HLSLIB_LEGACY_SDX == 1
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
@@ -479,6 +480,7 @@ class Buffer {
 
   Buffer(Context const &context, size_t nElements)
       : Buffer(context, MemoryBank::unspecified, nElements) {}
+#endif
 
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
     std::swap(first.context_, second.context_);

@@ -16,8 +16,9 @@ int main() {
     hlslib::ocl::Context context;
     std::cout << "Context created successfully." << std::endl;
 
-    std::cout << "Initializing host input memory..." << std::flush;
+    std::cout << "Initializing host memory..." << std::flush;
     std::vector<Data_t> mem0Host(kMemSize, 5);
+    std::vector<Data_t> mem1Host(kMemSize, 0);
     std::cout << " Done." << std::endl;
 
     std::cout << "Creating device input buffer and copying from host..."
@@ -27,16 +28,14 @@ int main() {
     std::cout << " Done." << std::endl;
 
     std::cout << "Creating device output buffer..." << std::flush;
+    // auto mem1Device = context.MakeBuffer<int, hlslib::ocl::Access::write>(
+    //     hlslib::ocl::MemoryBank::bank1, kMemSize);
     auto mem1Device = context.MakeBuffer<int, hlslib::ocl::Access::write>(
-        hlslib::ocl::MemoryBank::bank1, kMemSize);
+        hlslib::ocl::MemoryBank::bank1, mem1Host.cbegin(), mem1Host.cend());
     std::cout << " Done." << std::endl;
 
     std::cout << "Copying from input to output buffer..." << std::flush;
     mem0Device.CopyToDevice(mem1Device);
-    std::cout << " Done." << std::endl;
-
-    std::cout << "Initializing host output memory..." << std::flush;
-    std::vector<Data_t> mem1Host(kMemSize, 0);
     std::cout << " Done." << std::endl;
 
     std::cout << "Copying to host..." << std::flush;
