@@ -429,13 +429,13 @@ class Buffer {
 #endif
   }
 
-#if HLSLIB_LEGACY_SDX == 1
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   Buffer(Context const &context, IteratorType begin, IteratorType end)
       : Buffer(context, MemoryBank::unspecified, begin, end) {}
 
+#if HLSLIB_LEGACY_SDX == 1
   /// Allocate device memory but don't perform any transfers.
   Buffer(Context const &context, MemoryBank memoryBank, size_t nElements)
       : context_(&context), nElements_(nElements) {
