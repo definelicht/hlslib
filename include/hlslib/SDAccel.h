@@ -435,7 +435,6 @@ class Buffer {
   Buffer(Context const &context, IteratorType begin, IteratorType end)
       : Buffer(context, MemoryBank::unspecified, begin, end) {}
 
-#if HLSLIB_LEGACY_SDX == 1
   /// Allocate device memory but don't perform any transfers.
   Buffer(Context const &context, MemoryBank memoryBank, size_t nElements)
       : context_(&context), nElements_(nElements) {
@@ -480,7 +479,6 @@ class Buffer {
 
   Buffer(Context const &context, size_t nElements)
       : Buffer(context, MemoryBank::unspecified, nElements) {}
-#endif
 
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
     std::swap(first.context_, second.context_);
@@ -626,7 +624,7 @@ class Buffer {
         extendedPointer.flags = kXilinxBank3;
         break;
       case MemoryBank::unspecified:
-        throw RuntimeError(
+        ThrowRuntimeError(
             "Tried to create Xilinx extended memory"
             " pointer for unspecified bank");
     }
