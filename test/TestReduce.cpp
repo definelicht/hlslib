@@ -2,6 +2,7 @@
 /// @date      April 2017
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
+#include "hlslib/DataPack.h"
 #include "hlslib/Operators.h"
 #include "hlslib/TreeReduce.h"
 #define CATCH_CONFIG_MAIN
@@ -22,9 +23,23 @@ TEST_CASE("TreeReduce", "[TreeReduce]") {
   }
 
   SECTION("Logical and") {
-    bool arr[] = {true, true, true, true, true, true, false};
-    bool prod = hlslib::TreeReduce<bool, hlslib::op::And<bool>, 7>(arr);
-    REQUIRE(!prod);
+    {
+      bool arr[] = {true, true, true, true, true, true, false};
+      bool prod = hlslib::TreeReduce<bool, hlslib::op::And<bool>, 7>(arr);
+      REQUIRE(!prod);
+    }
+    {
+      bool arr[] = {true, true, true, true, true, true, true};
+      bool prod = hlslib::TreeReduce<bool, hlslib::op::And<bool>, 7>(arr);
+      REQUIRE(prod);
+    }
+  }
+
+  SECTION("DataPack") {
+    int arr[] = {5, 50, 500, 5000};
+    hlslib::DataPack<int, 4> pack(arr);
+    int sum = hlslib::TreeReduce<int, hlslib::op::Add<int>, 4>(pack);
+    REQUIRE(sum == 5555);
   }
 
 }

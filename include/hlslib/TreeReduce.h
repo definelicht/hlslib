@@ -15,7 +15,8 @@ namespace { // Internals
 
 template <typename T, class Operator, int width>
 struct TreeReduceImplementation {
-  static T f(T arr[width]) {
+  template <typename RandomAccessType>
+  static T f(RandomAccessType &&arr) {
     #pragma HLS INLINE
     static constexpr int halfWidth = width / 2;
     static constexpr int reducedSize = halfWidth + width % 2;
@@ -38,7 +39,8 @@ private:
 
 template <typename T, class Operator>
 struct TreeReduceImplementation<T, Operator, 2> {
-  static T f(T arr[2]) {
+  template <typename RandomAccessType>
+  static T f(RandomAccessType &&arr) {
     #pragma HLS INLINE
     return Operator::Apply(arr[0], arr[1]);
   }
@@ -49,7 +51,8 @@ private:
 
 template <typename T, class Operator>
 struct TreeReduceImplementation<T, Operator, 1> {
-  static T f(T arr[1]) {
+  template <typename RandomAccessType>
+  static T f(RandomAccessType &&arr) {
     #pragma HLS INLINE
     return arr[0];
   }
@@ -60,7 +63,8 @@ private:
 
 template <typename T, class Operator>
 struct TreeReduceImplementation<T, Operator, 0> {
-  static constexpr T f(T *) { 
+  template <typename RandomAccessType>
+  static constexpr T f(RandomAccessType &&) { 
     return Operator::identity();
   }
 private:
@@ -71,8 +75,8 @@ private:
 } // End anonymous namespace
 
 /// Reduction entry function.
-template <typename T, class Operator, int width>
-T TreeReduce(T arr[width]) {
+template <typename T, class Operator, int width, typename RandomAccessType>
+T TreeReduce(RandomAccessType &&arr) {
   #pragma HLS PIPELINE
   return TreeReduceImplementation<T, Operator, width>::f(arr);
 }
