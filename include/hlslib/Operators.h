@@ -19,8 +19,9 @@ namespace op {
 #endif
 
 template <typename T>
-struct Add {
-  static T Apply(T const &a, T const &b) {
+struct Sum {
+  template <typename T0, typename T1>
+  static T Apply(T0 &&a, T1 &&b) {
     #pragma HLS INLINE
     const T res = a + b;
     HLSLIB_OPERATOR_ADD_RESOURCE_PRAGMA(res);
@@ -28,9 +29,12 @@ struct Add {
   }
   static constexpr T identity() { return 0; }
 private:
-  Add() = delete;
-  ~Add() = delete;
+  Sum() = delete;
+  ~Sum() = delete;
 };
+
+template <typename T>
+using Add = Sum<T>;
 
 #ifdef HLSLIB_OPERATOR_MULTIPLY_RESOURCE
 #define HLSLIB_OPERATOR_MULTIPLY_RESOURCE_PRAGMA(var)                                 \
@@ -40,8 +44,9 @@ private:
 #endif
 
 template <typename T>
-struct Multiply {
-  static T Apply(T const &a, T const &b) {
+struct Product {
+  template <typename T0, typename T1>
+  static T Apply(T0 &&a, T1 &&b) {
     #pragma HLS INLINE
     const T res = a * b;
     HLSLIB_OPERATOR_MULTIPLY_RESOURCE_PRAGMA(res);
@@ -49,13 +54,20 @@ struct Multiply {
   }
   static constexpr T identity() { return 1; }
 private:
-  Multiply() = delete;
-  ~Multiply() = delete;
+  Product() = delete;
+  ~Product() = delete;
 };
 
 template <typename T>
+using Multiply = Product<T>;
+
+template <typename T>
 struct And {
-  static T Apply(T const &a, T const &b) { return a && b; }
+  template <typename T0, typename T1>
+  static T Apply(T0 &&a, T1 &&b) {
+    #pragma HLS INLINE
+    return a && b;
+  }
   static constexpr T identity() { return true; }
 private:
   And() = delete;
@@ -64,7 +76,11 @@ private:
 
 template <typename T>
 struct Min {
-  static T Apply(T const &a, T const &b) { return (a < b) ? a : b; }
+  template <typename T0, typename T1>
+  static T Apply(T0 &&a, T1 &&b) {
+    #pragma HLS INLINE
+    return (a < b) ? a : b;
+  }
   static constexpr T identity() { return std::numeric_limits<T>::max(); }
 private:
   Min() = delete;
@@ -73,7 +89,11 @@ private:
 
 template <typename T>
 struct Max {
-  static T Apply(T const &a, T const &b) { return (a > b) ? a : b; }
+  template <typename T0, typename T1>
+  static T Apply(T0 &&a, T1 &&b) {
+    #pragma HLS INLINE
+    return (a > b) ? a : b;
+  }
   static constexpr T identity() { return std::numeric_limits<T>::min(); }
 private:
   Max() = delete;
@@ -84,7 +104,8 @@ private:
 //       operator and have T be the vector class.
 template <class Operator, typename T, int width>
 struct Wide {
-  static T Apply(T const &a, T const &b) {
+  template <typename T0, typename T1>
+  static T Apply(T0 &&a, T1 &&b) {
     #pragma HLS INLINE
     T res;
     for (int w = 0; w < width; ++w) {
