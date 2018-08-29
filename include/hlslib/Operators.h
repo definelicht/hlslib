@@ -93,7 +93,15 @@ struct Wide {
     }
     return res;
   }
-  static T identity() { return T(Operator::identity()); }
+  static T identity() {
+    #pragma HLS INLINE
+    T result;
+    for (int w = 0; w < width; ++w) {
+      #pragma HLS UNROLL
+      result[w] = Operator::identity();
+    }
+    return result;
+  }
 private:
   Wide() = delete;
   ~Wide() = delete;
