@@ -61,6 +61,13 @@ public:
     return *this;
   }
 
+  // If width is 1, allow implicit conversion into the underlying type
+  template <typename = typename std::enable_if<(width == 1)>::type>
+  operator T() const {
+    #pragma HLS INLINE
+    return Get(0);
+  }
+
   T Get(int i) const {
     #pragma HLS INLINE
 #ifndef HLSLIB_SYNTHESIS
