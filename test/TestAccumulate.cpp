@@ -3,6 +3,7 @@
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
 #include "AccumulateCommon.h"
+#include <random>
 #ifdef HLSLIB_COMPILE_ACCUMULATE_FLOAT
 #define HLSLIB_ACCUMULATE_KERNEL AccumulateFloat
 #include "AccumulateFloat.h"
@@ -18,7 +19,6 @@ using Dist_t = std::uniform_int_distribution<Data_t>;
 #include "hlslib/Simulation.h"
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
-#include <random>
 
 TEST_CASE(kKernelName, kKernelName) {
 

@@ -61,8 +61,8 @@ public:
     return *this;
   }
 
-  // If width is 1, allow implicit conversion into the underlying type
-  template <typename = typename std::enable_if<(width == 1)>::type>
+  // Allow implicit conversion into the underlying type (this should only be
+  // allowed for width = 1, but this requires a separate class instantiation)
   operator T() const {
     #pragma HLS INLINE
     return Get(0);
