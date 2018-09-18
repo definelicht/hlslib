@@ -14,8 +14,14 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+// Configuration taken from Xilinx' xcl2 utility functions to maximize odds of
+// everything working.
+#define CL_HPP_CL_1_2_DEFAULT_BUILD
+#define CL_HPP_TARGET_OPENCL_VERSION 120
+#define CL_HPP_MINIMUM_OPENCL_VERSION 120
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
-#include <CL/opencl.h>
+#include <CL/cl2.hpp>
 
 namespace hlslib {
 
@@ -67,13 +73,15 @@ constexpr size_t kMaxString = 128;
 #endif
 
 #if HLSLIB_LEGACY_SDX == 0
-constexpr cl_mem_flags kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
-constexpr unsigned kXilinxBank0 = XCL_MEM_DDR_BANK0;
-constexpr unsigned kXilinxBank1 = XCL_MEM_DDR_BANK1;
-constexpr unsigned kXilinxBank2 = XCL_MEM_DDR_BANK2;
-constexpr unsigned kXilinxBank3 = XCL_MEM_DDR_BANK3;
+constexpr auto kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
+constexpr auto kXilinxBank0 = XCL_MEM_DDR_BANK0;
+constexpr auto kXilinxBank1 = XCL_MEM_DDR_BANK1;
+constexpr auto kXilinxBank2 = XCL_MEM_DDR_BANK2;
+constexpr auto kXilinxBank3 = XCL_MEM_DDR_BANK3;
 using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
 #else
+// Before 2017.4, these values were only available numerically, and the
+// extended memory pointer had to be constructed manually.
 constexpr cl_mem_flags kXilinxMemPointer = 1 << 31;
 constexpr unsigned kXilinxBank0 = 1 << 8;
 constexpr unsigned kXilinxBank1 = 1 << 9;
@@ -120,38 +128,33 @@ void ThrowRuntimeError(std::string const &message) {
 // Free functions (for internal use)
 //-----------------------------------------------------------------------------
 
-std::vector<cl_platform_id> GetAvailablePlatforms() {
-  std::vector<cl_platform_id> platforms(kMaxCount);
-  cl_uint platformCount;
-  cl_int errorCode =
-      clGetPlatformIDs(kMaxCount, platforms.data(), &platformCount);
+std::vector<cl::Platform> GetAvailablePlatforms() {
+  std::vector<cl::Platform> platforms(kMaxCount);
+  cl_int errorCode = cl::Platform::get(&platforms);
   if (errorCode != CL_SUCCESS) {
     ThrowConfigurationError("Failed to retrieve OpenCL platforms.");
     return {};
   }
-
-  platforms.resize(platformCount);
   return platforms;
 }
 
-std::string GetPlatformVendor(cl_platform_id platformId) {
-  std::array<char, kMaxString> vendorName;
-  auto errorCode = clGetPlatformInfo(platformId, CL_PLATFORM_VENDOR, kMaxString,
-                                     vendorName.data(), nullptr);
+std::string GetPlatformVendor(cl::Platform platform) {
+  cl_int errorCode;
+  std::string vendorName = platform.getInfo<CL_PLATFORM_NAME>(&errorCode);
   if (errorCode != CL_SUCCESS) {
     ThrowConfigurationError("Failed to retrieve platform vendor name.");
     return {};
   }
-  return std::string(vendorName.data());
+  return vendorName;
 }
 
-cl_platform_id FindPlatformByVendor(std::string const &desiredVendor) {
-  cl_platform_id platformId{};
+cl::Platform FindPlatformByVendor(std::string const &desiredVendor) {
+  cl::Platform platform;
 
   auto available = GetAvailablePlatforms();
   if (available.size() == 0) {
     ThrowConfigurationError("No available OpenCL platforms.");
-    return platformId;
+    return platform;
   }
 
   bool foundVendor = false;
@@ -160,7 +163,7 @@ cl_platform_id FindPlatformByVendor(std::string const &desiredVendor) {
     if (std::string(vendorName.data()).find(desiredVendor) !=
         std::string::npos) {
       foundVendor = true;
-      platformId = p;
+      platform = p;
       break;
     }
   }
@@ -168,43 +171,38 @@ cl_platform_id FindPlatformByVendor(std::string const &desiredVendor) {
     std::stringstream ss;
     ss << "Platform \"" << desiredVendor << "\" not found.";
     ThrowConfigurationError(ss.str());
-    return platformId;
+    return platform;
   }
 
-  return platformId;
+  return platform;
 }
 
-std::vector<cl_device_id> GetAvailableDevices(
-    cl_platform_id const &platformId) {
-  std::vector<cl_device_id> devices(kMaxCount);
-  cl_uint deviceCount;
-  auto errorCode = clGetDeviceIDs(platformId, CL_DEVICE_TYPE_ALL, kMaxCount,
-                                  devices.data(), &deviceCount);
+std::vector<cl::Device> GetAvailableDevices(cl::Platform const &platform) {
 
+  std::vector<cl::Device> devices;
+  auto errorCode = platform.getDevices(CL_DEVICE_TYPE_ACCELERATOR, &devices);
   if (errorCode != CL_SUCCESS) {
     ThrowConfigurationError("Failed to retrieve device IDs.");
     return {};
   }
 
-  devices.resize(deviceCount);
   return devices;
 }
 
-std::string GetDeviceName(cl_device_id const &deviceId) {
-  std::array<char, kMaxString> deviceName;
-  auto errorCode = clGetDeviceInfo(deviceId, CL_DEVICE_NAME, kMaxString,
-                                   deviceName.data(), nullptr);
+std::string GetDeviceName(cl::Device const &device) {
+  cl_int errorCode;
+  std::string deviceName = device.getInfo<CL_DEVICE_NAME>(&errorCode);
   if (errorCode != CL_SUCCESS) {
     ThrowConfigurationError("Failed to retrieve device info.");
     return {};
   }
-  return std::string(deviceName.data());
+  return deviceName;
 }
 
-cl_device_id FindDeviceByName(cl_platform_id const &platformId,
+cl::Device FindDeviceByName(cl::Platform const &platform,
                               std::string const &desiredDevice) {
-  cl_device_id device;
-  auto available = GetAvailableDevices(platformId);
+  cl::Device device;
+  auto available = GetAvailableDevices(platform);
   if (available.size() == 0) {
     ThrowConfigurationError("No compute devices found.");
     return {};
@@ -230,33 +228,30 @@ cl_device_id FindDeviceByName(cl_platform_id const &platformId,
   return device;
 }
 
-cl_context CreateComputeContext(std::vector<cl_device_id> const &deviceIds) {
+cl::Context CreateComputeContext(std::vector<cl::Device> const &devices) {
   // TODO: support properties and callback functions?
   cl_int errorCode;
-  auto context = clCreateContext(nullptr, deviceIds.size(), deviceIds.data(),
-                                 nullptr, nullptr, &errorCode);
+  cl::Context context(devices, nullptr, nullptr, nullptr, &errorCode);
   if (errorCode != CL_SUCCESS) {
     ThrowRuntimeError("Failed to create compute context.");
-    return {};
   }
   return context;
 }
 
-cl_context CreateComputeContext(cl_device_id const &deviceId) {
-  std::vector<cl_device_id> deviceIdVec = {deviceId};
-  return CreateComputeContext(deviceIdVec);
+cl::Context CreateComputeContext(cl::Device const &device) {
+  std::vector<cl::Device> devices = {device};
+  return CreateComputeContext(devices);
 }
 
-cl_command_queue CreateCommandQueue(cl_context const &context,
-                                    cl_device_id const &deviceId) {
+cl::CommandQueue CreateCommandQueue(cl::Context const &context,
+                                    cl::Device const &device) {
   cl_int errorCode;
-  auto commandQueue = clCreateCommandQueue(
-      context, deviceId,
+  cl::CommandQueue commandQueue(
+      context, device,
       CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE,
       &errorCode);
   if (errorCode != CL_SUCCESS) {
     ThrowRuntimeError("Failed to create command queue.");
-    return {};
   }
   return commandQueue;
 }
@@ -285,11 +280,11 @@ class Context {
     platformId_ = FindPlatformByVendor(vendorName);
 
     // Find requested compute device
-    deviceId_ = FindDeviceByName(platformId_, deviceName);
+    device_ = FindDeviceByName(platformId_, deviceName);
 
-    context_ = CreateComputeContext(deviceId_);
+    context_ = CreateComputeContext(device_);
 
-    commandQueue_ = CreateCommandQueue(context_, deviceId_);
+    commandQueue_ = CreateCommandQueue(context_, device_);
 #endif
   }
 
@@ -304,14 +299,14 @@ class Context {
       ThrowConfigurationError("No OpenCL devices found for platform.");
       return;
     }
-    deviceId_ = devices[0];
+    device_ = devices[0];
     if (kVerbose) {
-      std::cout << "Using device \"" << GetDeviceName(deviceId_) << "\".\n";
+      std::cout << "Using device \"" << GetDeviceName(device_) << "\".\n";
     }
 
-    context_ = CreateComputeContext(deviceId_);
+    context_ = CreateComputeContext(device_);
 
-    commandQueue_ = CreateCommandQueue(context_, deviceId_);
+    commandQueue_ = CreateCommandQueue(context_, device_);
 #endif
   }
 
@@ -320,42 +315,39 @@ class Context {
   inline Context &operator=(Context const &) = delete;
   inline Context &operator=(Context &&) = default;
 
-  inline ~Context() {
-#ifndef HLSLIB_SIMULATE_OPENCL
-    clReleaseContext(context_);
-    clReleaseCommandQueue(commandQueue_);
-#endif
-  }
+  inline ~Context() = default;
 
   /// Create an OpenCL program from the given binary, from which kernels can be
   /// instantiated and executed.
   inline Program MakeProgram(std::string const &path);
 
   /// Returns the internal OpenCL device id.
-  inline cl_device_id const &deviceId() const { return deviceId_; }
+  inline cl::Device const &device() const { return device_; }
 
   inline std::string DeviceName() const {
 #ifndef HLSLIB_SIMULATE_OPENCL
-    return GetDeviceName(deviceId_);
+    return GetDeviceName(device_);
 #else
     return "Simulation";  
 #endif
   }
 
   /// Returns the internal OpenCL execution context.
-  inline cl_context const &context() const { return context_; }
+  inline cl::Context const &context() const { return context_; }
 
   /// Returns the internal OpenCL command queue.
-  inline cl_command_queue const &commandQueue() const { return commandQueue_; }
+  inline cl::CommandQueue const &commandQueue() const { return commandQueue_; }
+
+  inline cl::CommandQueue &commandQueue() { return commandQueue_; }
 
   template <typename T, Access access, typename... Ts>
   Buffer<T, access> MakeBuffer(Ts &&... args);
 
  private:
-  cl_platform_id platformId_{};
-  cl_device_id deviceId_{};
-  cl_context context_{};
-  cl_command_queue commandQueue_{};
+  cl::Platform platformId_{};
+  cl::Device device_{};
+  cl::Context context_{};
+  cl::CommandQueue commandQueue_{};
 
 };  // End class Context
 
@@ -390,7 +382,7 @@ class Buffer {
 
     void *hostPtr = const_cast<T *>(&(*begin));
 
-    cl_mem_flags flags = CL_MEM_COPY_HOST_PTR;
+    cl_mem_flags flags = CL_MEM_USE_HOST_PTR;
 
     switch (access) {
       case Access::read:
@@ -416,8 +408,8 @@ class Buffer {
     cl_int errorCode;
     // If a memory bank was specified, pass the Xilinx-specific extended memory
     // pointer. Otherwise, pass the host pointer directly.
-    devicePtr_ = clCreateBuffer(context_->context(), flags,
-                                sizeof(T) * nElements_, hostPtr, &errorCode);
+    devicePtr_ = cl::Buffer(context.context(), flags, sizeof(T) * nElements_,
+                            hostPtr, &errorCode);
 
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to initialize and copy to device memory.");
@@ -453,7 +445,6 @@ class Buffer {
         break;
     }
 
-    // Allow specifying memory bank
     ExtendedMemoryPointer extendedHostPointer;
     void *hostPtr = nullptr;
     if (memoryBank != MemoryBank::unspecified) {
@@ -465,8 +456,8 @@ class Buffer {
     }
 
     cl_int errorCode;
-    devicePtr_ = clCreateBuffer(context_->context(), flags,
-                                sizeof(T) * nElements_, hostPtr, &errorCode);
+    devicePtr_ = cl::Buffer(context_->context(), flags, sizeof(T) * nElements_,
+                            hostPtr, &errorCode);
 
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to initialize device memory.");
@@ -493,28 +484,21 @@ class Buffer {
     return *this;
   }
 
-  ~Buffer() {
-#ifndef HLSLIB_SIMULATE_OPENCL
-    if (nElements_ > 0) {
-      clReleaseMemObject(devicePtr_);
-    }
-#endif
-  }
+  ~Buffer() = default;
 
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   void CopyFromHost(int deviceOffset, int numElements, IteratorType source) {
 #ifndef HLSLIB_SIMULATE_OPENCL
-    cl_event event;
-    auto errorCode =
-        clEnqueueWriteBuffer(context_->commandQueue(), devicePtr_, CL_TRUE,
-                             deviceOffset, sizeof(T) * numElements,
-                             const_cast<T *>(&(*source)), 0, nullptr, &event);
+    cl::Event event;
+    auto errorCode = context_->commandQueue().enqueueWriteBuffer(
+        devicePtr_, CL_TRUE, deviceOffset, sizeof(T) * numElements,
+        const_cast<T *>(&(*source)), nullptr, &event);
+    // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
       throw std::runtime_error("Failed to copy data to device.");
     }
-    clWaitForEvents(1, &event);
 #else
     std::copy(source, source + numElements, devicePtr_.begin() + deviceOffset);
 #endif
@@ -530,17 +514,17 @@ class Buffer {
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  void CopyToHost(int deviceOffset, int numElements, IteratorType target) {
+  void CopyToHost(size_t deviceOffset, size_t numElements, IteratorType target) {
 #ifndef HLSLIB_SIMULATE_OPENCL
-    cl_event event;
-    auto errorCode = clEnqueueReadBuffer(
-        context_->commandQueue(), devicePtr_, CL_TRUE, deviceOffset,
-        sizeof(T) * numElements, &(*target), 0, nullptr, &event);
+    cl::Event event;
+    auto errorCode = context_->commandQueue().enqueueReadBuffer(
+        devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
+        sizeof(T) * numElements, &(*target), nullptr, &event);
+    // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy back memory from device.");
       return;
     }
-    clWaitForEvents(1, &event);
 #else
     std::copy(devicePtr_.begin() + deviceOffset,
               devicePtr_.begin() + deviceOffset + numElements, target);
@@ -562,15 +546,16 @@ class Buffer {
         offsetDestination + numElements > other.nElements()) {
       ThrowRuntimeError("Device to device copy interval out of range.");
     }
-    cl_event event;
-    auto errorCode = clEnqueueCopyBuffer(
-        context_->commandQueue(), devicePtr_, other.devicePtr(), offsetSource,
-        offsetDestination, numElements * sizeof(T), 0, nullptr, &event);
+    cl::Event event;
+    auto errorCode = context_->commandQueue().enqueueCopyBuffer(
+        devicePtr_, other.devicePtr(), sizeof(T) * offsetSource,
+        sizeof(T) * offsetDestination, numElements * sizeof(T), nullptr,
+        &event);
+    event.wait();
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy from device to device.");
       return;
     }
-    clWaitForEvents(1, &event);
 #else
     std::copy(devicePtr_.begin() + offsetSource,
               devicePtr_.begin() + offsetSource + numElements,
@@ -595,9 +580,9 @@ class Buffer {
 
   
 #ifndef HLSLIB_SIMULATE_OPENCL
-  cl_mem const &devicePtr() const { return devicePtr_; }
+  cl::Buffer const &devicePtr() const { return devicePtr_; }
 
-  cl_mem &devicePtr() { return devicePtr_; }
+  cl::Buffer &devicePtr() { return devicePtr_; }
 #else
   T const *devicePtr() const { return devicePtr_.data(); }
 
@@ -627,9 +612,8 @@ class Buffer {
         ThrowRuntimeError(
             "Tried to create Xilinx extended memory"
             " pointer for unspecified bank");
+        break;
     }
-    // The target address will not be changed, but OpenCL only accepts
-    // non-const, so do a const_cast here
     extendedPointer.obj = hostPtr;
     extendedPointer.param = 0;
     return extendedPointer;
@@ -637,7 +621,7 @@ class Buffer {
 
   Context const *context_;
 #ifndef HLSLIB_SIMULATE_OPENCL
-  cl_mem devicePtr_{};
+  cl::Buffer devicePtr_{};
 #else
   std::vector<T> devicePtr_{};
 #endif
@@ -667,34 +651,35 @@ class Program {
       ThrowConfigurationError(ss.str());
       return;
     }
-    // Determine size of file in bytes
-    size_t fileSize = input.tellg();
-    input.seekg(0);
 
-    // Load content of binary file to memory
-    std::string fileContent;
-    {
-      std::ostringstream fileStream;
-      fileStream << input.rdbuf();
-      fileContent = fileStream.str();
-    }
+    // Determine size of file in bytes
+    input.seekg(0, input.end);
+    const auto fileSize = input.tellg();
+    input.seekg(0, input.beg);
+
+    // Load content of binary file into a character vector (required by the
+    // OpenCL C++ bindigs).
+    // The constructor of cl::Program accepts a vector of binaries, so stick the
+    // binary into a single-element outer vector.
+    std::vector<std::vector<unsigned char>> binary;
+    binary.emplace_back(fileSize);
+    // Since this is just binary data the reinterpret_cast *should* be safe
+    input.read(reinterpret_cast<char *>(&binary[0][0]), fileSize);
 
     cl_int errorCode;
 
     // Create OpenCL program
-    cl_int binaryStatus;
-    // Since this is just binary data the reinterpret_cast *should* be safe
-    const unsigned char *binaryData =
-        reinterpret_cast<const unsigned char *>(fileContent.data());
-    program_ = clCreateProgramWithBinary(
-        context.context(), 1, &context.deviceId(), &fileSize, &binaryData,
-        &binaryStatus, &errorCode);
-    if (binaryStatus != CL_SUCCESS || errorCode != CL_SUCCESS) {
+    std::vector<int> binaryStatus(1);
+    std::vector<cl::Device> devices;
+    devices.emplace_back(context.device());
+    program_ = cl::Program(context.context(), devices, binary, &binaryStatus,
+                           &errorCode);
+    if (binaryStatus[0] != CL_SUCCESS || errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to create OpenCL program from binary file \"" << path
          << "\":";
-      if (binaryStatus != CL_SUCCESS) {
-        ss << " binary status: " << binaryStatus << ".";
+      if (binaryStatus[0] != CL_SUCCESS) {
+        ss << " binary status: " << binaryStatus[0] << ".";
       }
       if (errorCode != CL_SUCCESS) {
         ss << " error code: " << errorCode << ".";
@@ -704,8 +689,7 @@ class Program {
     }
 
     // Build OpenCL program
-    errorCode = clBuildProgram(program_, 1, &context.deviceId(), nullptr,
-                               nullptr, nullptr);
+    errorCode = program_.build(devices, nullptr, nullptr, nullptr);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to build OpenCL program from binary file \"" << path
@@ -716,17 +700,13 @@ class Program {
 #endif
   }
 
-  inline ~Program() {
-#ifndef HLSLIB_SIMULATE_OPENCL
-    clReleaseProgram(program_);
-#endif    
-  }
+  inline ~Program() = default;
 
   // Returns the reference Context object.
   inline Context const &context() const { return context_; }
 
   // Returns the internal OpenCL program object.
-  inline cl_program const &program() const { return program_; }
+  inline cl::Program const &program() const { return program_; }
 
   // Returns the path to the loaded program
   inline std::string const &path() const { return path_; }
@@ -744,7 +724,7 @@ class Program {
 
  private:
   Context const &context_;
-  cl_program program_{};
+  cl::Program program_{};
   std::string path_;
 };
 
@@ -756,9 +736,8 @@ class Kernel {
  private:
   template <typename T, Access access>
   void SetKernelArguments(size_t index, Buffer<T, access> &arg) {
-    auto devicePtr = arg.devicePtr();
-    auto errorCode =
-        clSetKernelArg(kernel_, index, sizeof(cl_mem), &devicePtr);
+    cl::Buffer devicePtr = arg.devicePtr();
+    auto errorCode = kernel_.setArg(index, devicePtr);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to set kernel argument " << index << ".";
@@ -769,7 +748,7 @@ class Kernel {
 
   template <typename T>
   void SetKernelArguments(size_t index, T arg) {
-    auto errorCode = clSetKernelArg(kernel_, index, sizeof(T), &arg);
+    auto errorCode = kernel_.setArg(index, &arg);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to set kernel argument " << index << ".";
@@ -828,7 +807,7 @@ class Kernel {
 #ifndef HLSLIB_SIMULATE_OPENCL
     // Create executable compute kernel
     cl_int errorCode;
-    kernel_ = clCreateKernel(program_.program(), &kernelName[0], &errorCode);
+    kernel_ = cl::Kernel(program.program(), kernelName.c_str(), &errorCode);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to create kernel with name \"" << kernelName
@@ -842,40 +821,25 @@ class Kernel {
 #endif
   }
 
-  inline ~Kernel() {
-#ifndef HLSLIB_SIMULATE_OPENCL
-    clReleaseKernel(kernel_);
-#endif   
-  }
+  inline ~Kernel() = default;
 
   inline Program const &program() const { return program_; }
 
-  inline cl_kernel kernel() const { return kernel_; }
+  inline cl::Kernel const &kernel() const { return kernel_; }
 
   /// Execute the kernel as an OpenCL task and returns the time elapsed as
   /// reported by SDAccel (first) and as measured manually with chrono (second).
   inline std::pair<double, double> ExecuteTask() {
-    return ExecuteRange<1>({{1}}, {{1}});
-  }
-
-  /// Execute the kernel as an OpenCL NDRange and returns the time elapsed as
-  /// reported by SDAccel (first) and as measured manually with chrono (second).
-  template <unsigned dims>
-  std::pair<double, double> ExecuteRange(
-      std::array<size_t, dims> const &globalSize,
-      std::array<size_t, dims> const &localSize) {
-    cl_event event;
-    static std::array<size_t, dims> offsets = {};
+    cl::Event event;
     const auto start = std::chrono::high_resolution_clock::now();
 #ifndef HLSLIB_SIMULATE_OPENCL
-    auto errorCode = clEnqueueNDRangeKernel(
-        program_.context().commandQueue(), kernel_, dims, &offsets[0],
-        &globalSize[0], &localSize[0], 0, nullptr, &event);
+    auto errorCode =
+        program_.context().commandQueue().enqueueTask(kernel_, nullptr, &event);
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to execute kernel.");
       return {};
     }
-    clWaitForEvents(1, &event);
+    event.wait();
 #else
     hostFunction_(); // Simulate by calling host function
 #endif
@@ -886,10 +850,8 @@ class Kernel {
             .count();
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_ulong timeStart, timeEnd;
-    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
-                            sizeof(timeStart), &timeStart, nullptr);
-    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(timeEnd),
-                            &timeEnd, nullptr);
+    event.getProfilingInfo(CL_PROFILING_COMMAND_START, &timeStart);
+    event.getProfilingInfo(CL_PROFILING_COMMAND_END, &timeEnd);
     const double elapsedSDAccel = 1e-9 * (timeEnd - timeStart);
     return {elapsedSDAccel, elapsedChrono};
 #else
@@ -899,7 +861,7 @@ class Kernel {
 
  private:
   Program &program_;
-  cl_kernel kernel_{};
+  cl::Kernel kernel_;
   /// Host version of the kernel function. Can be used to check that the
   /// passed signature is correct, and for simulation purposes.
   std::function<void(void)> hostFunction_{}; 
