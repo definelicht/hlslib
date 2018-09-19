@@ -340,17 +340,42 @@ class Context {
 
   inline cl::CommandQueue &commandQueue() { return commandQueue_; }
 
+  inline Program *CurrentlyLoadedProgram() { return loadedProgram_; }
+
+  inline Program const *CurrentlyLoadedProgram() const {
+    return loadedProgram_;
+  }
+
   template <typename T, Access access, typename... Ts>
   Buffer<T, access> MakeBuffer(Ts &&... args);
+
+ protected:
+  friend Program;
+
+  void RegisterProgram(Program *program) {
+    loadedProgram_ = program;
+  }
+
+  void DeregisterProgram(Program *program) {
+    if (loadedProgram_ == program) {
+      // If this is the currently loaded program, deregister it
+      loadedProgram_ = nullptr;
+    }
+    // Otherwise this program is not loaded anyway 
+  }
 
  private:
   cl::Platform platformId_{};
   cl::Device device_{};
   cl::Context context_{};
   cl::CommandQueue commandQueue_{};
+  Program *loadedProgram_{nullptr};
 
 };  // End class Context
 
+/// Implement a singleton pattern for an SDAccel context.
+/// It is NOT recommend to use this if it can be avoided, but might be
+/// necssary when linking with external libraries.
 inline Context& GlobalContext() {
   static Context singleton;
   return singleton;
@@ -641,7 +666,7 @@ class Program {
 
  public:
   /// Load program from binary file
-  inline Program(Context const &context, std::string const &path)
+  inline Program(Context &context, std::string const &path)
       : context_(context), path_(path) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     std::ifstream input(path, std::ios::in | std::ios::binary | std::ios::ate);
@@ -698,12 +723,26 @@ class Program {
       return;
     }
 #endif
+    context_.RegisterProgram(this);
   }
 
-  inline ~Program() = default;
+  // Don't allow copying programs, as they will register themselves with the
+  // context they're associated to
+  Program(Program const&) = delete;
+  Program(Program &&) = default;
+
+  inline ~Program() {
+    context_.DeregisterProgram(this);
+  }
+
+  // Returns the reference Context object.
+  inline Context &context() { return context_; }
 
   // Returns the reference Context object.
   inline Context const &context() const { return context_; }
+
+  // Returns the internal OpenCL program object.
+  inline cl::Program &program() { return program_; }
 
   // Returns the internal OpenCL program object.
   inline cl::Program const &program() const { return program_; }
@@ -723,7 +762,7 @@ class Program {
                     Ts &&... args);
 
  private:
-  Context const &context_;
+  Context &context_;
   cl::Program program_{};
   std::string path_;
 };
@@ -878,7 +917,7 @@ Buffer<T, access> Context::MakeBuffer(Ts &&... args) {
 }
 
 Program Context::MakeProgram(std::string const &path) {
-  return Program(*this, path);
+  Program(*this, path);
 }
 
 template <typename... Ts>
