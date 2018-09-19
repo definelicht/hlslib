@@ -719,8 +719,8 @@ class Kernel {
   }
 
   template <typename T>
-  void SetKernelArguments(size_t index, T arg) {
-    auto errorCode = kernel_.setArg<T>(index, arg);
+  void SetKernelArguments(size_t index, T &&arg) {
+    auto errorCode = kernel_.setArg(index, arg);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to set kernel argument " << index << ".";
@@ -730,9 +730,9 @@ class Kernel {
   }
 
   template <typename T, typename... Ts>
-  void SetKernelArguments(size_t index, T &arg, Ts &... args) {
-    SetKernelArguments(index, arg);
-    SetKernelArguments(index + 1, args...);
+  void SetKernelArguments(size_t index, T &&arg, Ts &&... args) {
+    SetKernelArguments(index, std::forward<T>(arg));
+    SetKernelArguments(index + 1, std::forward<Ts>(args)...);
   }
 
   template <typename T, Access access>
@@ -789,7 +789,7 @@ class Kernel {
     }
 
     // Pass kernel arguments
-    SetKernelArguments(0, kernelArgs...);
+    SetKernelArguments(0, std::forward<Ts>(kernelArgs)...);
 #endif
   }
 
