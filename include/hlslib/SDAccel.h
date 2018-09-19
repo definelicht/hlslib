@@ -903,6 +903,8 @@ Program Context::MakeProgram(std::string const &path) {
          << "\".";
       ThrowConfigurationError(ss.str());
     }
+#else
+  decltype(loadedProgram_) program = nullptr;
 #endif
 
   loadedProgram_ = program;
@@ -910,9 +912,11 @@ Program Context::MakeProgram(std::string const &path) {
 }
 
 Program Context::CurrentlyLoadedProgram() const {
+#ifndef HLSLIB_SIMULATE_OPENCL
   if (loadedProgram_ == nullptr) {
     ThrowRuntimeError("No program is currently loaded.");
   }
+#endif
   return Program(*const_cast<Context *>(this), loadedProgram_);
 }
 
