@@ -720,7 +720,7 @@ class Kernel {
 
   template <typename T>
   void SetKernelArguments(size_t index, T arg) {
-    auto errorCode = kernel_.setArg(index, &arg);
+    auto errorCode = kernel_.setArg<T>(index, arg);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to set kernel argument " << index << ".";
