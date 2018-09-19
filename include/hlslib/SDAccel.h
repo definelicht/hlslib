@@ -10,6 +10,7 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -340,11 +341,7 @@ class Context {
 
   inline cl::CommandQueue &commandQueue() { return commandQueue_; }
 
-  inline Program *CurrentlyLoadedProgram() { return loadedProgram_; }
-
-  inline Program const *CurrentlyLoadedProgram() const {
-    return loadedProgram_;
-  }
+  inline Program CurrentlyLoadedProgram() const;
 
   template <typename T, Access access, typename... Ts>
   Buffer<T, access> MakeBuffer(Ts &&... args);
@@ -352,16 +349,9 @@ class Context {
  protected:
   friend Program;
 
-  void RegisterProgram(Program *program) {
+  void RegisterProgram(
+      std::shared_ptr<std::pair<std::string, cl::Program>> program) {
     loadedProgram_ = program;
-  }
-
-  void DeregisterProgram(Program *program) {
-    if (loadedProgram_ == program) {
-      // If this is the currently loaded program, deregister it
-      loadedProgram_ = nullptr;
-    }
-    // Otherwise this program is not loaded anyway 
   }
 
  private:
@@ -369,7 +359,7 @@ class Context {
   cl::Device device_{};
   cl::Context context_{};
   cl::CommandQueue commandQueue_{};
-  Program *loadedProgram_{nullptr};
+  std::shared_ptr<std::pair<std::string, cl::Program>> loadedProgram_{nullptr};
 
 };  // End class Context
 
@@ -665,75 +655,11 @@ class Buffer {
 class Program {
 
  public:
-  /// Load program from binary file
-  inline Program(Context &context, std::string const &path)
-      : context_(context), path_(path) {
-#ifndef HLSLIB_SIMULATE_OPENCL
-    std::ifstream input(path, std::ios::in | std::ios::binary | std::ios::ate);
-    if (!input.is_open()) {
-      std::stringstream ss;
-      ss << "Failed to open program file \"" << path << "\".";
-      ThrowConfigurationError(ss.str());
-      return;
-    }
 
-    // Determine size of file in bytes
-    input.seekg(0, input.end);
-    const auto fileSize = input.tellg();
-    input.seekg(0, input.beg);
-
-    // Load content of binary file into a character vector (required by the
-    // OpenCL C++ bindigs).
-    // The constructor of cl::Program accepts a vector of binaries, so stick the
-    // binary into a single-element outer vector.
-    std::vector<std::vector<unsigned char>> binary;
-    binary.emplace_back(fileSize);
-    // Since this is just binary data the reinterpret_cast *should* be safe
-    input.read(reinterpret_cast<char *>(&binary[0][0]), fileSize);
-
-    cl_int errorCode;
-
-    // Create OpenCL program
-    std::vector<int> binaryStatus(1);
-    std::vector<cl::Device> devices;
-    devices.emplace_back(context.device());
-    program_ = cl::Program(context.context(), devices, binary, &binaryStatus,
-                           &errorCode);
-    if (binaryStatus[0] != CL_SUCCESS || errorCode != CL_SUCCESS) {
-      std::stringstream ss;
-      ss << "Failed to create OpenCL program from binary file \"" << path
-         << "\":";
-      if (binaryStatus[0] != CL_SUCCESS) {
-        ss << " binary status: " << binaryStatus[0] << ".";
-      }
-      if (errorCode != CL_SUCCESS) {
-        ss << " error code: " << errorCode << ".";
-      }
-      ThrowConfigurationError(ss.str());
-      return;
-    }
-
-    // Build OpenCL program
-    errorCode = program_.build(devices, nullptr, nullptr, nullptr);
-    if (errorCode != CL_SUCCESS) {
-      std::stringstream ss;
-      ss << "Failed to build OpenCL program from binary file \"" << path
-         << "\".";
-      ThrowConfigurationError(ss.str());
-      return;
-    }
-#endif
-    context_.RegisterProgram(this);
-  }
-
-  // Don't allow copying programs, as they will register themselves with the
-  // context they're associated to
-  Program(Program const&) = delete;
+  Program() = delete;
+  Program(Program const&) = default;
   Program(Program &&) = default;
-
-  inline ~Program() {
-    context_.DeregisterProgram(this);
-  }
+  ~Program() = default; 
 
   // Returns the reference Context object.
   inline Context &context() { return context_; }
@@ -742,13 +668,13 @@ class Program {
   inline Context const &context() const { return context_; }
 
   // Returns the internal OpenCL program object.
-  inline cl::Program &program() { return program_; }
+  inline cl::Program &program() { return program_->second; }
 
   // Returns the internal OpenCL program object.
-  inline cl::Program const &program() const { return program_; }
+  inline cl::Program const &program() const { return program_->second; }
 
   // Returns the path to the loaded program
-  inline std::string const &path() const { return path_; }
+  inline std::string const &path() const { return program_->first; }
 
   /// Create a kernel with the specified name contained in this loaded OpenCL
   /// program, binding the argument to the passed ones.
@@ -761,10 +687,17 @@ class Program {
   Kernel MakeKernel(F &&hostFunction, std::string const &kernelName,
                     Ts &&... args);
 
+ protected:
+
+  friend Context;
+
+  inline Program(Context &context,
+                 std::shared_ptr<std::pair<std::string, cl::Program>> program)
+      : context_(context), program_(program) {}
+
  private:
   Context &context_;
-  cl::Program program_{};
-  std::string path_;
+  std::shared_ptr<std::pair<std::string, cl::Program>> program_;
 };
 
 //#############################################################################
@@ -917,7 +850,70 @@ Buffer<T, access> Context::MakeBuffer(Ts &&... args) {
 }
 
 Program Context::MakeProgram(std::string const &path) {
-  Program(*this, path);
+
+#ifndef HLSLIB_SIMULATE_OPENCL
+    std::ifstream input(path, std::ios::in | std::ios::binary | std::ios::ate);
+    if (!input.is_open()) {
+      std::stringstream ss;
+      ss << "Failed to open program file \"" << path << "\".";
+      ThrowConfigurationError(ss.str());
+    }
+
+    // Determine size of file in bytes
+    input.seekg(0, input.end);
+    const auto fileSize = input.tellg();
+    input.seekg(0, input.beg);
+
+    // Load content of binary file into a character vector (required by the
+    // OpenCL C++ bindigs).
+    // The constructor of cl::Program accepts a vector of binaries, so stick the
+    // binary into a single-element outer vector.
+    std::vector<std::vector<unsigned char>> binary;
+    binary.emplace_back(fileSize);
+    // Since this is just binary data the reinterpret_cast *should* be safe
+    input.read(reinterpret_cast<char *>(&binary[0][0]), fileSize);
+
+    cl_int errorCode;
+
+    // Create OpenCL program
+    std::vector<int> binaryStatus(1);
+    std::vector<cl::Device> devices;
+    devices.emplace_back(device_);
+    auto program = std::make_shared<std::pair<std::string, cl::Program>>(
+        path, cl::Program(context_, devices, binary, &binaryStatus,
+                          &errorCode));
+    if (binaryStatus[0] != CL_SUCCESS || errorCode != CL_SUCCESS) {
+      std::stringstream ss;
+      ss << "Failed to create OpenCL program from binary file \"" << path
+         << "\":";
+      if (binaryStatus[0] != CL_SUCCESS) {
+        ss << " binary status: " << binaryStatus[0] << ".";
+      }
+      if (errorCode != CL_SUCCESS) {
+        ss << " error code: " << errorCode << ".";
+      }
+      ThrowConfigurationError(ss.str());
+    }
+
+    // Build OpenCL program
+    errorCode = program->second.build(devices, nullptr, nullptr, nullptr);
+    if (errorCode != CL_SUCCESS) {
+      std::stringstream ss;
+      ss << "Failed to build OpenCL program from binary file \"" << path
+         << "\".";
+      ThrowConfigurationError(ss.str());
+    }
+#endif
+
+  loadedProgram_ = program;
+  return Program(*this, loadedProgram_);
+}
+
+Program Context::CurrentlyLoadedProgram() const {
+  if (loadedProgram_ == nullptr) {
+    ThrowRuntimeError("No program is currently loaded.");
+  }
+  return Program(*const_cast<Context *>(this), loadedProgram_);
 }
 
 template <typename... Ts>
