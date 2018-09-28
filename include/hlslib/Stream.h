@@ -175,13 +175,13 @@ public:
 
   Stream(char const *const name, size_t capacity)
 #ifdef HLSLIB_SYNTHESIS
-      : stream_(name)
+      : stream_(name) {
     #pragma HLS INLINE
     #pragma HLS STREAM variable=stream_ depth=capacity 
+  }
 #else
-      : name_(name), capacity_(capacity)
+      : name_(name), capacity_(capacity) {}
 #endif // !HLSLIB_SYNTHESIS
-  {}
 
   // Streams represent hardware entities. Don't allow copy or assignment.
   Stream(Stream<T> const &) = delete;
