@@ -26,7 +26,7 @@ class DataPack {
 
   static_assert(width > 0, "Width must be positive");
 
-public:
+ public:
 
   static constexpr int kBits = 8 * sizeof(T);
   static constexpr int kWidth = width;
@@ -168,10 +168,14 @@ public:
     }
   }
 
-private:
+ private:
 
+  void _AssertPacking() {
+    static_assert(sizeof(DataPack<T, width>) == sizeof(T) * width,
+                  "DataPack was not tightly packed.");
+  }
+ 
   Internal_t data_;
-
 };
 
 namespace {
@@ -183,7 +187,7 @@ class DataPackProxy {
 
   static constexpr int kBits = 8 * width;
 
-public:
+ public:
 
   DataPackProxy(DataPack<T, width> &data, int index)
       : index_(index), data_(data) {
@@ -221,7 +225,7 @@ public:
     return data_.Get(index_);
   }
 
-private:
+ private:
 
   int index_;
   DataPack<T, width> &data_;
