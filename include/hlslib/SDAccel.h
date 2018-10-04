@@ -11,6 +11,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -348,10 +349,24 @@ class Context {
 
  protected:
   friend Program;
+  friend Kernel;
+  template <typename U, Access access> friend class Buffer;
 
   void RegisterProgram(
       std::shared_ptr<std::pair<std::string, cl::Program>> program) {
     loadedProgram_ = program;
+  }
+
+  std::mutex &memcopyMutex() {
+    return memcopyMutex_;
+  }
+
+  std::mutex &enqueueMutex() {
+    return enqueueMutex_;
+  }
+
+  std::mutex &reprogramMutex() {
+    return reprogramMutex_;
   }
 
  private:
@@ -360,6 +375,9 @@ class Context {
   cl::Context context_{};
   cl::CommandQueue commandQueue_{};
   std::shared_ptr<std::pair<std::string, cl::Program>> loadedProgram_{nullptr};
+  std::mutex memcopyMutex_;
+  std::mutex enqueueMutex_;
+  std::mutex reprogramMutex_;
 
 };  // End class Context
 
@@ -389,7 +407,7 @@ class Buffer {
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  Buffer(Context const &context, MemoryBank memoryBank, IteratorType begin,
+  Buffer(Context &context, MemoryBank memoryBank, IteratorType begin,
          IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
 
@@ -439,11 +457,11 @@ class Buffer {
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  Buffer(Context const &context, IteratorType begin, IteratorType end)
+  Buffer(Context &context, IteratorType begin, IteratorType end)
       : Buffer(context, MemoryBank::unspecified, begin, end) {}
 
   /// Allocate device memory but don't perform any transfers.
-  Buffer(Context const &context, MemoryBank memoryBank, size_t nElements)
+  Buffer(Context &context, MemoryBank memoryBank, size_t nElements)
       : context_(&context), nElements_(nElements) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 
@@ -471,8 +489,11 @@ class Buffer {
     }
 
     cl_int errorCode;
-    devicePtr_ = cl::Buffer(context_->context(), flags, sizeof(T) * nElements_,
-                            hostPtr, &errorCode);
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex()); 
+      devicePtr_ = cl::Buffer(context_->context(), flags, sizeof(T) * nElements_,
+                              hostPtr, &errorCode);
+    }
 
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to initialize device memory.");
@@ -483,7 +504,7 @@ class Buffer {
 #endif
   }
 
-  Buffer(Context const &context, size_t nElements)
+  Buffer(Context &context, size_t nElements)
       : Buffer(context, MemoryBank::unspecified, nElements) {}
 
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
@@ -507,9 +528,13 @@ class Buffer {
   void CopyFromHost(int deviceOffset, int numElements, IteratorType source) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
-    auto errorCode = context_->commandQueue().enqueueWriteBuffer(
-        devicePtr_, CL_TRUE, deviceOffset, sizeof(T) * numElements,
-        const_cast<T *>(&(*source)), nullptr, &event);
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      errorCode = context_->commandQueue().enqueueWriteBuffer(
+          devicePtr_, CL_TRUE, deviceOffset, sizeof(T) * numElements,
+          const_cast<T *>(&(*source)), nullptr, &event);
+    }
     // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
       throw std::runtime_error("Failed to copy data to device.");
@@ -532,9 +557,13 @@ class Buffer {
   void CopyToHost(size_t deviceOffset, size_t numElements, IteratorType target) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
-    auto errorCode = context_->commandQueue().enqueueReadBuffer(
-        devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
-        sizeof(T) * numElements, &(*target), nullptr, &event);
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      errorCode = context_->commandQueue().enqueueReadBuffer(
+          devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
+          sizeof(T) * numElements, &(*target), nullptr, &event);
+    }
     // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy back memory from device.");
@@ -562,10 +591,14 @@ class Buffer {
       ThrowRuntimeError("Device to device copy interval out of range.");
     }
     cl::Event event;
-    auto errorCode = context_->commandQueue().enqueueCopyBuffer(
-        devicePtr_, other.devicePtr(), sizeof(T) * offsetSource,
-        sizeof(T) * offsetDestination, numElements * sizeof(T), nullptr,
-        &event);
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      errorCode = context_->commandQueue().enqueueCopyBuffer(
+          devicePtr_, other.devicePtr(), sizeof(T) * offsetSource,
+          sizeof(T) * offsetDestination, numElements * sizeof(T), nullptr,
+          &event);
+    }
     event.wait();
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy from device to device.");
@@ -634,7 +667,7 @@ class Buffer {
     return extendedPointer;
   }
 
-  Context const *context_;
+  Context *context_;
 #ifndef HLSLIB_SIMULATE_OPENCL
   cl::Buffer devicePtr_{};
 #else
@@ -805,8 +838,12 @@ class Kernel {
     cl::Event event;
     const auto start = std::chrono::high_resolution_clock::now();
 #ifndef HLSLIB_SIMULATE_OPENCL
-    auto errorCode =
-        program_.context().commandQueue().enqueueTask(kernel_, nullptr, &event);
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(program_.context().enqueueMutex());
+      errorCode = program_.context().commandQueue().enqueueTask(
+          kernel_, nullptr, &event);
+    }
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to execute kernel.");
       return {};
@@ -880,8 +917,8 @@ Program Context::MakeProgram(std::string const &path) {
     std::vector<cl::Device> devices;
     devices.emplace_back(device_);
     auto program = std::make_shared<std::pair<std::string, cl::Program>>(
-        path, cl::Program(context_, devices, binary, &binaryStatus,
-                          &errorCode));
+        path,
+        cl::Program(context_, devices, binary, &binaryStatus, &errorCode));
     if (binaryStatus[0] != CL_SUCCESS || errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to create OpenCL program from binary file \"" << path
@@ -896,7 +933,10 @@ Program Context::MakeProgram(std::string const &path) {
     }
 
     // Build OpenCL program
-    errorCode = program->second.build(devices, nullptr, nullptr, nullptr);
+    {
+      std::lock_guard<std::mutex> lock(reprogramMutex_);
+      errorCode = program->second.build(devices, nullptr, nullptr, nullptr);
+    }
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to build OpenCL program from binary file \"" << path
