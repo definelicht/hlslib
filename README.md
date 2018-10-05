@@ -68,8 +68,10 @@ _xocc_<source file>_<kernel file>.dir/impl/build/system/<kernel file>/bitstream/
 ```
 In newer versions of SDAccel, the final initiation interval determined by Vivado HLS is printed to standard output when running xocc. However, this output is suppressed after 100 messages, so for large kernels it is necessary to verify either the `runme.log` or `vivado_hls.log` file.
 
-### Power report crash
+### Ubuntu packages
 
-While building a project, Vivado generates a number of GUI-reports, even when running `xocc` on the command line. These reports have an internal limit of 64 MB per _section_. For very large projects these sections can exceed 64 MB, causing Vivado to crash with an error like "Unable to write <report name>.rpx as it exceeds maximum size of 64 MB".
+On Ubuntu, two packages are required to run hardware emulation:
 
-As of SDx 2017.1, the workaround is to disable reporting by setting the property `project.runs.noReportGeneration=1`.
+```
+sudo apt install libc6-dev-amd64 libc6-dev-i386
+```
