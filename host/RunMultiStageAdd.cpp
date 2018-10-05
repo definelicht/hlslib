@@ -5,10 +5,22 @@
 #include "hlslib/SDAccel.h"
 #include "MultiStageAdd.h"
 #include <iostream>
-#define CATCH_CONFIG_MAIN
-#include "catch.hpp"
 
-TEST_CASE("MultiStageAddDevice", "[MultiStageAddDevice]") {
+enum class Mode {
+  simulation,
+  emulation,
+  hardware,
+};
+
+int RunKernel(Mode mode) {
+
+  if (mode == Mode::hardware) {
+    std::cout << "Running hardware kernel..." << std::endl;
+  } else if (mode == Mode::emulation) {
+    std::cout << "Running emulation kernel..." << std::endl;
+  } else {
+    std::cout << "Running simulation kernel..." << std::endl;
+  }
 
   std::cout << "Initializing OpenCL context..." << std::endl;
   hlslib::ocl::Context context;
@@ -21,7 +33,12 @@ TEST_CASE("MultiStageAddDevice", "[MultiStageAddDevice]") {
   std::cout << " Done." << std::endl;
 
   std::cout << "Creating kernel..." << std::flush;
-  auto program = context.MakeProgram("MultiStageAdd.xclbin");
+  auto program =
+      (mode == Mode::simulation)
+          ? context.MakeProgram("MultiStageAdd_sw_emu.xclbin")
+          : ((mode == Mode::hardware)
+                 ? context.MakeProgram("MultiStageAdd_hw.xclbin")
+                 : context.MakeProgram("MultiStageAdd_hw_emu.xclbin"));
   auto kernel = program.MakeKernel("MultiStageAdd", memDevice, memDevice);
   std::cout << " Done." << std::endl;
 
@@ -32,10 +49,30 @@ TEST_CASE("MultiStageAddDevice", "[MultiStageAddDevice]") {
   std::cout << "Verifying result..." << std::flush;
   memDevice.CopyToHost(memHost.begin());
   for (auto &m : memHost) {
-    REQUIRE(m == kStages); 
+    if (m != kStages) {
+      return 3;
+    }
   }
   std::cout << " Done." << std::endl;
 
   std::cout << "Kernel ran successfully." << std::endl;
 
+}
+
+int main(int argc, char **argv) {
+  if (argc < 2) {
+    std::cerr << "Required argument: [emulation/hardware]\n" << std::flush;
+    return 1;
+  }
+  const std::string mode(argv[1]);
+  if (mode == "emulation") {
+    return RunKernel(Mode::emulation);
+  } else if (mode == "hardware") {
+    return RunKernel(Mode::hardware);
+  } else if (mode == "simulation") {
+    return RunKernel(Mode::simulation);
+  } else {
+    std::cerr << "Unrecognized mode: " << mode << std::endl;
+    return 2;
+  }
 }
