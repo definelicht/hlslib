@@ -532,8 +532,9 @@ class Buffer {
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
       errorCode = context_->commandQueue().enqueueWriteBuffer(
-          devicePtr_, CL_TRUE, deviceOffset, sizeof(T) * numElements,
-          const_cast<T *>(&(*source)), nullptr, &event);
+          devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
+          sizeof(T) * numElements, const_cast<T *>(&(*source)), nullptr,
+          &event);
     }
     // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
