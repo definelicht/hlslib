@@ -449,7 +449,7 @@ class Buffer {
       return;
     }
 #else
-    devicePtr = std::vector<T>(nElements_);
+    devicePtr_ = std::vector<T>(nElements_);
     std::copy(begin, end, devicePtr_.begin());
 #endif
   }
