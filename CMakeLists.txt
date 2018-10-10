@@ -99,7 +99,7 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
     add_custom_target(build_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -t hw
       ${XOCC_COMMAND} ${CMAKE_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw.xclbin) 
-    add_custom_target(build_${KERNEL_NAME}_emulation
+    add_custom_target(build_${KERNEL_NAME}_hardware_emulation
       COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xclbin) 
   else()
@@ -109,18 +109,20 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
     add_custom_target(build_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -l -t hw
       ${XOCC_COMMAND} ${KERNEL_NAME}_hw.xo -o ${KERNEL_NAME}_hw.xclbin) 
-    add_custom_target(compile_${KERNEL_NAME}_emulation
+    add_custom_target(compile_${KERNEL_NAME}_hardware_emulation
       COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -c -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xo) 
-    add_custom_target(build_${KERNEL_NAME}_emulation
+    add_custom_target(build_${KERNEL_NAME}_hardware_emulation
       COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -l -t hw_emu -g
       ${XOCC_COMMAND} ${KERNEL_NAME}_hw_emu.xo -o ${KERNEL_NAME}_hw_emu.xclbin) 
-    add_custom_target(compile_${KERNEL_NAME}_simulation
-      COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -c -t sw_emu -g
-      ${XOCC_COMMAND} ${CMAKE_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_sw_emu.xo) 
-    add_custom_target(build_${KERNEL_NAME}_simulation
-      COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -l -t sw_emu -g
-      ${XOCC_COMMAND} ${KERNEL_NAME}_sw_emu.xo -o ${KERNEL_NAME}_sw_emu.xclbin) 
+    # Software emulation is broken until Xilinx finally decided to upgrade from
+    # gcc 4.x
+    # add_custom_target(compile_${KERNEL_NAME}_simulation
+    #   COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -c -t sw_emu -g
+    #   ${XOCC_COMMAND} ${CMAKE_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_sw_emu.xo) 
+    # add_custom_target(build_${KERNEL_NAME}_simulation
+    #   COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -l -t sw_emu -g
+    #   ${XOCC_COMMAND} ${KERNEL_NAME}_sw_emu.xo -o ${KERNEL_NAME}_sw_emu.xclbin) 
   endif()
   add_executable(Run${KERNEL_NAME}.exe host/Run${KERNEL_NAME}.cpp ${CMAKE_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp)
   target_link_libraries(Run${KERNEL_NAME}.exe ${SDAccel_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
