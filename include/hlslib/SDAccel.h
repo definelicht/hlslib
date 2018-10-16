@@ -66,9 +66,6 @@ namespace {
 
 constexpr bool kVerbose = true;
 
-constexpr size_t kMaxCount = 16;
-constexpr size_t kMaxString = 128;
-
 #ifndef HLSLIB_LEGACY_SDX
 #warning "HLSLIB_LEGACY_SDX not set: assuming SDAccel 2017.4+. Set to 0 or 1 to silence this warning."
 #define HLSLIB_LEGACY_SDX 0
@@ -131,7 +128,7 @@ void ThrowRuntimeError(std::string const &message) {
 //-----------------------------------------------------------------------------
 
 std::vector<cl::Platform> GetAvailablePlatforms() {
-  std::vector<cl::Platform> platforms(kMaxCount);
+  std::vector<cl::Platform> platforms;
   cl_int errorCode = cl::Platform::get(&platforms);
   if (errorCode != CL_SUCCESS) {
     ThrowConfigurationError("Failed to retrieve OpenCL platforms.");
