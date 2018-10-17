@@ -70,8 +70,8 @@ In newer versions of SDAccel, the final initiation interval determined by Vivado
 
 ### Ubuntu packages
 
-On Ubuntu, two packages are required to run hardware emulation:
+On Ubuntu, the following package might need to be installed to run hardware emulation:
 
 ```
-sudo apt install libc6-dev-amd64 libc6-dev-i386
+sudo apt install libc6-dev-i386
 ```
