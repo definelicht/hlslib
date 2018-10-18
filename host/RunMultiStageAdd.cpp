@@ -57,6 +57,7 @@ int RunKernel(Mode mode) {
 
   std::cout << "Kernel ran successfully." << std::endl;
 
+  return 0;
 }
 
 int main(int argc, char **argv) {
