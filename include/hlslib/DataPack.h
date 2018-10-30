@@ -44,7 +44,7 @@ class DataPack {
     Fill(value);
   }
 
-  DataPack(T const arr[width]) : data_() { 
+  explicit DataPack(T const arr[width]) : data_() { 
     #pragma HLS INLINE
     Pack(arr);
   }
