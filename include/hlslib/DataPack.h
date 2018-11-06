@@ -32,6 +32,7 @@ class DataPack {
   static constexpr int kWidth = width;
   using Pack_t = ap_uint<kBits>;
   using Internal_t = ap_uint<width * kBits>;
+  using Data_t = T;
 
   DataPack() : data_() {}
 
