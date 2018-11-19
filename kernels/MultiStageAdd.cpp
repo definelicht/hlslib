@@ -5,12 +5,11 @@
 #include "MultiStageAdd.h"
 #include "hlslib/Simulation.h"
 
-void AxiToStream(Data_t const *memory, hlslib::Stream<Data_t> &stream) {
-AxiToStream:
+void MemoryToStream(Data_t const *memory, hlslib::Stream<Data_t> &stream) {
+MemoryToStream:
   for (int i = 0; i < kNumElements; ++i) {
-    #pragma HLS PIPELINE
-    // We can use optimistic because HLSLIB_STREAM_SYNCHRONIZE is set
-    hlslib::WriteOptimistic(stream, memory[i], 1);
+    #pragma HLS PIPELINE II=1
+    stream.Push(memory[i]);
   }
 }
 
@@ -18,18 +17,18 @@ void AddStage(hlslib::Stream<Data_t> &streamIn,
               hlslib::Stream<Data_t> &streamOut) {
 AddStage:
   for (int i = 0; i < kNumElements; ++i) {
-    #pragma HLS PIPELINE
-    const Data_t read = hlslib::ReadOptimistic(streamIn);
+    #pragma HLS PIPELINE II=1
+    const Data_t read = streamIn.Pop();
     const Data_t eval = read + 1;
-    hlslib::WriteOptimistic(streamOut, eval, 1);
+    streamOut.Push(eval);
   }
 }
 
-void StreamToAxi(hlslib::Stream<Data_t> &stream, Data_t *memory) {
-StreamToAxi:
+void StreamToMemory(hlslib::Stream<Data_t> &stream, Data_t *memory) {
+StreamToMemory:
   for (int i = 0; i < kNumElements; ++i) {
     #pragma HLS PIPELINE
-    memory[i] = hlslib::ReadOptimistic(stream);
+    memory[i] = stream.Pop();
   }
 }
 
@@ -42,12 +41,12 @@ void MultiStageAdd(Data_t const *memoryIn, Data_t *memoryOut) {
   #pragma HLS DATAFLOW
   HLSLIB_DATAFLOW_INIT();
   hlslib::Stream<Data_t> pipes[kStages + 1];
-  HLSLIB_DATAFLOW_FUNCTION(AxiToStream, memoryIn, pipes[0]);
+  HLSLIB_DATAFLOW_FUNCTION(MemoryToStream, memoryIn, pipes[0]);
 MultiAddStages:
   for (int i = 0; i < kStages; ++i) {
     #pragma HLS UNROLL
     HLSLIB_DATAFLOW_FUNCTION(AddStage, pipes[i], pipes[i + 1]);
   }
-  HLSLIB_DATAFLOW_FUNCTION(StreamToAxi, pipes[kStages], memoryOut);
+  HLSLIB_DATAFLOW_FUNCTION(StreamToMemory, pipes[kStages], memoryOut);
   HLSLIB_DATAFLOW_FINALIZE();
 }

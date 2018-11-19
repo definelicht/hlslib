@@ -11,6 +11,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -64,9 +65,6 @@ class RuntimeError : public std::runtime_error {
 namespace {
 
 constexpr bool kVerbose = true;
-
-constexpr size_t kMaxCount = 16;
-constexpr size_t kMaxString = 128;
 
 #ifndef HLSLIB_LEGACY_SDX
 #warning "HLSLIB_LEGACY_SDX not set: assuming SDAccel 2017.4+. Set to 0 or 1 to silence this warning."
@@ -130,7 +128,7 @@ void ThrowRuntimeError(std::string const &message) {
 //-----------------------------------------------------------------------------
 
 std::vector<cl::Platform> GetAvailablePlatforms() {
-  std::vector<cl::Platform> platforms(kMaxCount);
+  std::vector<cl::Platform> platforms;
   cl_int errorCode = cl::Platform::get(&platforms);
   if (errorCode != CL_SUCCESS) {
     ThrowConfigurationError("Failed to retrieve OpenCL platforms.");
@@ -348,10 +346,24 @@ class Context {
 
  protected:
   friend Program;
+  friend Kernel;
+  template <typename U, Access access> friend class Buffer;
 
   void RegisterProgram(
       std::shared_ptr<std::pair<std::string, cl::Program>> program) {
     loadedProgram_ = program;
+  }
+
+  std::mutex &memcopyMutex() {
+    return memcopyMutex_;
+  }
+
+  std::mutex &enqueueMutex() {
+    return enqueueMutex_;
+  }
+
+  std::mutex &reprogramMutex() {
+    return reprogramMutex_;
   }
 
  private:
@@ -360,6 +372,9 @@ class Context {
   cl::Context context_{};
   cl::CommandQueue commandQueue_{};
   std::shared_ptr<std::pair<std::string, cl::Program>> loadedProgram_{nullptr};
+  std::mutex memcopyMutex_;
+  std::mutex enqueueMutex_;
+  std::mutex reprogramMutex_;
 
 };  // End class Context
 
@@ -389,7 +404,7 @@ class Buffer {
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  Buffer(Context const &context, MemoryBank memoryBank, IteratorType begin,
+  Buffer(Context &context, MemoryBank memoryBank, IteratorType begin,
          IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
 
@@ -431,7 +446,7 @@ class Buffer {
       return;
     }
 #else
-    devicePtr = std::vector<T>(nElements_);
+    devicePtr_ = std::vector<T>(nElements_);
     std::copy(begin, end, devicePtr_.begin());
 #endif
   }
@@ -439,11 +454,11 @@ class Buffer {
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  Buffer(Context const &context, IteratorType begin, IteratorType end)
+  Buffer(Context &context, IteratorType begin, IteratorType end)
       : Buffer(context, MemoryBank::unspecified, begin, end) {}
 
   /// Allocate device memory but don't perform any transfers.
-  Buffer(Context const &context, MemoryBank memoryBank, size_t nElements)
+  Buffer(Context &context, MemoryBank memoryBank, size_t nElements)
       : context_(&context), nElements_(nElements) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 
@@ -471,8 +486,11 @@ class Buffer {
     }
 
     cl_int errorCode;
-    devicePtr_ = cl::Buffer(context_->context(), flags, sizeof(T) * nElements_,
-                            hostPtr, &errorCode);
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex()); 
+      devicePtr_ = cl::Buffer(context_->context(), flags, sizeof(T) * nElements_,
+                              hostPtr, &errorCode);
+    }
 
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to initialize device memory.");
@@ -483,7 +501,7 @@ class Buffer {
 #endif
   }
 
-  Buffer(Context const &context, size_t nElements)
+  Buffer(Context &context, size_t nElements)
       : Buffer(context, MemoryBank::unspecified, nElements) {}
 
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
@@ -507,9 +525,14 @@ class Buffer {
   void CopyFromHost(int deviceOffset, int numElements, IteratorType source) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
-    auto errorCode = context_->commandQueue().enqueueWriteBuffer(
-        devicePtr_, CL_TRUE, deviceOffset, sizeof(T) * numElements,
-        const_cast<T *>(&(*source)), nullptr, &event);
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      errorCode = context_->commandQueue().enqueueWriteBuffer(
+          devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
+          sizeof(T) * numElements, const_cast<T *>(&(*source)), nullptr,
+          &event);
+    }
     // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
       throw std::runtime_error("Failed to copy data to device.");
@@ -532,9 +555,13 @@ class Buffer {
   void CopyToHost(size_t deviceOffset, size_t numElements, IteratorType target) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
-    auto errorCode = context_->commandQueue().enqueueReadBuffer(
-        devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
-        sizeof(T) * numElements, &(*target), nullptr, &event);
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      errorCode = context_->commandQueue().enqueueReadBuffer(
+          devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
+          sizeof(T) * numElements, &(*target), nullptr, &event);
+    }
     // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy back memory from device.");
@@ -562,10 +589,14 @@ class Buffer {
       ThrowRuntimeError("Device to device copy interval out of range.");
     }
     cl::Event event;
-    auto errorCode = context_->commandQueue().enqueueCopyBuffer(
-        devicePtr_, other.devicePtr(), sizeof(T) * offsetSource,
-        sizeof(T) * offsetDestination, numElements * sizeof(T), nullptr,
-        &event);
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      errorCode = context_->commandQueue().enqueueCopyBuffer(
+          devicePtr_, other.devicePtr(), sizeof(T) * offsetSource,
+          sizeof(T) * offsetDestination, numElements * sizeof(T), nullptr,
+          &event);
+    }
     event.wait();
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy from device to device.");
@@ -634,7 +665,7 @@ class Buffer {
     return extendedPointer;
   }
 
-  Context const *context_;
+  Context *context_;
 #ifndef HLSLIB_SIMULATE_OPENCL
   cl::Buffer devicePtr_{};
 #else
@@ -805,8 +836,12 @@ class Kernel {
     cl::Event event;
     const auto start = std::chrono::high_resolution_clock::now();
 #ifndef HLSLIB_SIMULATE_OPENCL
-    auto errorCode =
-        program_.context().commandQueue().enqueueTask(kernel_, nullptr, &event);
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(program_.context().enqueueMutex());
+      errorCode = program_.context().commandQueue().enqueueTask(
+          kernel_, nullptr, &event);
+    }
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to execute kernel.");
       return {};
@@ -880,8 +915,8 @@ Program Context::MakeProgram(std::string const &path) {
     std::vector<cl::Device> devices;
     devices.emplace_back(device_);
     auto program = std::make_shared<std::pair<std::string, cl::Program>>(
-        path, cl::Program(context_, devices, binary, &binaryStatus,
-                          &errorCode));
+        path,
+        cl::Program(context_, devices, binary, &binaryStatus, &errorCode));
     if (binaryStatus[0] != CL_SUCCESS || errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to create OpenCL program from binary file \"" << path
@@ -896,7 +931,10 @@ Program Context::MakeProgram(std::string const &path) {
     }
 
     // Build OpenCL program
-    errorCode = program->second.build(devices, nullptr, nullptr, nullptr);
+    {
+      std::lock_guard<std::mutex> lock(reprogramMutex_);
+      errorCode = program->second.build(devices, nullptr, nullptr, nullptr);
+    }
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
       ss << "Failed to build OpenCL program from binary file \"" << path
@@ -930,6 +968,176 @@ Kernel Program::MakeKernel(F &&hostFunction, std::string const &kernelName,
                            Ts &&... args) {
   return Kernel(*this, std::forward<F>(hostFunction), kernelName,
                 std::forward<Ts>(args)...);
+}
+
+//#############################################################################
+// Aligned allocator, for creating page-aligned vectors to stop SDAccel from
+// complaining.
+//#############################################################################
+
+// Adapted from https://stackoverflow.com/a/12942652/2949968
+// All credit to the original author.
+namespace detail {
+template <size_t alignment>
+void *allocate_aligned_memory(size_t size);
+void deallocate_aligned_memory(void *ptr) noexcept;
+}  // namespace detail
+
+template <typename T, size_t alignment>
+class AlignedAllocator;
+
+template <size_t alignment>
+class AlignedAllocator<void, alignment> {
+ public:
+  typedef void *pointer;
+  typedef const void *const_pointer;
+  typedef void value_type;
+
+  template <class U>
+  struct rebind {
+    typedef AlignedAllocator<U, alignment> other;
+  };
+};
+
+template <typename T, size_t alignment>
+class AlignedAllocator {
+ public:
+  typedef T value_type;
+  typedef T *pointer;
+  typedef const T *const_pointer;
+  typedef T &reference;
+  typedef const T &const_reference;
+  typedef size_t size_type;
+  typedef ptrdiff_t difference_type;
+
+  typedef std::true_type propagate_on_container_move_assignment;
+
+  template <class U>
+  struct rebind {
+    typedef AlignedAllocator<U, alignment> other;
+  };
+
+ public:
+  AlignedAllocator() noexcept {}
+
+  template <class U>
+  AlignedAllocator(const AlignedAllocator<U, alignment> &) noexcept {}
+
+  size_type max_size() const noexcept {
+    return (size_type(~0) - size_type(alignment)) / sizeof(T);
+  }
+
+  pointer address(reference x) const noexcept { return std::addressof(x); }
+
+  const_pointer address(const_reference x) const noexcept {
+    return std::addressof(x);
+  }
+
+  pointer allocate(
+      size_type n,
+      typename AlignedAllocator<void, alignment>::const_pointer = 0) {
+    void *ptr = detail::allocate_aligned_memory<alignment>(n * sizeof(T));
+    if (ptr == nullptr) {
+      throw std::bad_alloc();
+    }
+
+    return reinterpret_cast<pointer>(ptr);
+  }
+
+  void deallocate(pointer p, size_type) noexcept {
+    return detail::deallocate_aligned_memory(p);
+  }
+
+  template <class U, class... Args>
+  void construct(U *p, Args &&... args) {
+    ::new (reinterpret_cast<void *>(p)) U(std::forward<Args>(args)...);
+  }
+
+  void destroy(pointer p) { p->~T(); }
+};
+
+template <typename T, size_t alignment>
+class AlignedAllocator<const T, alignment> {
+ public:
+  typedef T value_type;
+  typedef const T *pointer;
+  typedef const T *const_pointer;
+  typedef const T &reference;
+  typedef const T &const_reference;
+  typedef size_t size_type;
+  typedef ptrdiff_t difference_type;
+
+  typedef std::true_type propagate_on_container_move_assignment;
+
+  template <class U>
+  struct rebind {
+    typedef AlignedAllocator<U, alignment> other;
+  };
+
+ public:
+  AlignedAllocator() noexcept {}
+
+  template <class U>
+  AlignedAllocator(const AlignedAllocator<U, alignment> &) noexcept {}
+
+  size_type max_size() const noexcept {
+    return (size_type(~0) - size_type(alignment)) / sizeof(T);
+  }
+
+  const_pointer address(const_reference x) const noexcept {
+    return std::addressof(x);
+  }
+
+  pointer allocate(
+      size_type n,
+      typename AlignedAllocator<void, alignment>::const_pointer = 0) {
+    void *ptr = detail::allocate_aligned_memory<alignment>(n * sizeof(T));
+    if (ptr == nullptr) {
+      throw std::bad_alloc();
+    }
+
+    return reinterpret_cast<pointer>(ptr);
+  }
+
+  void deallocate(pointer p, size_type) noexcept {
+    return detail::deallocate_aligned_memory(p);
+  }
+
+  template <class U, class... Args>
+  void construct(U *p, Args &&... args) {
+    ::new (reinterpret_cast<void *>(p)) U(std::forward<Args>(args)...);
+  }
+
+  void destroy(pointer p) { p->~T(); }
+};
+
+template <typename T, size_t TAlignment, typename U, size_t UAlignment>
+inline bool operator==(const AlignedAllocator<T, TAlignment> &,
+                       const AlignedAllocator<U, UAlignment> &) noexcept {
+  return TAlignment == UAlignment;
+}
+
+template <typename T, size_t TAlignment, typename U, size_t UAlignment>
+inline bool operator!=(const AlignedAllocator<T, TAlignment> &,
+                       const AlignedAllocator<U, UAlignment> &) noexcept {
+  return TAlignment != UAlignment;
+}
+
+template <size_t alignment>
+void *detail::allocate_aligned_memory(size_t size) {
+  if (size == 0) {
+    return nullptr;
+  }
+  void *ptr = nullptr;
+  int rc = posix_memalign(&ptr, alignment, size);
+  if (rc != 0) {
+    return nullptr;
+  }
+  return ptr;
+}
+
+inline void detail::deallocate_aligned_memory(void *ptr) noexcept {
+  return free(ptr);
 }
 
 }  // End namespace ocl
