@@ -970,6 +970,176 @@ Kernel Program::MakeKernel(F &&hostFunction, std::string const &kernelName,
                 std::forward<Ts>(args)...);
 }
 
+//#############################################################################
+// Aligned allocator, for creating page-aligned vectors to stop SDAccel from
+// complaining.
+//#############################################################################
+
+// Adapted from https://stackoverflow.com/a/12942652/2949968
+// All credit to the original author.
+namespace detail {
+template <size_t alignment>
+void *allocate_aligned_memory(size_t size);
+void deallocate_aligned_memory(void *ptr) noexcept;
+}  // namespace detail
+
+template <typename T, size_t alignment>
+class AlignedAllocator;
+
+template <size_t alignment>
+class AlignedAllocator<void, alignment> {
+ public:
+  typedef void *pointer;
+  typedef const void *const_pointer;
+  typedef void value_type;
+
+  template <class U>
+  struct rebind {
+    typedef AlignedAllocator<U, alignment> other;
+  };
+};
+
+template <typename T, size_t alignment>
+class AlignedAllocator {
+ public:
+  typedef T value_type;
+  typedef T *pointer;
+  typedef const T *const_pointer;
+  typedef T &reference;
+  typedef const T &const_reference;
+  typedef size_t size_type;
+  typedef ptrdiff_t difference_type;
+
+  typedef std::true_type propagate_on_container_move_assignment;
+
+  template <class U>
+  struct rebind {
+    typedef AlignedAllocator<U, alignment> other;
+  };
+
+ public:
+  AlignedAllocator() noexcept {}
+
+  template <class U>
+  AlignedAllocator(const AlignedAllocator<U, alignment> &) noexcept {}
+
+  size_type max_size() const noexcept {
+    return (size_type(~0) - size_type(alignment)) / sizeof(T);
+  }
+
+  pointer address(reference x) const noexcept { return std::addressof(x); }
+
+  const_pointer address(const_reference x) const noexcept {
+    return std::addressof(x);
+  }
+
+  pointer allocate(
+      size_type n,
+      typename AlignedAllocator<void, alignment>::const_pointer = 0) {
+    void *ptr = detail::allocate_aligned_memory<alignment>(n * sizeof(T));
+    if (ptr == nullptr) {
+      throw std::bad_alloc();
+    }
+
+    return reinterpret_cast<pointer>(ptr);
+  }
+
+  void deallocate(pointer p, size_type) noexcept {
+    return detail::deallocate_aligned_memory(p);
+  }
+
+  template <class U, class... Args>
+  void construct(U *p, Args &&... args) {
+    ::new (reinterpret_cast<void *>(p)) U(std::forward<Args>(args)...);
+  }
+
+  void destroy(pointer p) { p->~T(); }
+};
+
+template <typename T, size_t alignment>
+class AlignedAllocator<const T, alignment> {
+ public:
+  typedef T value_type;
+  typedef const T *pointer;
+  typedef const T *const_pointer;
+  typedef const T &reference;
+  typedef const T &const_reference;
+  typedef size_t size_type;
+  typedef ptrdiff_t difference_type;
+
+  typedef std::true_type propagate_on_container_move_assignment;
+
+  template <class U>
+  struct rebind {
+    typedef AlignedAllocator<U, alignment> other;
+  };
+
+ public:
+  AlignedAllocator() noexcept {}
+
+  template <class U>
+  AlignedAllocator(const AlignedAllocator<U, alignment> &) noexcept {}
+
+  size_type max_size() const noexcept {
+    return (size_type(~0) - size_type(alignment)) / sizeof(T);
+  }
+
+  const_pointer address(const_reference x) const noexcept {
+    return std::addressof(x);
+  }
+
+  pointer allocate(
+      size_type n,
+      typename AlignedAllocator<void, alignment>::const_pointer = 0) {
+    void *ptr = detail::allocate_aligned_memory<alignment>(n * sizeof(T));
+    if (ptr == nullptr) {
+      throw std::bad_alloc();
+    }
+
+    return reinterpret_cast<pointer>(ptr);
+  }
+
+  void deallocate(pointer p, size_type) noexcept {
+    return detail::deallocate_aligned_memory(p);
+  }
+
+  template <class U, class... Args>
+  void construct(U *p, Args &&... args) {
+    ::new (reinterpret_cast<void *>(p)) U(std::forward<Args>(args)...);
+  }
+
+  void destroy(pointer p) { p->~T(); }
+};
+
+template <typename T, size_t TAlignment, typename U, size_t UAlignment>
+inline bool operator==(const AlignedAllocator<T, TAlignment> &,
+                       const AlignedAllocator<U, UAlignment> &) noexcept {
+  return TAlignment == UAlignment;
+}
+
+template <typename T, size_t TAlignment, typename U, size_t UAlignment>
+inline bool operator!=(const AlignedAllocator<T, TAlignment> &,
+                       const AlignedAllocator<U, UAlignment> &) noexcept {
+  return TAlignment != UAlignment;
+}
+
+template <size_t alignment>
+void *detail::allocate_aligned_memory(size_t size) {
+  if (size == 0) {
+    return nullptr;
+  }
+  void *ptr = nullptr;
+  int rc = posix_memalign(&ptr, alignment, size);
+  if (rc != 0) {
+    return nullptr;
+  }
+  return ptr;
+}
+
+inline void detail::deallocate_aligned_memory(void *ptr) noexcept {
+  return free(ptr);
+}
+
 }  // End namespace ocl
 
 }  // End namespace hlslib

@@ -3,7 +3,6 @@
 /// @copyright This software is copyrighted under the BSD 3-Clause License.
 
 #include <iostream>
-#include "aligned_allocator.h"
 #include "hlslib/SDAccel.h"
 
 using Data_t = unsigned long;
@@ -16,12 +15,13 @@ int main() {
     std::cout << "Context created successfully." << std::endl;
 
     std::cout << "Initializing host memory..." << std::flush;
-    std::vector<Data_t, aligned_allocator<Data_t, 4096>> mem0Host(2 * kMemSize,
-                                                                  0);
+    std::vector<Data_t, hlslib::ocl::AlignedAllocator<Data_t, 4096>> mem0Host(
+        2 * kMemSize, 0);
     for (int i = kMemSize; i < 2 * kMemSize; ++i) {
       mem0Host[i] = 5;
     }
-    std::vector<Data_t, aligned_allocator<Data_t, 4096>> mem1Host(kMemSize, 0);
+    std::vector<Data_t, hlslib::ocl::AlignedAllocator<Data_t, 4096>> mem1Host(
+        kMemSize, 0);
     std::cout << " Done." << std::endl;
 
     std::cout << "Creating device input buffer and copying from host..."
