@@ -21,9 +21,10 @@ Some of these headers are interdependent, while others can be included standalon
 
 ## An example
 
-For an real life example of using the core features of `hlslib`, take a look at our matrix-matrix multiplication code:
+For some real life example of using the core features of `hlslib`, take a look at our matrix-matrix multiplication and stencil codes:
 
 https://github.com/spcl/gemm_hls
+https://github.com/spcl/stencil_hls
 
 ## Installation
 
