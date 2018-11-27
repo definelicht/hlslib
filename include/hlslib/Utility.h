@@ -36,6 +36,8 @@ constexpr T const &max(T const &a, const T &b) { return (a > b) ? a : b; }
 
 constexpr signed long abs(const signed long a) { return (a < 0) ? -a : a; }
 
+#ifndef HLSLIB_SYNTHESIS
+
 inline void SetEnvironmentVariable(std::string const &key,
                                      std::string const &val) {
   const auto ret = setenv(key.c_str(), val.c_str(), 1);
@@ -47,5 +49,7 @@ inline void SetEnvironmentVariable(std::string const &key,
 inline void UnsetEnvironmentVariable(std::string const &key) {
   unsetenv(key.c_str());
 }
+
+#endif
 
 } // End namespace hlslib
