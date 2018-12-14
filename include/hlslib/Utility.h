@@ -5,6 +5,8 @@
 #pragma once
 
 #include <cmath>
+#include <string>
+#include <stdexcept>
 
 namespace hlslib {
 
@@ -30,10 +32,24 @@ template <typename T>
 constexpr T &max(T &a, T &b) { return (a > b) ? a : b; } 
 
 template <typename T>
-constexpr T const &max(T const &a, const T &b) { return (a > b) ? a : b; } 
+constexpr T const &max(T const &a, const T &b) { return (a > b) ? a : b; }
 
-constexpr signed long abs(const signed long a) {
-  return (a < 0) ? -a : a;
+constexpr signed long abs(const signed long a) { return (a < 0) ? -a : a; }
+
+#ifndef HLSLIB_SYNTHESIS
+
+inline void SetEnvironmentVariable(std::string const &key,
+                                     std::string const &val) {
+  const auto ret = setenv(key.c_str(), val.c_str(), 1);
+  if (ret != 0) {
+    throw std::runtime_error("Failed to set environment variable " + key);
+  }
 }
 
-};
+inline void UnsetEnvironmentVariable(std::string const &key) {
+  unsetenv(key.c_str());
+}
+
+#endif
+
+} // End namespace hlslib

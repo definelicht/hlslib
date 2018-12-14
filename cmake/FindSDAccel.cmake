@@ -71,11 +71,31 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
                ${SDACCEL_ROOT_DIR}/../../Vivado/${SDAccel_VERSION}/lnx64/tools/fpo_v7_0)
   mark_as_advanced(SDAccel_FLOATING_POINT_LIBRARY)
 
+  get_filename_component(SDACCEL_FP_DIR ${SDAccel_FLOATING_POINT_LIBRARY}
+                         DIRECTORY) 
+  mark_as_advanced(SDACCEL_FP_DIR)
+
+  find_library(SDAccel_FLOATING_POINT_LIBGMP gmp
+               PATHS ${SDACCEL_FP_DIR} NO_DEFAULT_PATH)
+  mark_as_advanced(SDAccel_FLOATING_POINT_LIBGMP)
+
+  find_library(SDAccel_FLOATING_POINT_LIBMPFR mpfr
+               PATHS ${SDACCEL_FP_DIR} NO_DEFAULT_PATH)
+  mark_as_advanced(SDAccel_FLOATING_POINT_LIBMPFR)
+
+  set(SDAccel_FLOATING_POINT_LIBRARY ${SDAccel_FLOATING_POINT_LIBRARY} 
+      ${SDAccel_FLOATING_POINT_LIBMPFR} ${SDAccel_FLOATING_POINT_LIBGMP})
+
   # Only succeed if libraries were found
   if(SDAccel_LIBXILINXOPENCL)
     set(SDAccel_LIBRARIES ${SDAccel_LIBXILINXOPENCL}
         CACHE STRING "SDAccel runtime libraries.")
   endif()
+
+  # For some reason, the executable finds the floating point library on the
+  # RPATH, but not libgmp. TODO: debug further.
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  set(CMAKE_INSTALL_RPATH "${SDACCEL_RUNTIME_LIBS}:${SDACCEL_FP_DIR}")
 
   if(EXISTS ${SDACCEL_RUNTIME_LIBS}/libstdc++.so)
     message(WARNING "Found libstdc++.so in ${SDACCEL_RUNTIME_LIBS}. This may break compilation for newer compilers. Remove from path to ensure that your native libstdc++.so is used.") 

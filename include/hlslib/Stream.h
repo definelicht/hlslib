@@ -19,7 +19,11 @@
 
 // Time in seconds until a blocking call on a stream should timeout and emit a
 // warning before going back to sleep
+#ifdef HLSLIB_STREAM_TIMEOUT
+constexpr int kSecondsToTimeout = HLSLIB_STREAM_TIMEOUT;
+#else
 constexpr int kSecondsToTimeout = 3;
+#endif
 
 // This macro must be defined when synthesizing. Synthesis will fail otherwise.
 // #ifdef HLSLIB_SYNTHESIS
