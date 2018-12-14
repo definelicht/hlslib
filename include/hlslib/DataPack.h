@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef> // ap_int.h will break some compilers if this is not included 
+#include <ostream>
 #include <ap_int.h>
 
 namespace hlslib {
