@@ -36,11 +36,11 @@ private:
 template <typename T>
 using Add = Sum<T>;
 
-#ifdef HLSLIB_OPERATOR_MULTIPLY_RESOURCE
-#define HLSLIB_OPERATOR_MULTIPLY_RESOURCE_PRAGMA(var)                                 \
-  HLSLIB_RESOURCE_PRAGMA(var, HLSLIB_OPERATOR_MULTIPLY_RESOURCE)
+#ifdef HLSLIB_OPERATOR_MULT_RESOURCE
+#define HLSLIB_OPERATOR_MULT_RESOURCE_PRAGMA(var)                                 \
+  HLSLIB_RESOURCE_PRAGMA(var, HLSLIB_OPERATOR_MULT_RESOURCE)
 #else
-#define HLSLIB_OPERATOR_MULTIPLY_RESOURCE_PRAGMA(var)
+#define HLSLIB_OPERATOR_MULT_RESOURCE_PRAGMA(var)
 #endif
 
 template <typename T>
@@ -49,7 +49,7 @@ struct Product {
   static T Apply(T0 &&a, T1 &&b) {
     #pragma HLS INLINE
     const T res = a * b;
-    HLSLIB_OPERATOR_MULTIPLY_RESOURCE_PRAGMA(res);
+    HLSLIB_OPERATOR_MULT_RESOURCE_PRAGMA(res);
     return res;
   }
   static constexpr T identity() { return 1; }
