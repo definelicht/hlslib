@@ -15,6 +15,9 @@
 # To specify the location of SDAccel or to force this script to use a specific
 # version, set the variable SDACCEL_ROOT_DIR to the root directory of the
 # desired SDAccel installation.
+# For SDAccel 2018.3 or newer, SDAccel relies on a separate Xilinx OpenCL
+# runtime (XRT). This script will search in the default installation location,
+# but a path can be specified with the XRT_ROOT_DIR variable.
 
 if(NOT DEFINED SDACCEL_ROOT_DIR)
 
@@ -116,6 +119,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
                 PATH_SUFFIXES lib)
       get_filename_component(XRT_ROOT_DIR ${XRT_SEARCH_PATH} DIRECTORY) 
       mark_as_advanced(XRT_SEARCH_PATH)
+
+      if(NOT XRT_SEARCH_PATH)
+        message(FATAL_ERROR "The Xilinx OpenCL runtime (XRT) was not found. You can specify the XRT directory with the XRT_ROOT_DIR variable.")
+      endif()
 
       message(STATUS "Found SDAccel runtime: ${XRT_ROOT_DIR}")
 
