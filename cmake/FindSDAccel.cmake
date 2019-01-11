@@ -131,12 +131,12 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
     # use system OpenCL libraries and headers.
     find_package(OpenCL REQUIRED)
     set(SDAccel_OPENCL_INCLUDE_DIR ${OpenCL_INCLUDE_DIRS})
-    set(SDAccel_LIBRARIES ${OpenCL_LIBRARIES})
 
   endif()
 
   find_library(SDAccel_LIBXILINXOPENCL xilinxopencl
                PATHS ${SDACCEL_RUNTIME_DIR}
+                     ${SDACCEL_RUNTIME_DIR}/lib
                      ${SDACCEL_RUNTIME_DIR}/lib/x86_64
                NO_DEFAULT_PATH)
   mark_as_advanced(SDAccel_LIBXILINXOPENCL)
@@ -147,10 +147,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
 
   # Only succeed if libraries were found
   if(SDAccel_LIBXILINXOPENCL)
-    set(SDAccel_LIBRARIES ${SDAccel_LIBRARIES} ${SDAccel_LIBXILINXOPENCL}
+    set(SDAccel_LIBRARIES ${OpenCL_LIBRARIES} ${SDAccel_LIBXILINXOPENCL}
         CACHE STRING "SDAccel runtime libraries.")
-  else()
-    unset(SDAccel_LIBRARIES)
   endif()
 
   # For some reason, the executable finds the floating point library on the
@@ -183,12 +181,9 @@ endif()
 set(SDAccel_EXPORTS
   SDAccel_XOCC SDAccel_VIVADO_HLS
   SDAccel_FLOATING_POINT_LIBRARY SDAccel_INCLUDE_DIRS
-  SDAccel_VERSION SDAccel_MAJOR_VERSION SDAccel_MINOR_VERSION)
+  SDAccel_VERSION SDAccel_MAJOR_VERSION SDAccel_MINOR_VERSION
+  SDAccel_LIBRARIES)
 mark_as_advanced(SDAccel_EXPORTS)
-
-if(SDAccel_MAJOR_VERSION LESS 2018 OR (SDAccel_MAJOR_VERSION EQUAL 2018 AND SDAccel_MINOR_VERSION LESS 3))
-  set(SDAccel_EXPORTS ${SDAccel_EXPORTS} SDAccel_LIBRARIES)
-endif()
 
 include(FindPackageHandleStandardArgs)
 # Handle the QUIETLY and REQUIRED arguments and set SDAccelHLS_FOUND to TRUE
