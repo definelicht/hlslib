@@ -19,7 +19,7 @@ Some of these headers are interdependent, while others can be included standalon
 * `include/hlslib/Operators.h`, which includes some commonly used operators as functors to be plugged into templated functions such as `TreeReduce` and `Accumulate`.
 * `include/hlslib/Axi.h`, which implements the AXI Stream interface and the bus interfaces required by the DataMover IP, enabling the use of a command stream-based memory interface for HLS kernels if packaged as an RTL kernel where the DataMover IP is connected to the AXI interfaces.
 
-## An example
+## Examples
 
 For some real life example of using the core features of `hlslib`, take a look at our matrix-matrix multiplication and stencil codes:
 
