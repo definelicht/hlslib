@@ -216,17 +216,15 @@ cl::Context CreateComputeContext(cl::Device const &device) {
 cl::CommandQueue CreateCommandQueue(cl::Context const &context,
                                     cl::Device const &device) {
   cl_int errorCode;
-  cl::CommandQueue commandQueue(
-      context, device,
-      CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE,
-      &errorCode);
+  cl::CommandQueue commandQueue(context, device, kCommandQueueFlags,
+                                &errorCode);
   if (errorCode != CL_SUCCESS) {
     ThrowRuntimeError("Failed to create command queue.");
   }
   return commandQueue;
 }
 
-cl_mem_flags BankToFlag(MemoryBank memoryBank) {
+cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified) {
   switch (memoryBank) {
     case MemoryBank::bank0:
       return kMemoryBank0;
@@ -237,8 +235,10 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank) {
     case MemoryBank::bank3:
       return kMemoryBank3;
     case MemoryBank::unspecified:
-      ThrowRuntimeError("Memory bank must be specified.");
-      break;
+      if (failIfUnspecified) {
+        ThrowRuntimeError("Memory bank must be specified.");
+      }
+      return 0;
   }
 }
 
@@ -417,7 +417,7 @@ class Buffer {
     }
 #endif
 #ifdef HLSLIB_INTEL
-    flags |= BankToFlag(memoryBank);
+    flags |= BankToFlag(memoryBank, false);
 #endif
 
     cl_int errorCode;
@@ -470,7 +470,7 @@ class Buffer {
     }
 #endif
 #ifdef HLSLIB_INTEL
-    flags |= BankToFlag(memoryBank);
+    flags |= BankToFlag(memoryBank, false);
 #endif
 
     cl_int errorCode;
@@ -630,7 +630,7 @@ class Buffer {
   ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
                                               MemoryBank memoryBank) {
     ExtendedMemoryPointer extendedPointer;
-    extendedPointer.flags = BankToFlag(memoryBank);
+    extendedPointer.flags = BankToFlag(memoryBank, true);
     extendedPointer.obj = hostPtr;
     extendedPointer.param = 0;
     return extendedPointer;
@@ -728,6 +728,10 @@ class Kernel {
       return;
     }
   }
+
+  void SetKernelArguments(size_t) {}
+
+  void SetKernelArguments() {}
 
   template <typename T, typename... Ts>
   void SetKernelArguments(size_t index, T &&arg, Ts &&... args) {
@@ -878,8 +882,14 @@ Program Context::MakeProgram(std::string const &path) {
   // In the legacy API, each binary is a void* to the data and an integer
   // containing its size in bytes
   typename cl::Program::Binaries binary;
-  binary.emplace_back(&binaryContent[0], fileSize);
+  binary.emplace_back(&binaryContent[0][0], fileSize);
 #endif
+
+  if (fileSize == 0 || binaryContent[0].size() != fileSize) {
+    std::stringstream ss;
+    ss << "Failed to read binary file \"" << path << "\".";
+    ThrowConfigurationError(ss.str());
+  }
 
   cl_int errorCode;
 
