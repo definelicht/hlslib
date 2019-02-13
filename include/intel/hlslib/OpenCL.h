@@ -22,6 +22,9 @@ constexpr auto kMemoryBank1 = CL_CHANNEL_2_INTELFPGA;
 constexpr auto kMemoryBank2 = CL_CHANNEL_3_INTELFPGA;
 constexpr auto kMemoryBank3 = CL_CHANNEL_4_INTELFPGA;
 
+constexpr cl_command_queue_properties kCommandQueueFlags =
+    CL_QUEUE_PROFILING_ENABLE;
+
 }  // End namespace ocl
 
 }  // End namespace hlslib

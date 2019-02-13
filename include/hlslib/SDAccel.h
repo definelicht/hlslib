@@ -48,6 +48,9 @@ struct ExtendedMemoryPointer {
 };
 #endif
 
+constexpr cl_command_queue_properties kCommandQueueFlags =
+    CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+
 }  // End namespace ocl
 
 }  // End namespace hlslib
