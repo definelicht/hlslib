@@ -149,7 +149,6 @@ cl::Platform FindPlatformByVendor(std::string const &desiredVendor) {
 }
 
 std::vector<cl::Device> GetAvailableDevices(cl::Platform const &platform) {
-
   std::vector<cl::Device> devices;
   auto errorCode = platform.getDevices(CL_DEVICE_TYPE_ACCELERATOR, &devices);
   if (errorCode != CL_SUCCESS) {
@@ -171,7 +170,7 @@ std::string GetDeviceName(cl::Device const &device) {
 }
 
 cl::Device FindDeviceByName(cl::Platform const &platform,
-                              std::string const &desiredDevice) {
+                            std::string const &desiredDevice) {
   cl::Device device;
   auto available = GetAvailableDevices(platform);
   if (available.size() == 0) {
@@ -245,7 +244,7 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank) {
 
 }  // End anonymous namespace
 
-// Forward declarations for use in MakeProgram and MakeKernel signatures 
+// Forward declarations for use in MakeProgram and MakeKernel signatures
 
 template <typename, Access>
 class Buffer;
@@ -315,7 +314,7 @@ class Context {
 #ifndef HLSLIB_SIMULATE_OPENCL
     return GetDeviceName(device_);
 #else
-    return "Simulation";  
+    return "Simulation";
 #endif
   }
 
@@ -335,24 +334,19 @@ class Context {
  protected:
   friend Program;
   friend Kernel;
-  template <typename U, Access access> friend class Buffer;
+  template <typename U, Access access>
+  friend class Buffer;
 
   void RegisterProgram(
       std::shared_ptr<std::pair<std::string, cl::Program>> program) {
     loadedProgram_ = program;
   }
 
-  std::mutex &memcopyMutex() {
-    return memcopyMutex_;
-  }
+  std::mutex &memcopyMutex() { return memcopyMutex_; }
 
-  std::mutex &enqueueMutex() {
-    return enqueueMutex_;
-  }
+  std::mutex &enqueueMutex() { return enqueueMutex_; }
 
-  std::mutex &reprogramMutex() {
-    return reprogramMutex_;
-  }
+  std::mutex &reprogramMutex() { return reprogramMutex_; }
 
  private:
   cl::Platform platformId_{};
@@ -369,7 +363,7 @@ class Context {
 /// Implement a singleton pattern for an SDAccel context.
 /// It is NOT recommend to use this if it can be avoided, but might be
 /// necssary when linking with external libraries.
-inline Context& GlobalContext() {
+inline Context &GlobalContext() {
   static Context singleton;
   return singleton;
 }
@@ -380,7 +374,6 @@ inline Context& GlobalContext() {
 
 template <typename T, Access access>
 class Buffer {
-
  public:
   Buffer() : context_(nullptr), nElements_(0) {}
 
@@ -395,7 +388,6 @@ class Buffer {
   Buffer(Context &context, MemoryBank memoryBank, IteratorType begin,
          IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
-
 #ifndef HLSLIB_SIMULATE_OPENCL
 
     void *hostPtr = const_cast<T *>(&(*begin));
@@ -466,9 +458,9 @@ class Buffer {
         break;
     }
 
+    void *hostPtr = nullptr;
 #ifdef HLSLIB_XILINX
     ExtendedMemoryPointer extendedHostPointer;
-    void *hostPtr = nullptr;
     if (memoryBank != MemoryBank::unspecified) {
       extendedHostPointer = CreateExtendedPointer(nullptr, memoryBank);
       // Becomes a pointer to the Xilinx extended memory pointer if a memory
@@ -483,9 +475,9 @@ class Buffer {
 
     cl_int errorCode;
     {
-      std::lock_guard<std::mutex> lock(context_->memcopyMutex()); 
-      devicePtr_ = cl::Buffer(context_->context(), flags, sizeof(T) * nElements_,
-                              hostPtr, &errorCode);
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      devicePtr_ = cl::Buffer(context_->context(), flags,
+                              sizeof(T) * nElements_, hostPtr, &errorCode);
     }
 
     if (errorCode != CL_SUCCESS) {
@@ -548,7 +540,8 @@ class Buffer {
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  void CopyToHost(size_t deviceOffset, size_t numElements, IteratorType target) {
+  void CopyToHost(size_t deviceOffset, size_t numElements,
+                  IteratorType target) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
     cl_int errorCode;
@@ -620,7 +613,6 @@ class Buffer {
     CopyToDevice(0, nElements_, other, 0);
   }
 
-  
 #ifndef HLSLIB_SIMULATE_OPENCL
   cl::Buffer const &devicePtr() const { return devicePtr_; }
 
@@ -664,13 +656,11 @@ class Buffer {
 /// that use multiple compute units mapped to different outputs, as we need
 /// to address different kernels within the same program.
 class Program {
-
  public:
-
   Program() = delete;
-  Program(Program const&) = default;
+  Program(Program const &) = default;
   Program(Program &&) = default;
-  ~Program() = default; 
+  ~Program() = default;
 
   // Returns the reference Context object.
   inline Context &context() { return context_; }
@@ -699,7 +689,6 @@ class Program {
                     Ts &&... args);
 
  protected:
-
   friend Context;
 
   inline Program(Context &context,
@@ -761,16 +750,15 @@ class Kernel {
 
   template <typename T>
   static auto UnpackPointers(T &&arg) {
-    return std::forward<T>(arg); 
+    return std::forward<T>(arg);
   }
 
   template <class F, typename... Ts>
   static std::function<void(void)> Bind(F &&f, Ts &&... args) {
-    return std::bind(f, UnpackPointers(std::forward<Ts>(args))...); 
+    return std::bind(f, UnpackPointers(std::forward<Ts>(args))...);
   }
 
  public:
-
   /// Also pass the kernel function as a host function signature. This helps to
   /// verify that the arguments are correct, and allows calling the host
   /// function in simulation mode.
@@ -784,8 +772,7 @@ class Kernel {
 
   /// Load kernel from binary file
   template <typename... Ts>
-  Kernel(Program &program, std::string const &kernelName,
-         Ts &&... kernelArgs)
+  Kernel(Program &program, std::string const &kernelName, Ts &&... kernelArgs)
       : program_(program) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     // Create executable compute kernel
@@ -828,13 +815,12 @@ class Kernel {
     }
     event.wait();
 #else
-    hostFunction_(); // Simulate by calling host function
+    hostFunction_();  // Simulate by calling host function
 #endif
     const auto end = std::chrono::high_resolution_clock::now();
     const double elapsedChrono =
-        1e-9 *
-        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
-            .count();
+        1e-9 * std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+                   .count();
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_ulong timeStart, timeEnd;
     event.getProfilingInfo(CL_PROFILING_COMMAND_START, &timeStart);
@@ -851,7 +837,7 @@ class Kernel {
   cl::Kernel kernel_;
   /// Host version of the kernel function. Can be used to check that the
   /// passed signature is correct, and for simulation purposes.
-  std::function<void(void)> hostFunction_{}; 
+  std::function<void(void)> hostFunction_{};
 
 };  // End class Kernel
 
@@ -865,62 +851,67 @@ Buffer<T, access> Context::MakeBuffer(Ts &&... args) {
 }
 
 Program Context::MakeProgram(std::string const &path) {
-
 #ifndef HLSLIB_SIMULATE_OPENCL
-    std::ifstream input(path, std::ios::in | std::ios::binary | std::ios::ate);
-    if (!input.is_open()) {
-      std::stringstream ss;
-      ss << "Failed to open program file \"" << path << "\".";
-      ThrowConfigurationError(ss.str());
-    }
+  std::ifstream input(path, std::ios::in | std::ios::binary | std::ios::ate);
+  if (!input.is_open()) {
+    std::stringstream ss;
+    ss << "Failed to open program file \"" << path << "\".";
+    ThrowConfigurationError(ss.str());
+  }
 
-    // Determine size of file in bytes
-    input.seekg(0, input.end);
-    const auto fileSize = input.tellg();
-    input.seekg(0, input.beg);
+  // Determine size of file in bytes
+  input.seekg(0, input.end);
+  const auto fileSize = input.tellg();
+  input.seekg(0, input.beg);
 
-    // Load content of binary file into a character vector (required by the
-    // OpenCL C++ bindigs).
-    // The constructor of cl::Program accepts a vector of binaries, so stick the
-    // binary into a single-element outer vector.
-    std::vector<std::vector<unsigned char>> binary;
-    binary.emplace_back(fileSize);
-    // Since this is just binary data the reinterpret_cast *should* be safe
-    input.read(reinterpret_cast<char *>(&binary[0][0]), fileSize);
+  // Load content of binary file into a character vector (required by the
+  // OpenCL C++ bindings).
+  // The constructor of cl::Program accepts a vector of binaries, so stick the
+  // binary into a single-element outer vector.
+  std::vector<std::vector<unsigned char>> binaryContent;
+  binaryContent.emplace_back(fileSize);
+  // Since this is just binary data the reinterpret_cast *should* be safe
+  input.read(reinterpret_cast<char *>(&binaryContent[0][0]), fileSize);
+#ifndef HLSLIB_LEGACY_OPENCL
+  const auto binary = binaryContent;
+#else
+  // In the legacy API, each binary is a void* to the data and an integer
+  // containing its size in bytes
+  typename cl::Program::Binaries binary;
+  binary.emplace_back(&binaryContent[0], fileSize);
+#endif
 
-    cl_int errorCode;
+  cl_int errorCode;
 
-    // Create OpenCL program
-    std::vector<int> binaryStatus(1);
-    std::vector<cl::Device> devices;
-    devices.emplace_back(device_);
-    auto program = std::make_shared<std::pair<std::string, cl::Program>>(
-        path,
-        cl::Program(context_, devices, binary, &binaryStatus, &errorCode));
-    if (binaryStatus[0] != CL_SUCCESS || errorCode != CL_SUCCESS) {
-      std::stringstream ss;
-      ss << "Failed to create OpenCL program from binary file \"" << path
-         << "\":";
-      if (binaryStatus[0] != CL_SUCCESS) {
-        ss << " binary status: " << binaryStatus[0] << ".";
-      }
-      if (errorCode != CL_SUCCESS) {
-        ss << " error code: " << errorCode << ".";
-      }
-      ThrowConfigurationError(ss.str());
-    }
-
-    // Build OpenCL program
-    {
-      std::lock_guard<std::mutex> lock(reprogramMutex_);
-      errorCode = program->second.build(devices, nullptr, nullptr, nullptr);
+  // Create OpenCL program
+  std::vector<int> binaryStatus(1);
+  std::vector<cl::Device> devices;
+  devices.emplace_back(device_);
+  auto program = std::make_shared<std::pair<std::string, cl::Program>>(
+      path, cl::Program(context_, devices, binary, &binaryStatus, &errorCode));
+  if (binaryStatus[0] != CL_SUCCESS || errorCode != CL_SUCCESS) {
+    std::stringstream ss;
+    ss << "Failed to create OpenCL program from binary file \"" << path
+       << "\":";
+    if (binaryStatus[0] != CL_SUCCESS) {
+      ss << " binary status: " << binaryStatus[0] << ".";
     }
     if (errorCode != CL_SUCCESS) {
-      std::stringstream ss;
-      ss << "Failed to build OpenCL program from binary file \"" << path
-         << "\".";
-      ThrowConfigurationError(ss.str());
+      ss << " error code: " << errorCode << ".";
     }
+    ThrowConfigurationError(ss.str());
+  }
+
+  // Build OpenCL program
+  {
+    std::lock_guard<std::mutex> lock(reprogramMutex_);
+    errorCode = program->second.build(devices, nullptr, nullptr, nullptr);
+  }
+  if (errorCode != CL_SUCCESS) {
+    std::stringstream ss;
+    ss << "Failed to build OpenCL program from binary file \"" << path << "\".";
+    ThrowConfigurationError(ss.str());
+  }
 #else
   decltype(loadedProgram_) program = nullptr;
 #endif

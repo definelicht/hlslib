@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include "CL/opencl.h"
+#include "CL/cl.hpp"
+#define HLSLIB_LEGACY_OPENCL
 
 #ifndef HLSLIB_INTEL
 #define HLSLIB_INTEL
