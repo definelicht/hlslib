@@ -9,7 +9,6 @@
 #include <fstream>
 #include <functional>
 #include <future>
-#include <iostream>
 #include <iterator>
 #include <memory>
 #include <mutex>
@@ -64,8 +63,6 @@ class RuntimeError : public std::runtime_error {
 //#############################################################################
 
 namespace {
-
-constexpr bool kVerbose = true;
 
 template <typename IteratorType>
 constexpr bool IsRandomAccess() {
@@ -287,9 +284,6 @@ class Context {
       return;
     }
     device_ = devices[0];
-    if (kVerbose) {
-      std::cout << "Using device \"" << GetDeviceName(device_) << "\".\n";
-    }
 
     context_ = CreateComputeContext(device_);
 
