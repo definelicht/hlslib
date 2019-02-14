@@ -8,7 +8,7 @@
 #include <chrono>
 #include <fstream>
 #include <functional>
-#include <iostream>
+#include <future>
 #include <iterator>
 #include <memory>
 #include <mutex>
@@ -63,8 +63,6 @@ class RuntimeError : public std::runtime_error {
 //#############################################################################
 
 namespace {
-
-constexpr bool kVerbose = true;
 
 template <typename IteratorType>
 constexpr bool IsRandomAccess() {
@@ -286,9 +284,6 @@ class Context {
       return;
     }
     device_ = devices[0];
-    if (kVerbose) {
-      std::cout << "Using device \"" << GetDeviceName(device_) << "\".\n";
-    }
 
     context_ = CreateComputeContext(device_);
 
@@ -792,6 +787,11 @@ class Kernel {
 
     // Pass kernel arguments
     SetKernelArguments(0, std::forward<Ts>(kernelArgs)...);
+
+#ifdef HLSLIB_INTEL // Every kernel has it's own command queue on Intel
+    commandQueue_ = CreateCommandQueue(program_.context().context(),
+                                       program_.context().device());
+#endif
 #endif
   }
 
@@ -808,11 +808,15 @@ class Kernel {
     const auto start = std::chrono::high_resolution_clock::now();
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_int errorCode;
+#ifndef HLSLIB_INTEL
     {
       std::lock_guard<std::mutex> lock(program_.context().enqueueMutex());
       errorCode = program_.context().commandQueue().enqueueTask(
           kernel_, nullptr, &event);
     }
+#else
+    errorCode = commandQueue_.enqueueTask(kernel_, nullptr, &event);
+#endif
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to execute kernel.");
       return {};
@@ -836,12 +840,21 @@ class Kernel {
 #endif
   }
 
+  /// Returns a future to the result of a kernel launch, returning immediately
+  /// and allows the caller to wait on execution to finish as needed.
+  std::future<std::pair<double, double>> ExecuteTaskAsync() {
+    return std::async(std::launch::async, [this]() { return ExecuteTask(); });
+  }
+
  private:
   Program &program_;
   cl::Kernel kernel_;
   /// Host version of the kernel function. Can be used to check that the
   /// passed signature is correct, and for simulation purposes.
   std::function<void(void)> hostFunction_{};
+#ifdef HLSLIB_INTEL
+  cl::CommandQueue commandQueue_;
+#endif
 
 };  // End class Kernel
 
