@@ -18,7 +18,7 @@ find_package(SDAccel REQUIRED)
 include_directories(${SDAccel_INCLUDE_DIRS})
 
 include_directories(include)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -DHLSLIB_XILINX")
 if(((${SDAccel_MAJOR_VERSION} LESS 2018) AND (${SDAccel_MINOR_VERSION} LESS 3)) OR ${SDAccel_MAJOR_VERSION} LESS 2017)
   message(STATUS "Targeting legacy SDx.")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHLSLIB_LEGACY_SDX=1")
@@ -67,7 +67,7 @@ if(Threads_FOUND)
   add_test(TestSimulationForwarding TestSimulationForwarding)
 endif()
 
-set(SYNTHESIS_FLAGS "-DHLSLIB_SYNTHESIS -std=c++11 -I${CMAKE_SOURCE_DIR}/include -I.")
+set(SYNTHESIS_FLAGS "-DHLSLIB_SYNTHESIS -DHLSLIB_XILINX -std=c++11 -I${CMAKE_SOURCE_DIR}/include -I.")
 
 function(synthesis_target KERNEL_NAME ADDITIONAL_FLAGS)
   set(HLSLIB_PROJECT_NAME "${KERNEL_NAME}")
