@@ -43,7 +43,15 @@ constexpr bool kStreamVerbose = false;
 
 namespace hlslib {
 
-template <typename T, unsigned capacity = 1>
+enum class Storage {
+  Unspecified,
+  BRAM,
+  LUTRAM,
+  SRL,
+  UltraRAM
+};
+
+template <typename T, unsigned capacity = 1, Storage = Storage::Unspecified>
 class Stream;
 
 /// Attempt to read from a stream, blocking until a value can be read. Useful
@@ -160,7 +168,7 @@ class _StreamBase {};
 /// to the constructor then.
 /// The constructor argument is always favored over the template argument, if
 /// specified.
-template <typename T, unsigned capacityDefault>
+template <typename T, unsigned capacityDefault, Storage storage>
 class Stream : public _StreamBase {
 
 public:
@@ -182,6 +190,15 @@ public:
       : stream_(name) {
     #pragma HLS INLINE
     #pragma HLS STREAM variable=stream_ depth=capacity 
+    if (storage == Storage::BRAM) {
+      #pragma HLS RESOURCE variable=stream_ core=FIFO_BRAM
+    } else if (storage == Storage::UltraRAM) {
+      #pragma HLS RESOURCE variable=stream_ core=XPM_MEMORY
+    } else if (storage == Storage::LUTRAM) {
+      #pragma HLS RESOURCE variable=stream_ core=FIFO_LUTRAM
+    } else if (storage == Storage::SRL) {
+      #pragma HLS RESOURCE variable=stream_ core=FIFO_SRL
+    }
   }
 #else
       : name_(name), capacity_(capacity) {}
@@ -476,6 +493,7 @@ public:
   }
 
 private:
+
 #ifndef HLSLIB_SYNTHESIS
   mutable std::mutex mutex_{};
   mutable std::condition_variable cvRead_{};
