@@ -1,3 +1,5 @@
+_Include errors with latest commits:_ in an effort to support both Xilinx Vivado HLS and Intel FPGA OpenCL, the project has been restructured. If you are using `hlslib` includes, please change the include path from `hlslib/<Name>.h` to `hlslib/xilinx/<Name>.h`.
+
 # Overview
 
 ## What is included
