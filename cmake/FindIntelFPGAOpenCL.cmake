@@ -30,6 +30,10 @@ else()
 
 endif()
 
+if(NOT INTELFPGAOCL_ROOT_DIR)
+  message(FATAL_ERROR "aocl not found. Please add aocl to your PATH, specify the environment variable INTELFPGAOCLSDKROOT, or pass INTELFPGAOCL_ROOT_DIR to CMake.")
+endif()
+
 # Check if all the necessary components are present. We want to ensure that we
 # use the tools bundled together, so we don't use find_path again. 
 
