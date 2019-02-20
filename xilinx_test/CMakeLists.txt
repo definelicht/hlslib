@@ -49,7 +49,7 @@ else()
   message(WARNING "Threads not found. Disabling multi-PE kernel tests.")
 endif()
 
-set(SYNTHESIS_FLAGS "-DHLSLIB_SYNTHESIS -DHLSLIB_XILINX -std=c++11 -I${CMAKE_CURRENT_SOURCE_DIR}/include -I.")
+set(SYNTHESIS_FLAGS "-DHLSLIB_SYNTHESIS -DHLSLIB_XILINX -std=c++11 -I${CMAKE_CURRENT_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/include -I.")
 
 function(synthesis_target KERNEL_NAME ADDITIONAL_FLAGS)
   set(HLSLIB_PROJECT_NAME "${KERNEL_NAME}")
@@ -69,6 +69,7 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
     -O3
     ${MM_XOCC_FLAGS}
     -I${CMAKE_CURRENT_SOURCE_DIR}/include
+    -I${CMAKE_SOURCE_DIR}/include
     -I${CMAKE_BINARY_DIR}
     --kernel ${KERNEL_NAME} 
     --platform ${HLSLIB_DSA_NAME}
@@ -85,13 +86,13 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
       COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xclbin) 
   else()
-    add_custom_target(compile_${KERNEL_NAME}_hardware
+    add_custom_target(link_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -c -t hw
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw.xo) 
     add_custom_target(build_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -l -t hw
       ${XOCC_COMMAND} ${KERNEL_NAME}_hw.xo -o ${KERNEL_NAME}_hw.xclbin) 
-    add_custom_target(compile_${KERNEL_NAME}_hardware_emulation
+    add_custom_target(link_${KERNEL_NAME}_hardware_emulation
       COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -c -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xo) 
     add_custom_target(build_${KERNEL_NAME}_hardware_emulation
