@@ -6,20 +6,20 @@ _Include errors with latest commits:_ in an effort to support both Xilinx Vivado
 
 This repository includes the following features for use with Vivado HLS and/or SDAccel projects:
 
-* `DataPack` class to ease SIMD parallelization in HLS kernels (`include/hlslib/DataPack.h`) 
-* Utility classes for SDAccel host side integration, located at `include/hlslib/SDAccel.h`, including support for specifying FPGA memory banks
-* Thread-safe stream implementation, with blocking semantics to mimic hardware behavior (`include/hlslib/Stream.h`)
-* Macros to easily simulate dataflow functions using multithreading when compiled as C++, while being compatible with high-level synthesis when building for hardware (`include/hlslib/Simulation.h`)
+* `DataPack` class to ease SIMD parallelization in HLS kernels (`include/hlslib/xilinx/DataPack.h`) 
+* Utility classes for SDAccel host side integration, located at `include/hlslib/xilinx/SDAccel.h`, including support for specifying FPGA memory banks
+* Thread-safe stream implementation, with blocking semantics to mimic hardware behavior (`include/hlslib/xilinx/Stream.h`)
+* Macros to easily simulate dataflow functions using multithreading when compiled as C++, while being compatible with high-level synthesis when building for hardware (`include/hlslib/xilinx/Simulation.h`)
 * CMake module files that locate SDAccel, Vivado, Vivado HLS and Vivado Lab on the host machine, setting relevant variables for build integration with CMake
-* Classes to flatten loop nests and keep track of indices (`include/hlslib/Flatten.h`), both for bounds known at runtime (`hlslib::Flatten`) and bounds known at compile-time (`hlslib::ConstFlatten`). Example usage can be found in `kernels/Flatten.cpp`.
-* Various compile-time functions commonly used when designing hardware, such as log2, in `include/hlslib/Utility.h`
+* Classes to flatten loop nests and keep track of indices (`include/hlslib/xilinx/Flatten.h`), both for bounds known at runtime (`hlslib::Flatten`) and bounds known at compile-time (`hlslib::ConstFlatten`). Example usage can be found in `xilinx_test/kernels/Flatten.cpp`.
+* Various compile-time functions commonly used when designing hardware, such as log2, in `include/hlslib/xilinx/Utility.h`
 Some of these headers are interdependent, while others can be included standalone. Refer to the source code for details.
 * A template tcl-file that can be used with CMake or another templating engine to produce a high-level synthesis script
-* `CMakeLists.txt` that builds a number of tests to verify hlslib functionality, doubling as a reference for how to integrate HLS projects with CMake using the provided module files 
-* An example of how to use the Simulation and Stream headers, at `kernels/MultiStageAdd.cpp`, both as a host-only simulation (`test/TestMultiStageAdd.cpp`), and as a hardware kernel (`host/RunMultiStageAdd.cpp`) 
-* `include/hlslib/Accumulate.h`, which includes a streaming implementation of accumulation, including for type/operator combinations with a non-zero latency (such as floating point addition). Example kernels of usage for both integer and floating point types are included as `kernel/AccumulateInt.cpp` and `kernel/AccumulateFloat.cpp`, respectively. 
-* `include/hlslib/Operators.h`, which includes some commonly used operators as functors to be plugged into templated functions such as `TreeReduce` and `Accumulate`.
-* `include/hlslib/Axi.h`, which implements the AXI Stream interface and the bus interfaces required by the DataMover IP, enabling the use of a command stream-based memory interface for HLS kernels if packaged as an RTL kernel where the DataMover IP is connected to the AXI interfaces.
+* `xilinx_test/CMakeLists.txt` that builds a number of tests to verify hlslib functionality, doubling as a reference for how to integrate HLS projects with CMake using the provided module files 
+* An example of how to use the Simulation and Stream headers, at `xilinx_test/kernels/MultiStageAdd.cpp`, both as a host-only simulation (`xilinx_test/test/TestMultiStageAdd.cpp`), and as a hardware kernel (`xilinx_test/host/RunMultiStageAdd.cpp`) 
+* `include/hlslib/xilinx/Accumulate.h`, which includes a streaming implementation of accumulation, including for type/operator combinations with a non-zero latency (such as floating point addition). Example kernels of usage for both integer and floating point types are included as `xilinx_test/kernel/AccumulateInt.cpp` and `xilinx_test/kernel/AccumulateFloat.cpp`, respectively. 
+* `include/hlslib/xilinx/Operators.h`, which includes some commonly used operators as functors to be plugged into templated functions such as `TreeReduce` and `Accumulate`.
+* `include/hlslib/xilinx/Axi.h`, which implements the AXI Stream interface and the bus interfaces required by the DataMover IP, enabling the use of a command stream-based memory interface for HLS kernels if packaged as an RTL kernel where the DataMover IP is connected to the AXI interfaces.
 
 ## Examples
 
@@ -30,7 +30,7 @@ For some real life example of using the core features of `hlslib`, take a look a
 
 ## Installation
 
-The source code provided in this repository can be used on a file-by-file basis, and as such does not need to be compiled/installed. Rather, header files (located in `include/hlslib`) and CMake module files (located in `cmake`) can simply be copied to the source directory of an HLS project.
+The source code provided in this repository can be used on a file-by-file basis, and as such does not need to be compiled/installed. However, installation with CMake is supported, which you can use to install headers and CMake files directly into your project.
 
 When an hlslib header is included, compilation must allow C++11 features, and the macro `HLSLIB_SYNTHESIS` must be set whenever high-level synthesis is run, using `-cflags "-std=c++11 -DHLSLIB_SYNTHESIS"` and `--xp prop:kernel.<entry function>.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS"` for Vivado HLS and SDAccel, respectively. See the included `CMakeLists.txt` for reference.
 
