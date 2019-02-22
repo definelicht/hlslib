@@ -1,16 +1,127 @@
-_Include errors with latest commits:_ in an effort to support both Xilinx Vivado HLS and Intel FPGA OpenCL, the project has been restructured. If you are using `hlslib` includes, please change the include path from `hlslib/<Name>.h` to `hlslib/xilinx/<Name>.h`.
+#### What is hlslib?
 
-# Overview
+hlslib is a collection of C++ headers and CMake files aimed at improving the quality of life of HLS developers. The current repertoire primarily supports Vivado HLS, but some Intel FPGA OpenCL support is being added.
 
-## What is included
+#### How do I install it?
 
-This repository includes the following features for use with Vivado HLS and/or SDAccel projects:
+There are a few ways:
+- Grab the headers and/or CMake files you need and stick them in your project.
+- Install hlslib using the standard CMake installation procedure to a location of your choice.
+- Clone this repository into your project as a git submodule and integrate it, with or without CMake.
 
-* `DataPack` class to ease SIMD parallelization in HLS kernels (`include/hlslib/xilinx/DataPack.h`) 
-* Utility classes for SDAccel host side integration, located at `include/hlslib/xilinx/SDAccel.h`, including support for specifying FPGA memory banks
-* Thread-safe stream implementation, with blocking semantics to mimic hardware behavior (`include/hlslib/xilinx/Stream.h`)
-* Macros to easily simulate dataflow functions using multithreading when compiled as C++, while being compatible with high-level synthesis when building for hardware (`include/hlslib/xilinx/Simulation.h`)
-* CMake module files that locate SDAccel, Vivado, Vivado HLS and Vivado Lab on the host machine, setting relevant variables for build integration with CMake
+#### How do I use it?
+
+Just `#include` the header(s) you are interested in. You can see an example [here](https://github.com/spcl/gemm_hls).
+
+When a Xilinx hlslib header is included, compilation must allow C++11 features, and the macro `HLSLIB_SYNTHESIS` must be set whenever HLS is run. Set `-cflags "-std=c++11 -DHLSLIB_SYNTHESIS"` in your synthesis script, and `--xp prop:kernel.<entry function>.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS"` when building SDAccel kernels. See the included `xilinx_test/CMakeLists.txt` for reference. 
+
+## Feature overview
+
+A brief overview of hlslib features is given below.
+
+#### CMake integration
+
+For integrating the Xilinx or Intel HLS tools in your project, the `FindSDAccel.cmake` and `FindIntelFPGAOpenCL.cmake` are provided in the `cmake` subdirectory. The scripts will set all necessary variables required to build both host and device code.
+
+Example `CMakeLists.txt`:
+```cmake
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} hlslib/cmake)
+find_package(SDAccel REQUIRED)
+
+add_executable(MyHostExecutable src/MyHostExecutable.cpp)
+include_directories(${SDAccel_INCLUDE_DIRS})
+target_link_libraries(MyHostExecutable ${SDAccel_LIBRARIES})
+
+add_custom_target(compile_kernel ${SDAccel_XOCC} -t hw src/MyKernel.cpp
+                  --kernel MyKernel --platform xilinx_vcu1525_dynamic_5_1 -o MyKernel.xclbin)
+```
+
+#### DataPack
+
+The `hlslib::DataPack` class located in `hlslib/xilinx/DataPack.h` facilitates SIMD-style (although "instruction" is a misnomer) vectorization, and makes it easy to build wide data paths in your code.
+
+Examples usage:
+```cpp
+hlslib::DataPack<float, 4> Foo(hlslib::DataPack<float, 4> &a,
+                              hlslib::DataPack<float, 4> &b) {
+  #pragma HLS INLINE     
+  auto add = a + b; // Vector addition
+  add[0] = add[1];  // Indexing for both reads and writes
+  return 0.5 * add; // Element-wise multiplication by a scalar
+}
+```
+
+#### Stream
+
+While Vivado HLS provides the `hls::stream` class, it is somewhat lacking in features, in particular when simulating multiple processing elements. The `hlslib::Stream` class in `hlslib/xilinx/Stream.h` compiles to Vivado HLS streams, but provides a much richer interface. hlslib streams are:
+- thread-safe during simulation, allowing producer and consumer to be executed in parallel;
+- bounded, simulating the finite capacity of hardware FIFOs, allowing easier detection of deadlocks in software; and
+- self-contained, allowing the stream depth and implementation (e.g., using LUTRAM or BRAM) to be specified directly in the object with excess pragmas.
+
+Example usage:
+```cpp
+void Foo(hlslib::Stream<int> &in_stream, // Specifying stream depth is optional
+         hlslib::Stream<int> &out_stream, int N) {
+         
+  #pragma HLS DATAFLOW
+  hlslib::Stream<int, 4> pipe; // Implements a FIFO of depth 4
+  
+  for (int i = 0; i < N; ++i) { // PE #1
+    #pragma HLS PIPELINE II=1
+    auto read = in_stream.Pop(); // Queue-like interface
+    pipe.Push(read + 1);
+  }
+  
+  for (int i = 0; i < N; ++i) { // PE #2
+    #pragma HLS PIPELINE II=1
+    auto read = pipe.Pop();
+    out_stream.Push(2 * read);
+  }
+  
+}
+```
+
+#### Simulation
+
+For kernels with multiple processing elements (PEs) executing in parallel, the `hlslib/xilinx/Simulation.h` adds some convenient macros to simulate this behavior, by wrapping each PE in a thread executed in parallel, all of which are joined when the program terminates.
+
+Example usage:
+```cpp
+HLSLIB_DATAFLOW_INIT();
+hlslib::Stream<Data_t> pipes[kStages + 1];
+HLSLIB_DATAFLOW_FUNCTION(MemoryToStream, memory_in, pipes[0]);
+for (int i = 0; i < kStages; ++i) {
+  #pragma HLS UNROLL
+  HLSLIB_DATAFLOW_FUNCTION(PE, pipes[i], pipes[i + 1]); // Launches new C++ thread
+}
+HLSLIB_DATAFLOW_FUNCTION(StreamToMemory, pipes[kStages], memory_out);
+HLSLIB_DATAFLOW_FINALIZE(); // In simulation mode, joins threads created as dataflow functions.
+```
+
+When building programs using the simulation features, you must link against a thread library (e.g., pthreads).
+
+#### OpenCL host code
+
+The greatly reduce the amount of boilerplate code required to create and launch OpenCL kernels, and to handle FPGA-specific configuration required by the vendor, hlslib provides a C++14 convenience interface in `hlslib/xilinx/SDAccel.h` and `hlslib/intel/OpenCL.h` for Vivado HLS and Intel FPGA OpenCL, respectively.
+
+Example usage:
+```cpp
+using hlslib::ocl;
+Context context;
+std::vector<float> input_host(N, 5);   
+std::vector<float> output_host(N, 5);
+auto input_device = context.MakeBuffer<float, Access::read>(
+    MemoryBank::bank0, input_host.cbegin(), input_end.cend());
+auto output_device = context.MakeBUffer<float, Access::write>(MemoryBank::bank1, N);
+auto program = context.MakeProgram("MyKernel.xclbin");
+auto kernel = program.MakeKernel("MyKernel", input_device, output_device, N);
+kernel.ExecuteTask();
+output_device.CopyToHost(output_host.begin());
+```
+
+#### Other features
+
+Various other features are provided, including:
 * Classes to flatten loop nests and keep track of indices (`include/hlslib/xilinx/Flatten.h`), both for bounds known at runtime (`hlslib::Flatten`) and bounds known at compile-time (`hlslib::ConstFlatten`). Example usage can be found in `xilinx_test/kernels/Flatten.cpp`.
 * Various compile-time functions commonly used when designing hardware, such as log2, in `include/hlslib/xilinx/Utility.h`
 Some of these headers are interdependent, while others can be included standalone. Refer to the source code for details.
@@ -21,24 +132,7 @@ Some of these headers are interdependent, while others can be included standalon
 * `include/hlslib/xilinx/Operators.h`, which includes some commonly used operators as functors to be plugged into templated functions such as `TreeReduce` and `Accumulate`.
 * `include/hlslib/xilinx/Axi.h`, which implements the AXI Stream interface and the bus interfaces required by the DataMover IP, enabling the use of a command stream-based memory interface for HLS kernels if packaged as an RTL kernel where the DataMover IP is connected to the AXI interfaces.
 
-## Examples
-
-For some real life example of using the core features of `hlslib`, take a look at our matrix-matrix multiplication and stencil codes:
-
-- https://github.com/spcl/gemm_hls
-- https://github.com/spcl/stencil_hls
-
-## Installation
-
-The source code provided in this repository can be used on a file-by-file basis, and as such does not need to be compiled/installed. However, installation with CMake is supported, which you can use to install headers and CMake files directly into your project.
-
-When an hlslib header is included, compilation must allow C++11 features, and the macro `HLSLIB_SYNTHESIS` must be set whenever high-level synthesis is run, using `-cflags "-std=c++11 -DHLSLIB_SYNTHESIS"` and `--xp prop:kernel.<entry function>.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS"` for Vivado HLS and SDAccel, respectively. See the included `CMakeLists.txt` for reference.
-
-## Compatibility
-
-The code within has been tested with SDx 2018.2 and Vivado HLS 2018.2 for the HLS code, and GCC 7.3.0 for host/simulation code. There is no plan to accommodate older versions of any of these tools, although there is no principal reason why older versions should not work. Newer versions of the tools are expected to work. If this is not the case, it should be considered a bug. 
-
-# Useful information
+## Miscellaneous tips
 
 ### Running SDAccel
 
@@ -55,9 +149,9 @@ unset XILINX_SDX
 unset XCL_EMULATION_MODE
 ```
 
-### Bundled libc++
+### Bundled libc++ with SDAccel
 
-When linking against the Xilinx OpenCL libraries, the linker must add the runtime library folder to the library search path. This folder contains an ancient version of libc++.so, which will break compilation when using a newer compiler.
+When linking against the Xilinx OpenCL libraries, the linker must add the runtime library folder to the library search path. This folder contains an ancient version of libc++.so, which can break compilation when using a newer compiler.
 To avoid this, backup or delete the library file located at:
 ```
 <SDx or SDAccel folder>/runtime/lib/<architecture>/libstdc++.so
@@ -78,3 +172,7 @@ On Ubuntu, the following package might need to be installed to run hardware emul
 ```
 sudo apt install libc6-dev-i386
 ```
+
+## Bugs and feature requests
+
+Please use the issue tracker.
