@@ -1,6 +1,8 @@
-#### What is hlslib?
+## Quick introduction
 
 hlslib is a collection of C++ headers and CMake files aimed at improving the quality of life of HLS developers. The current repertoire primarily supports Vivado HLS, but some Intel FPGA OpenCL support is being added.
+
+This project is developed at the [Scalable Parallel Computing Lab](https://spcl.inf.ethz.ch/) (SPCL) at ETH Zurich (see our [github](https://github.com/spcl)).
 
 #### How do I install it?
 
@@ -53,7 +55,7 @@ hlslib::DataPack<float, 4> Foo(hlslib::DataPack<float, 4> &a,
 
 #### Stream
 
-While Vivado HLS provides the `hls::stream` class, it is somewhat lacking in features, in particular when simulating multiple processing elements. The `hlslib::Stream` class in `hlslib/xilinx/Stream.h` compiles to Vivado HLS streams, but provides a much richer interface. hlslib streams are:
+While Vivado HLS provides the `hls::stream` class, it is somewhat lacking in features, in particular when simulating multiple processing elements. The `hlslib::Stream` class in `hlslib/xilinx/Stream.h` compiles to Vivado HLS streams, but provides a richer interface. hlslib streams are:
 - thread-safe during simulation, allowing producer and consumer to be executed in parallel;
 - bounded, simulating the finite capacity of hardware FIFOs, allowing easier detection of deadlocks in software; and
 - self-contained, allowing the stream depth and implementation (e.g., using LUTRAM or BRAM) to be specified directly in the object with excess pragmas.
@@ -62,19 +64,19 @@ Example usage:
 ```cpp
 void Foo(hlslib::Stream<int> &in_stream, // Specifying stream depth is optional
          hlslib::Stream<int> &out_stream, int N) {
-         
   #pragma HLS DATAFLOW
-  hlslib::Stream<int, 4> pipe; // Implements a FIFO of depth 4
+  
+  hlslib::Stream<int, 4> foo_pipe; // Implements a FIFO of depth 4
   
   for (int i = 0; i < N; ++i) { // PE #1
     #pragma HLS PIPELINE II=1
     auto read = in_stream.Pop(); // Queue-like interface
-    pipe.Push(read + 1);
+    foo_pipe.Push(read + 1);
   }
   
   for (int i = 0; i < N; ++i) { // PE #2
     #pragma HLS PIPELINE II=1
-    auto read = pipe.Pop();
+    auto read = foo_pipe.Pop();
     out_stream.Push(2 * read);
   }
   
@@ -102,7 +104,7 @@ When building programs using the simulation features, you must link against a th
 
 #### OpenCL host code
 
-The greatly reduce the amount of boilerplate code required to create and launch OpenCL kernels, and to handle FPGA-specific configuration required by the vendor, hlslib provides a C++14 convenience interface in `hlslib/xilinx/SDAccel.h` and `hlslib/intel/OpenCL.h` for Vivado HLS and Intel FPGA OpenCL, respectively.
+To greatly reduce the amount of boilerplate code required to create and launch OpenCL kernels, and to handle FPGA-specific configuration required by the vendors, hlslib provides a C++14 convenience interface in `hlslib/xilinx/SDAccel.h` and `hlslib/intel/OpenCL.h` for Vivado HLS and Intel FPGA OpenCL, respectively.
 
 Example usage:
 ```cpp
