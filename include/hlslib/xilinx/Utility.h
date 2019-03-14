@@ -39,7 +39,7 @@ constexpr signed long abs(const signed long a) { return (a < 0) ? -a : a; }
 #ifndef HLSLIB_SYNTHESIS
 
 inline void SetEnvironmentVariable(std::string const &key,
-                                     std::string const &val) {
+                                   std::string const &val) {
   const auto ret = setenv(key.c_str(), val.c_str(), 1);
   if (ret != 0) {
     throw std::runtime_error("Failed to set environment variable " + key);
