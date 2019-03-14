@@ -114,7 +114,7 @@ std::vector<float> input_host(N, 5);
 std::vector<float> output_host(N, 5);
 auto input_device = context.MakeBuffer<float, Access::read>(
     MemoryBank::bank0, input_host.cbegin(), input_end.cend());
-auto output_device = context.MakeBUffer<float, Access::write>(MemoryBank::bank1, N);
+auto output_device = context.MakeBuffer<float, Access::write>(MemoryBank::bank1, N);
 auto program = context.MakeProgram("MyKernel.xclbin");
 auto kernel = program.MakeKernel("MyKernel", input_device, output_device, N);
 kernel.ExecuteTask();
