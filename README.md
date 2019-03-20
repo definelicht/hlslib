@@ -19,6 +19,8 @@ When a Xilinx hlslib header is included, compilation must allow C++11 features, 
 
 ## Feature overview
 
+We have Doxygen now! Simply run `make` to generate the docs.
+
 A brief overview of hlslib features is given below.
 
 #### CMake integration
