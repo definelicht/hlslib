@@ -10,6 +10,14 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 # Without this variable set, CMake will build tests when running install
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY ON)
 
+# Generate Doxygen is vailable
+find_package(Doxygen)
+if(Doxygen_FOUND)
+  add_custom_target(doxygen ALL
+      COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_SOURCE_DIR}/hlslib.doxygen 
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+endif()
+
 # hlslib target
 add_library(hlslib INTERFACE)
 target_include_directories(hlslib INTERFACE
