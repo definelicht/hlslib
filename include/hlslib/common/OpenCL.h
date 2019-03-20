@@ -2,7 +2,7 @@
 /// @copyright This software is copyrighted under the BSD 3-Clause License.
 
 // Do not include this file directly. It should be included from either the
-// Xilinx or Intel versions of hlslib OpenCl.
+// Xilinx or Intel versions of hlslib OpenCL.
 
 #pragma once
 
@@ -259,7 +259,7 @@ class Program;
 
 class Context {
  public:
-  /// Performs initialization of the requested device
+  /// Performs initialization of the requested vendor and device name.
   inline Context(std::string const &vendorName, std::string const &deviceName) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     // Find requested OpenCL platform
@@ -274,24 +274,34 @@ class Context {
 #endif
   }
 
-  /// Performs initialization of first available device of requested vendor
-  inline Context() {
+  /// Performs initialization of the requested device name.
+  inline Context(std::string const &deviceName)
+      : Context(HLSLIB_OPENCL_VENDOR_STRING, deviceName) {}
+
+  /// Performs initialization of the specified vendor and device index.
+  inline Context(std::string const &vendorName, int index) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     // Find requested OpenCL platform
-    platformId_ = FindPlatformByVendor(HLSLIB_OPENCL_VENDOR_STRING);
+    platformId_ = FindPlatformByVendor(vendorName);
 
     auto devices = GetAvailableDevices(platformId_);
     if (devices.size() == 0) {
       ThrowConfigurationError("No OpenCL devices found for platform.");
       return;
     }
-    device_ = devices[0];
+    device_ = devices[index];
 
     context_ = CreateComputeContext(device_);
 
     commandQueue_ = CreateCommandQueue(context_, device_);
 #endif
   }
+
+  /// Performs initialization of the specified device index. 
+  inline Context(int index) : Context(HLSLIB_OPENCL_VENDOR_STRING, index) {}
+
+  /// Performs initialization of first available device.
+  inline Context() : Context(0) {}
 
   inline Context(Context const &) = delete;
   inline Context(Context &&) = default;
@@ -802,6 +812,13 @@ class Kernel {
   inline Program const &program() const { return program_; }
 
   inline cl::Kernel const &kernel() const { return kernel_; }
+
+#ifdef HLSLIB_INTEL
+  /// Returns the internal OpenCL command queue (Intel FPGA only).
+  inline cl::CommandQueue const &commandQueue() const { return commandQueue_; }
+  /// Returns the internal OpenCL command queue (Intel FPGA only).
+  inline cl::CommandQueue &commandQueue() { return commandQueue_; }
+#endif
 
   /// Execute the kernel as an OpenCL task and returns the time elapsed as
   /// reported by SDAccel (first) and as measured manually with chrono (second).
