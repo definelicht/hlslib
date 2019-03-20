@@ -3,9 +3,9 @@
 
 #pragma OPENCL EXTENSION cl_intel_channels : enable
 
-#define H 32
-#define W 32
-#define T 1
+#define H 512
+#define W 512
+#define T 4
 #define DTYPE float
 
 #endif
