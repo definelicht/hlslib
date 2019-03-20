@@ -1,0 +1,9 @@
+*.temp
+*.aoco
+*.aocx
+*.aocr
+.project.marker
+*.bc
+*.log
+*.txt
+*.so

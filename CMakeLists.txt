@@ -19,12 +19,16 @@ target_include_directories(hlslib INTERFACE
 enable_testing()
 
 # Find Xilinx and Intel OpenCL software for enabling test targets 
+find_package(Threads)
 find_package(SDAccel)
 find_package(IntelFPGAOpenCL)
 
 # Xilinx example setup and testing
-if(SDAccel_FOUND)
+if(SDAccel_FOUND AND Threads_FOUND)
   add_subdirectory(xilinx_test)
+endif()
+if(IntelFPGAOpenCL_FOUND AND Threads_FOUND)
+  add_subdirectory(intel_test)
 endif()
 
 # Installation
