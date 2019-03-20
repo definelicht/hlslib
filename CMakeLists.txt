@@ -13,8 +13,9 @@ set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY ON)
 # Generate Doxygen is vailable
 find_package(Doxygen)
 if(Doxygen_FOUND)
+  configure_file(${CMAKE_SOURCE_DIR}/Doxyfile.in Doxyfile)
   add_custom_target(doxygen ALL
-      COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_SOURCE_DIR}/hlslib.doxygen 
+      COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile 
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
 
