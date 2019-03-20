@@ -6,4 +6,5 @@
 *.bc
 *.log
 *.txt
+!CMakeLists.txt
 *.so
