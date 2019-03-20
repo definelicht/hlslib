@@ -6,6 +6,7 @@
 #   IntelFPGAOpenCL_FOUND - Indicates whether Intel FPGA OpenCL was found.
 #   IntelFPGAOpenCL_INCLUDE_DIRS - Include directories for HLS. 
 #   IntelFPGAOpenCL_LIBRARIES - Runtime libraries required for host side code. 
+#   IntelFPGAOpenCL_RPATH - rpath required for runtime linkage
 #   IntelFPGAOpenCL_AOC - Path to the aoc executable.
 #   IntelFPGAOpenCL_AOCL - Path to the aocl executable.
 #   IntelFPGAOpenCL_VERSION - Version of Intel FPGA OpenCL installation
@@ -75,14 +76,20 @@ foreach(INTELFPGAOCL_LIB ${INTELFPGAOCL_LINK_LIBS})
   mark_as_advanced(${INTELFPGAOCL_LIB}_PATH)
 endforeach()
 
+string(REPLACE " " ":" IntelFPGAOpenCL_RPATH "${INTELFPGAOCL_LINK_DIRS}")
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_INSTALL_RPATH
+    "${CMAKE_INSTALL_RPATH}:${INTELFPGAOCL_LINK_DIRS}")
+
 set(IntelFPGAOpenCL_EXPORTS
     IntelFPGAOpenCL_AOCL
     IntelFPGAOpenCL_AOC
     IntelFPGAOpenCL_INCLUDE_DIRS
+    IntelFPGAOpenCL_LIBRARIES
+    IntelFPGAOpenCL_RPATH
     IntelFPGAOpenCL_VERSION
     IntelFPGAOpenCL_MAJOR_VERSION
-    IntelFPGAOpenCL_MINOR_VERSION
-    IntelFPGAOpenCL_LIBRARIES)
+    IntelFPGAOpenCL_MINOR_VERSION)
 mark_as_advanced(IntelFPGAOpenCL_EXPORTS)
 
 include(FindPackageHandleStandardArgs)
