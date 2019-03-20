@@ -70,6 +70,7 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
     ${MM_XOCC_FLAGS}
     -I${CMAKE_CURRENT_SOURCE_DIR}/include
     -I${CMAKE_SOURCE_DIR}/include
+    -I${CMAKE_CURRENT_BINARY_DIR}
     -I${CMAKE_BINARY_DIR}
     --kernel ${KERNEL_NAME} 
     --platform ${HLSLIB_DSA_NAME}
@@ -80,30 +81,30 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
     --max_memory_ports all)
   if(((${SDAccel_MAJOR_VERSION} LESS 2018) AND (${SDAccel_MINOR_VERSION} LESS 3)) OR ${SDAccel_MAJOR_VERSION} LESS 2017)
     add_custom_target(build_${KERNEL_NAME}_hardware
-      COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -t hw
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -t hw
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw.xclbin) 
     add_custom_target(build_${KERNEL_NAME}_hardware_emulation
-      COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -t hw_emu -g
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xclbin) 
   else()
     add_custom_target(link_${KERNEL_NAME}_hardware
-      COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -c -t hw
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -c -t hw
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw.xo) 
     add_custom_target(build_${KERNEL_NAME}_hardware
-      COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -l -t hw
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -l -t hw
       ${XOCC_COMMAND} ${KERNEL_NAME}_hw.xo -o ${KERNEL_NAME}_hw.xclbin) 
     add_custom_target(link_${KERNEL_NAME}_hardware_emulation
-      COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -c -t hw_emu -g
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -c -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xo) 
     add_custom_target(build_${KERNEL_NAME}_hardware_emulation
-      COMMAND XILINX_PATH=${CMAKE_BINARY_DIR} ${SDAccel_XOCC} -l -t hw_emu -g
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -l -t hw_emu -g
       ${XOCC_COMMAND} ${KERNEL_NAME}_hw_emu.xo -o ${KERNEL_NAME}_hw_emu.xclbin) 
   endif()
   add_executable(Run${KERNEL_NAME}.exe host/Run${KERNEL_NAME}.cpp ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp)
   target_link_libraries(Run${KERNEL_NAME}.exe ${SDAccel_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-  add_custom_target(run_${KERNEL_NAME}_hardware COMMAND ${CMAKE_BINARY_DIR}/Run${KERNEL_NAME}.exe hardware)
-  add_custom_target(run_${KERNEL_NAME}_emulation COMMAND ${CMAKE_COMMAND} -E env XILINX_SDX=${SDACCEL_ROOT_DIR} XCL_EMULATION_MODE=hw_emu ${CMAKE_BINARY_DIR}/Run${KERNEL_NAME}.exe emulation)
-  add_custom_target(run_${KERNEL_NAME}_simulation COMMAND ${CMAKE_COMMAND} -E env XCL_EMULATION_MODE=sw_emu XILINX_SDX=${SDACCEL_ROOT_DIR} ${CMAKE_BINARY_DIR}/Run${KERNEL_NAME}.exe simulation)
+  add_custom_target(run_${KERNEL_NAME}_hardware COMMAND ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe hardware)
+  add_custom_target(run_${KERNEL_NAME}_emulation COMMAND ${CMAKE_COMMAND} -E env XILINX_SDX=${SDACCEL_ROOT_DIR} XCL_EMULATION_MODE=hw_emu ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe emulation)
+  add_custom_target(run_${KERNEL_NAME}_simulation COMMAND ${CMAKE_COMMAND} -E env XCL_EMULATION_MODE=sw_emu XILINX_SDX=${SDACCEL_ROOT_DIR} ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe simulation)
 endfunction()
 
 synthesis_target("Reduce" "")
