@@ -39,7 +39,7 @@ endif()
 find_program(SDAccel_XOCC xocc PATHS ${SDACCEL_ROOT_DIR}/bin NO_DEFAULT_PATH)
 
 # Get version number string
-get_filename_component(SDAccel_VERSION ${SDACCEL_ROOT_DIR} NAME)
+get_filename_component(SDAccel_VERSION "${SDACCEL_ROOT_DIR}" NAME)
 string(REGEX REPLACE "([0-9]+)\\.[0-9]+" "\\1" SDAccel_MAJOR_VERSION "${SDAccel_VERSION}")
 string(REGEX REPLACE "[0-9]+\\.([0-9]+)" "\\1" SDAccel_MINOR_VERSION "${SDAccel_VERSION}")
 
