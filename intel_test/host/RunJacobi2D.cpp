@@ -1,5 +1,6 @@
 #include "hlslib/intel/OpenCL.h"
 #include "Jacobi2D.h"
+#include <cmath>
 #include <iostream>
 
 // Convert from C to C++
