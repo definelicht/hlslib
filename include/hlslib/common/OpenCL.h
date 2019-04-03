@@ -820,30 +820,13 @@ class Kernel {
   inline cl::CommandQueue &commandQueue() { return commandQueue_; }
 #endif
 
-  /// Execute the kernel as an OpenCL task and returns the time elapsed as
-  /// reported by SDAccel (first) and as measured manually with chrono (second).
+  /// Execute the kernel as an OpenCL task, wait for it to finish, then return
+  /// the time elapsed as reported by SDAccel (first) and as measured with
+  /// chrono (second).
   inline std::pair<double, double> ExecuteTask() {
-    cl::Event event;
     const auto start = std::chrono::high_resolution_clock::now();
-#ifndef HLSLIB_SIMULATE_OPENCL
-    cl_int errorCode;
-#ifndef HLSLIB_INTEL
-    {
-      std::lock_guard<std::mutex> lock(program_.context().enqueueMutex());
-      errorCode = program_.context().commandQueue().enqueueTask(
-          kernel_, nullptr, &event);
-    }
-#else
-    errorCode = commandQueue_.enqueueTask(kernel_, nullptr, &event);
-#endif
-    if (errorCode != CL_SUCCESS) {
-      ThrowRuntimeError("Failed to execute kernel.");
-      return {};
-    }
+    auto event = ExecuteTaskFork();
     event.wait();
-#else
-    hostFunction_();  // Simulate by calling host function
-#endif
     const auto end = std::chrono::high_resolution_clock::now();
     const double elapsedChrono =
         1e-9 * std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
@@ -859,8 +842,35 @@ class Kernel {
 #endif
   }
 
+  /// Launch the kernel and return immediately, without requiring the caller to
+  /// wait on the kernel to finish. This is useful for kernels that are never
+  /// expected to terminate.
+  inline cl::Event ExecuteTaskFork() {
+    cl::Event event;
+#ifndef HLSLIB_SIMULATE_OPENCL
+    cl_int errorCode;
+#ifndef HLSLIB_INTEL
+    {
+      std::lock_guard<std::mutex> lock(program_.context().enqueueMutex());
+      errorCode = program_.context().commandQueue().enqueueTask(
+          kernel_, nullptr, &event);
+    }
+#else
+    errorCode = commandQueue_.enqueueTask(kernel_, nullptr, &event);
+#endif
+    if (errorCode != CL_SUCCESS) {
+      ThrowRuntimeError("Failed to execute kernel.");
+      return {};
+    }
+#else
+    hostFunction_();  // Simulate by calling host function
+#endif
+    return event;
+  }
+
   /// Returns a future to the result of a kernel launch, returning immediately
-  /// and allows the caller to wait on execution to finish as needed.
+  /// and allows the caller to wait on execution to finish as needed. Useful for
+  /// executing multiple concurrent kernels.
   std::future<std::pair<double, double>> ExecuteTaskAsync() {
     return std::async(std::launch::async, [this]() { return ExecuteTask(); });
   }
