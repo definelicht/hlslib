@@ -64,24 +64,23 @@ While Vivado HLS provides the `hls::stream` class, it is somewhat lacking in fea
 
 Example usage:
 ```cpp
+void Bar(hlslib::Stream<int> &a, hlslib::Stream<int> &b, int N) {
+  for (int i = 0; i < N; ++i) {
+    #pragma HLS PIPELINE II=1
+    auto read = a.Pop(); // Queue-like interface
+    b.Push(read + 1);
+  }
+}
+
 void Foo(hlslib::Stream<int> &in_stream, // Specifying stream depth is optional
          hlslib::Stream<int> &out_stream, int N) {
   #pragma HLS DATAFLOW
   
   hlslib::Stream<int, 4> foo_pipe; // Implements a FIFO of depth 4
   
-  for (int i = 0; i < N; ++i) { // PE #1
-    #pragma HLS PIPELINE II=1
-    auto read = in_stream.Pop(); // Queue-like interface
-    foo_pipe.Push(read + 1);
-  }
-  
-  for (int i = 0; i < N; ++i) { // PE #2
-    #pragma HLS PIPELINE II=1
-    auto read = foo_pipe.Pop();
-    out_stream.Push(2 * read);
-  }
-  
+  // Dataflow functions running in parallel (see below)
+  HLSLIB_DATAFLOW_FUNCTION(Bar, in_stream, foo_pipe, N);
+  HLSLIB_DATAFLOW_FUNCTION(Bar, foo_pipe, out_stream, N);  
 }
 ```
 
