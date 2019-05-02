@@ -55,6 +55,25 @@ hlslib::DataPack<float, 4> Foo(hlslib::DataPack<float, 4> &a,
 }
 ```
 
+#### Simulation
+
+For kernels with multiple processing elements (PEs) executing in parallel, the `hlslib/xilinx/Simulation.h` adds some convenient macros to simulate this behavior, by wrapping each PE in a thread executed in parallel, all of which are joined when the program terminates.
+
+Example usage:
+```cpp
+HLSLIB_DATAFLOW_INIT();
+hlslib::Stream<Data_t> pipes[kStages + 1];
+HLSLIB_DATAFLOW_FUNCTION(MemoryToStream, memory_in, pipes[0]);
+for (int i = 0; i < kStages; ++i) {
+  #pragma HLS UNROLL
+  HLSLIB_DATAFLOW_FUNCTION(PE, pipes[i], pipes[i + 1]); // Launches new C++ thread
+}
+HLSLIB_DATAFLOW_FUNCTION(StreamToMemory, pipes[kStages], memory_out);
+HLSLIB_DATAFLOW_FINALIZE(); // In simulation mode, joins threads created as dataflow functions.
+```
+
+When building programs using the simulation features, you must link against a thread library (e.g., pthreads).
+
 #### Stream
 
 While Vivado HLS provides the `hls::stream` class, it is somewhat lacking in features, in particular when simulating multiple processing elements. The `hlslib::Stream` class in `hlslib/xilinx/Stream.h` compiles to Vivado HLS streams, but provides a richer interface. hlslib streams are:
@@ -78,30 +97,13 @@ void Foo(hlslib::Stream<int> &in_stream, // Specifying stream depth is optional
   
   hlslib::Stream<int, 4> foo_pipe; // Implements a FIFO of depth 4
   
-  // Dataflow functions running in parallel (see below)
+  // Dataflow functions running in parallel
+  HLSLIB_DATAFLOW_INIT();
   HLSLIB_DATAFLOW_FUNCTION(Bar, in_stream, foo_pipe, N);
-  HLSLIB_DATAFLOW_FUNCTION(Bar, foo_pipe, out_stream, N);  
+  HLSLIB_DATAFLOW_FUNCTION(Bar, foo_pipe, out_stream, N);
+  HLSLIB_DATAFLOW_FINALIZE();
 }
 ```
-
-#### Simulation
-
-For kernels with multiple processing elements (PEs) executing in parallel, the `hlslib/xilinx/Simulation.h` adds some convenient macros to simulate this behavior, by wrapping each PE in a thread executed in parallel, all of which are joined when the program terminates.
-
-Example usage:
-```cpp
-HLSLIB_DATAFLOW_INIT();
-hlslib::Stream<Data_t> pipes[kStages + 1];
-HLSLIB_DATAFLOW_FUNCTION(MemoryToStream, memory_in, pipes[0]);
-for (int i = 0; i < kStages; ++i) {
-  #pragma HLS UNROLL
-  HLSLIB_DATAFLOW_FUNCTION(PE, pipes[i], pipes[i + 1]); // Launches new C++ thread
-}
-HLSLIB_DATAFLOW_FUNCTION(StreamToMemory, pipes[kStages], memory_out);
-HLSLIB_DATAFLOW_FINALIZE(); // In simulation mode, joins threads created as dataflow functions.
-```
-
-When building programs using the simulation features, you must link against a thread library (e.g., pthreads).
 
 #### OpenCL host code
 
