@@ -87,16 +87,16 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xclbin) 
   else()
-    add_custom_target(link_${KERNEL_NAME}_hardware
+    add_custom_target(compile_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -c -t hw
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw.xo) 
-    add_custom_target(build_${KERNEL_NAME}_hardware
+    add_custom_target(link_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -l -t hw
       ${XOCC_COMMAND} ${KERNEL_NAME}_hw.xo -o ${KERNEL_NAME}_hw.xclbin) 
-    add_custom_target(link_${KERNEL_NAME}_hardware_emulation
+    add_custom_target(compile_${KERNEL_NAME}_hardware_emulation
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -c -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xo) 
-    add_custom_target(build_${KERNEL_NAME}_hardware_emulation
+    add_custom_target(link_${KERNEL_NAME}_hardware_emulation
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -l -t hw_emu -g
       ${XOCC_COMMAND} ${KERNEL_NAME}_hw_emu.xo -o ${KERNEL_NAME}_hw_emu.xclbin) 
   endif()
