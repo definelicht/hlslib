@@ -155,6 +155,19 @@ On Ubuntu, the following package might need to be installed to run hardware emul
 sudo apt install libc6-dev-i386
 ```
 
+## Projects using hlslib
+
+- [Matrix multiplication code](https://github.com/spcl/gemm_hls): uses a wide range of hlslib features, including simulation, streams, vectors, CMake integration, and OpenCL wrapper code.
+- [SMI](https://github.com/spcl/SMI) [1]: streaming message passing library for inter-FPGA communication in OpenCL. Uses hlslib for OpenCL host code.
+- [HelmGemm](https://ieeexplore.ieee.org/document/8825124/) [2]: uses the simulation features of hlslib, and incorporates the matrix multiplication code above.
+
+_If you use hlslib in your project, please let us know, so we can add you to the list._
+
 ## Bugs and feature requests
 
 Please use the issue tracker.
+
+## References
+
+- [1] De Matteis, Tiziano, de Fine Licht, Johannes, Beránek, Jakub, and Hoefler, Torsten. "Streaming Message Interface: High-Performance Distributed Memory Programming on Reconfigurable Hardware." arXiv preprint arXiv:1909.03231 (2019).
+- [2] Diamantopoulos, Dionysios, and Hagleitner, Christoph. "HelmGemm: Managing GPUs and FPGAs for transprecision GEMM workloads in containerized environments." 2019 IEEE 30th International Conference on Application-specific Systems, Architectures and Processors (ASAP). Vol. 2160. IEEE, 2019.
