@@ -44,12 +44,12 @@ add_custom_target(compile_kernel ${SDAccel_XOCC} -t hw src/MyKernel.cpp
 
 #### DataPack
 
-The `hlslib::DataPack` class located in `hlslib/xilinx/DataPack.h` facilitates SIMD-style (although "instruction" is a misnomer) vectorization, and makes it easy to build wide data paths in your code.
+The `hlslib::DataPack` class located in `hlslib/xilinx/DataPack.h` facilitates SIMD-style vectorization, and makes it easy to build wide data paths in your code.
 
 Examples usage:
 ```cpp
 hlslib::DataPack<float, 4> Foo(hlslib::DataPack<float, 4> &a,
-                              hlslib::DataPack<float, 4> &b) {
+                               hlslib::DataPack<float, 4> &b) {
   #pragma HLS INLINE     
   auto add = a + b; // Vector addition
   add[0] = add[1];  // Indexing for both reads and writes
