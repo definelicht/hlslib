@@ -1,4 +1,4 @@
-_Do you use hlslib? Please [cite us](https://arxiv.org/pdf/1910.04436.pdf), and let us know so we can feature your project in the list of examples._
+_Do you use hlslib? Please consider [citing us](https://arxiv.org/abs/1910.04436), and let us know so we can feature your project in the list of examples._
 
 ## Quick introduction
 
