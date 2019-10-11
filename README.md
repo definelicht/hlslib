@@ -1,4 +1,4 @@
-_Do you use hlslib? Please let us know, so we can feature your project in the list of examples._
+_Do you use hlslib? Please [cite us](https://arxiv.org/pdf/1910.04436.pdf), and let us know so we can feature your project in the list of examples._
 
 ## Quick introduction
 
@@ -160,6 +160,7 @@ sudo apt install libc6-dev-i386
 - [Matrix multiplication code](https://github.com/spcl/gemm_hls): uses a wide range of hlslib features, including simulation, streams, vectors, CMake integration, and OpenCL wrapper code.
 - [SMI](https://github.com/spcl/SMI) [1]: streaming message passing library for inter-FPGA communication in OpenCL. Uses hlslib for OpenCL host code.
 - [HelmGemm](https://ieeexplore.ieee.org/document/8825124/) [2]: uses the simulation features of hlslib, and incorporates the matrix multiplication code above.
+- [DaCe](https://arxiv.org/abs/1902.10345) [3]: a data-centric parallel programming framework targeting a wide range of architectures, including both Intel and Xilinx FPGAs. Uses hlslib for CMake integration, OpenCL host code, vectors, streams, and simulation.
 
 _If you use hlslib in your project, please let us know, so we can add you to the list._
 
@@ -167,7 +168,27 @@ _If you use hlslib in your project, please let us know, so we can add you to the
 
 Please use the issue tracker.
 
+## Publication
+
+If your project uses hlslib, please consider citing us:
+
+**BibTeX:**
+```
+@article{hlslib,
+  title={{hlslib}: Software Engineering for Hardware Design},
+  author={de~Fine~Licht, Johannes and Hoefler, Torsten},
+  journal={arXiv preprint arXiv:1910.04436},
+  year={2019}
+}
+```
+
+**Plain text:**
+```
+de Fine Licht, Johannes, and Hoefler, Torsten. "hlslib: Software Engineering for Hardware Design" arXiv preprint arXiv:1910.04436 (2019).
+```
+
 ## References
 
 - [1] De Matteis, Tiziano, de Fine Licht, Johannes, Beránek, Jakub, and Hoefler, Torsten. "Streaming Message Interface: High-Performance Distributed Memory Programming on Reconfigurable Hardware." arXiv preprint arXiv:1909.03231 (2019).
 - [2] Diamantopoulos, Dionysios, and Hagleitner, Christoph. "HelmGemm: Managing GPUs and FPGAs for transprecision GEMM workloads in containerized environments." 2019 IEEE 30th International Conference on Application-specific Systems, Architectures and Processors (ASAP). Vol. 2160. IEEE, 2019.
+- [3] Ben-Nun, Tal, de Fine Licht, Johannes, Ziogas, Alexandros Nikolaos, Schneider, Timo, and Hoefler, Torsten. "Stateful Dataflow Multigraphs: A Data-Centric Model for High-Performance Parallel Programs." arXiv preprint arXiv:1902.10345 (2019).
