@@ -7,6 +7,8 @@
 #define HLSLIB_INTEL_OPENCL_H
 
 #include "CL/cl.hpp"
+#include "CL/cl_ext_intelfpga.h"
+
 #define HLSLIB_LEGACY_OPENCL
 
 #ifndef HLSLIB_INTEL
