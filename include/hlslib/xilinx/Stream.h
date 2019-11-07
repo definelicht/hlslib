@@ -441,6 +441,12 @@ public:
 #endif
   }
 
+  // Compatibility with Vivado HLS interface
+  bool empty() const {
+    #pragma HLS INLINE
+    return IsEmpty();
+  }
+
   bool IsEmpty() const {
 #ifdef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
@@ -449,6 +455,12 @@ public:
     std::lock_guard<std::mutex> lock(mutex_);
     return queue_.size() == 0;
 #endif
+  }
+
+  // Compatibility with Vivado HLS interface
+  bool full() const {
+    #pragma HLS INLINE
+    return IsFull();
   }
 
   bool IsFull(size_t capacity) const {
