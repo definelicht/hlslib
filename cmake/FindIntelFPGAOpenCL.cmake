@@ -31,20 +31,16 @@ else()
 
 endif()
 
-if(NOT INTELFPGAOCL_ROOT_DIR)
-  message(FATAL_ERROR "aocl not found. Please add aocl to your PATH, specify the environment variable INTELFPGAOCLSDKROOT, or pass INTELFPGAOCL_ROOT_DIR to CMake.")
-endif()
-
 # Check if all the necessary components are present. We want to ensure that we
 # use the tools bundled together, so we don't use find_path again. 
 
 find_program(IntelFPGAOpenCL_XOCC aoc PATHS ${INTELFPGAOCL_ROOT_DIR}/bin NO_DEFAULT_PATH)
 
-get_filename_component(INTELFPGA_ROOT_DIR ${INTELFPGAOCL_ROOT_DIR} DIRECTORY) 
+get_filename_component(INTELFPGA_ROOT_DIR "${INTELFPGAOCL_ROOT_DIR}" DIRECTORY) 
 mark_as_advanced(INTELFPGA_ROOT_DIR)
 
 # Get version number string
-get_filename_component(IntelFPGAOpenCL_VERSION ${INTELFPGA_ROOT_DIR} NAME)
+get_filename_component(IntelFPGAOpenCL_VERSION "${INTELFPGA_ROOT_DIR}" NAME)
 string(REGEX REPLACE "([0-9]+)\\.[0-9\\.]+" "\\1" IntelFPGAOpenCL_MAJOR_VERSION "${IntelFPGAOpenCL_VERSION}")
 string(REGEX REPLACE "[0-9]+\\.([0-9\\.]+)" "\\1" IntelFPGAOpenCL_MINOR_VERSION "${IntelFPGAOpenCL_VERSION}")
 
