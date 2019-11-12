@@ -279,6 +279,12 @@ public:
     return ReadOptimistic();
   }
 
+  // Compatibility with Vivado HLS interface
+  void read(T &out) {
+    #pragma HLS INLINE
+    out = read();
+  }
+
   T Pop() {
     #pragma HLS INLINE
     return ReadBlocking();
