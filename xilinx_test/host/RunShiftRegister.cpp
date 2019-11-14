@@ -1,10 +1,10 @@
 #include <cmath>
 #include <iostream>
-#include "SlidingWindow.h"
+#include "ShiftRegister.h"
 #include "hlslib/xilinx/SDAccel.h"
 
 // Convert from C to C++
-constexpr auto kUsage = "Usage: ./RunSlidingWindow <[emulator/hardware]>\n";
+constexpr auto kUsage = "Usage: ./RunShiftRegister <[emulator/hardware]>\n";
 
 // Reference implementation for checking correctness
 void Reference(std::vector<Data_t> &domain) {
@@ -32,9 +32,9 @@ int main(int argc, char **argv) {
   std::string kernel_path;
   if (mode_str == "emulator") {
     emulator = true;
-    kernel_path = "SlidingWindow_hw_emu.xclbin";
+    kernel_path = "ShiftRegister_hw_emu.xclbin";
   } else if (mode_str == "hardware") {
-    kernel_path = "SlidingWindow_hw.xclbin";
+    kernel_path = "ShiftRegister_hw.xclbin";
     emulator = false;
   } else {
     std::cout << kUsage;
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
   auto program = context.MakeProgram(kernel_path);
   std::cout << "Creating kernels...\n" << std::flush;
   auto kernel =
-      program.MakeKernel("SlidingWindow", device_buffer, device_buffer);
+      program.MakeKernel("ShiftRegister", device_buffer, device_buffer);
   std::cout << "Copying data to device...\n" << std::flush;
   // Copy to both sections of device memory, so that the boundary conditions
   // are reflected in both

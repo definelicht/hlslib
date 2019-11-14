@@ -1,6 +1,6 @@
-#include "SlidingWindow.h"
+#include "ShiftRegister.h"
 #include "hlslib/xilinx/Simulation.h"
-#include "hlslib/xilinx/SlidingWindow.h"
+#include "hlslib/xilinx/ShiftRegister.h"
 #include "hlslib/xilinx/Stream.h"
 
 void Read(const Data_t memory[], hlslib::Stream<Data_t> &s) {
@@ -19,7 +19,7 @@ void Read(const Data_t memory[], hlslib::Stream<Data_t> &s) {
 
 void Compute(hlslib::Stream<Data_t> &s_in, hlslib::Stream<Data_t> &s_out) {
   for (int t = 0; t < T; ++t) {
-    hlslib::SlidingWindow<Data_t, 0, W - 1, W + 1, 2 * W> sw;
+    hlslib::ShiftRegister<Data_t, 0, W - 1, W + 1, 2 * W> sw;
     for (int i = 0; i < H; ++i) {
       for (int j = 0; j < W; ++j) {
         #pragma HLS PIPELINE II=1
@@ -50,7 +50,7 @@ void Write(hlslib::Stream<Data_t> &s, Data_t memory[]) {
   }
 }
 
-extern "C" void SlidingWindow(Data_t const *const memory_in,
+extern "C" void ShiftRegister(Data_t const *const memory_in,
                               Data_t *const memory_out) {
   #pragma HLS INTERFACE m_axi port=memory_in  offset=slave bundle=gmem0
   #pragma HLS INTERFACE m_axi port=memory_out offset=slave bundle=gmem1

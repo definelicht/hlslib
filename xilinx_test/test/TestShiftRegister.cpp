@@ -1,14 +1,14 @@
-#include "hlslib/xilinx/SlidingWindow.h"
+#include "hlslib/xilinx/ShiftRegister.h"
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
 constexpr size_t W = 32;
 constexpr size_t H = 32;
 
-TEST_CASE("SlidingWindow", "[SlidingWindow]") {
+TEST_CASE("ShiftRegister", "[ShiftRegister]") {
 
   SECTION("Push and read") {
-    hlslib::SlidingWindow<int, 0, W - 1, W + 1, 2 * W> sw;
+    hlslib::ShiftRegister<int, 0, W - 1, W + 1, 2 * W> sw;
 
     size_t i = 0;
 

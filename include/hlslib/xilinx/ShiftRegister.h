@@ -44,7 +44,7 @@ struct _MaxImpl<I, Is...> {
 }  // End anonymous namespace
 
 template <typename T, size_t Size>
-class _SlidingWindowStageImpl {
+class _ShiftRegisterStageImpl {
   using Index_t = ap_uint<hlslib::ConstLog2(Size)>;
 
  public:
@@ -69,7 +69,7 @@ class _SlidingWindowStageImpl {
 };
 
 template <typename T>
-class _SlidingWindowStageImpl<T, 1> {
+class _ShiftRegisterStageImpl<T, 1> {
  public:
   T Shift(T const &next) {
     #pragma HLS INLINE
@@ -90,7 +90,7 @@ class _SlidingWindowStageImpl<T, 1> {
 };
 
 template <typename T, int... Is>
-class _SlidingWindowStage {
+class _ShiftRegisterStage {
  public:
   T Shift(T const &elem) {
     #pragma HLS INLINE
@@ -103,7 +103,7 @@ class _SlidingWindowStage {
 };
 
 template <typename T, int IPrev, int IThis, int... Is>
-class _SlidingWindowStage<T, IPrev, IThis, Is...> {
+class _ShiftRegisterStage<T, IPrev, IThis, Is...> {
   static_assert(IThis >= 0, "Received negative sliding window offset.");
   static_assert(IPrev < IThis,
                 "Tap indices must be given in increasing order.");
@@ -124,12 +124,12 @@ class _SlidingWindowStage<T, IPrev, IThis, Is...> {
   }
 
  private:
-  _SlidingWindowStage<T, IThis, Is...> next_stage_{};
-  _SlidingWindowStageImpl<T, kSize> impl_{};
+  _ShiftRegisterStage<T, IThis, Is...> next_stage_{};
+  _ShiftRegisterStageImpl<T, kSize> impl_{};
 };
 
 template <typename T, size_t... Is>
-class SlidingWindow {
+class ShiftRegister {
  public:
   void Shift(T const &front) {
     #pragma HLS INLINE
@@ -144,7 +144,7 @@ class SlidingWindow {
 
  private:
   static constexpr size_t kSize = 1 + _MaxImpl<Is...>::Max();
-  _SlidingWindowStage<T, -1, Is...> impl_{};
+  _ShiftRegisterStage<T, -1, Is...> impl_{};
 };
 
 }  // End namespace hlslib
