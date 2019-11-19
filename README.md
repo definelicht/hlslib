@@ -2,7 +2,7 @@ _Do you use hlslib? Please consider [citing us](https://arxiv.org/abs/1910.04436
 
 ## Quick introduction
 
-hlslib is a collection of C++ headers and CMake files aimed at improving the quality of life of HLS developers. The current repertoire primarily supports Vivado HLS, but some Intel FPGA OpenCL support is being added. An extended abstract describing the project is [available here](https://arxiv.org/abs/1910.04436).
+hlslib is a collection of C++ headers, CMake files, and examples, aimed at improving the quality of life of HLS developers. The current repertoire primarily supports Vivado HLS, but some Intel FPGA OpenCL support is being added. An extended abstract describing the project is [available here](https://arxiv.org/abs/1910.04436).
 
 This project is developed at the [Scalable Parallel Computing Lab](https://spcl.inf.ethz.ch/) (SPCL) at ETH Zurich (see our [github](https://github.com/spcl)).
 
