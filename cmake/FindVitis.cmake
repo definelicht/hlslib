@@ -10,6 +10,7 @@
 #   Vitis_FLOATING_POINT_LIBRARY - Library required for emulation of fp16.
 #   Vitis_VERSION_MAJOR - Major version of Vitis installation.
 #   Vitis_VERSION_MINOR - Minor version of Vitis installation.
+#   Vitis_IS_LEGACY - Set if using a pre-Vitis version (i.e., SDx or SDAccel)
 #
 # To specify the location of Vitis or SDAccel, or to force this script to use a
 # specific version, set the variable VITIS_ROOT_DIR or SDACCEL_ROOT_DIR to the
@@ -43,11 +44,13 @@ endif()
 find_program(Vitis_XOCC xocc PATHS ${VITIS_ROOT_DIR}/bin NO_DEFAULT_PATH)
 find_program(Vitis_VPP v++ PATHS ${VITIS_ROOT_DIR}/bin NO_DEFAULT_PATH)
 if(Vitis_XOCC)
-  set(Vitis_COMPILER ${Vitis_XOCC} CACHE STRING "Path to xocc compiler.")
+  set(Vitis_COMPILER ${Vitis_XOCC})
+  set(Vitis_IS_LEGACY ON CACHE STRING "Using legacy version of toolchain")
 endif()
 # Prefer v++ over xocc executable 
 if(Vitis_VPP)
-  set(Vitis_COMPILER ${Vitis_VPP} CACHE STRING "Path to v++ compiler.")
+  set(Vitis_COMPILER ${Vitis_VPP})
+  set(Vitis_IS_LEGACY OFF CACHE STRING "Using Vitis")
 endif()
 
 # Get version number string
