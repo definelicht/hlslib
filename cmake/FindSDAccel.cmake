@@ -1,5 +1,4 @@
 # Author:  Johannes de Fine Licht (definelicht@inf.ethz.ch)
-# Created: March 2017 
 # This software is copyrighted under the BSD 3-Clause License. 
 #
 # Once done this will define:
@@ -18,6 +17,8 @@
 # For SDAccel 2018.3 or newer, SDAccel relies on a separate Xilinx OpenCL
 # runtime (XRT). This script will search in the default installation location,
 # but a path can be specified with the XRT_ROOT_DIR variable.
+
+message(WARNING "Xilinx has rebranded SDAccel as a component of the Vitis Unified Software Platform. Please use use the Vitis package instead (FindVitis.cmake included with hlslib).")
 
 if(NOT DEFINED SDACCEL_ROOT_DIR)
 
