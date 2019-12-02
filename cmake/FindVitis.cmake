@@ -2,14 +2,15 @@
 # This software is copyrighted under the BSD 3-Clause License. 
 #
 # Once done this will define:
-#   Vitis_FOUND - Indicates whether Vitis was found.
+#   Vitis_FOUND - Indicates whether Vitis/SDx/SDAccel was found.
 #   Vitis_INCLUDE_DIRS - Include directories for HLS. 
 #   Vitis_LIBRARIES - Runtime libraries required for host side code. 
 #   Vitis_COMPILER - Path to the compiler executable (v++ or xocc).
-#   Vitis_HLS - Path to the Vivado HLS executable shipped with Vitis. 
+#   Vitis_HLS - Path to Vivado HLS executable. 
 #   Vitis_FLOATING_POINT_LIBRARY - Library required for emulation of fp16.
-#   Vitis_VERSION_MAJOR - Major version of Vitis installation.
-#   Vitis_VERSION_MINOR - Minor version of Vitis installation.
+#   Vitis_VERSION - Version of Vitis/SDx/SDAccel installation.
+#   Vitis_VERSION_MAJOR - Major version of Vitis/SDx/SDAccel installation.
+#   Vitis_VERSION_MINOR - Minor version of Vitis/SDx/SDAccel installation.
 #   Vitis_IS_LEGACY - Set if using a pre-Vitis version (i.e., SDx or SDAccel)
 #
 # To specify the location of Vitis or SDAccel, or to force this script to use a
@@ -43,20 +44,27 @@ endif()
 
 find_program(Vitis_XOCC xocc PATHS ${VITIS_ROOT_DIR}/bin NO_DEFAULT_PATH)
 find_program(Vitis_VPP v++ PATHS ${VITIS_ROOT_DIR}/bin NO_DEFAULT_PATH)
+mark_as_advanced(Vitis_XOCC)
+mark_as_advanced(Vitis_VPP)
 if(Vitis_XOCC)
-  set(Vitis_COMPILER ${Vitis_XOCC})
-  set(Vitis_IS_LEGACY ON CACHE STRING "Using legacy version of toolchain")
+  set(VITIS_COMPILER ${Vitis_XOCC})
+  set(VITIS_IS_LEGACY TRUE)
 endif()
 # Prefer v++ over xocc executable 
 if(Vitis_VPP)
-  set(Vitis_COMPILER ${Vitis_VPP})
-  set(Vitis_IS_LEGACY OFF CACHE STRING "Using Vitis")
+  set(VITIS_COMPILER ${Vitis_VPP})
+  set(VITIS_IS_LEGACY FALSE)
 endif()
+set(Vitis_COMPILER ${VITIS_COMPILER} CACHE STRING "Compiler used to build FPGA kernels.")
+set(Vitis_IS_LEGACY ${VITIS_IS_LEGACY} CACHE STRING "Using legacy version of toolchain (pre-Vitis).")
 
 # Get version number string
-get_filename_component(Vitis_VERSION "${VITIS_ROOT_DIR}" NAME)
-string(REGEX REPLACE "([0-9]+)\\.[0-9]+" "\\1" Vitis_MAJOR_VERSION "${Vitis_VERSION}")
-string(REGEX REPLACE "[0-9]+\\.([0-9]+)" "\\1" Vitis_MINOR_VERSION "${Vitis_VERSION}")
+get_filename_component(VITIS_VERSION "${VITIS_ROOT_DIR}" NAME)
+string(REGEX REPLACE "([0-9]+)\\.[0-9]+" "\\1" VITIS_MAJOR_VERSION "${VITIS_VERSION}")
+string(REGEX REPLACE "[0-9]+\\.([0-9]+)" "\\1" VITIS_MINOR_VERSION "${VITIS_VERSION}")
+set(Vitis_VERSION ${VITIS_VERSION} CACHE STRING "Version of Vitis found")
+set(Vitis_MAJOR_VERSION ${VITIS_MAJOR_VERSION} CACHE STRING "Major version of Vitis found")
+set(Vitis_MINOR_VERSION ${VITIS_MINOR_VERSION} CACHE STRING "Minor version of Vitis found")
 
 # vitis_hls is still in beta as of 2019.2 and breaks some functionality, so
 # prefer vivado_hls for now (subject to change).
@@ -78,10 +86,11 @@ mark_as_advanced(Vitis_HLS_INCLUDE_DIR)
 
 if(Vitis_VPP OR (Vitis_MAJOR_VERSION GREATER 2018) OR
    (Vitis_MAJOR_VERSION EQUAL 2018 AND Vitis_MINOR_VERSION GREATER 2))
-  set(Vitis_USE_XRT ON)
+  set(VITIS_USE_XRT TRUE)
 else()
-  set(Vitis_USE_XRT OFF)
+  set(VITIS_USE_XRT FALSE)
 endif()
+set(Vitis_USE_XRT ${VITIS_USE_XRT} CACHE STRING "Use XRT as runtime. Otherwise, use SDAccel/SDx OpenCL runtime.")
 
 # Currently only x86 support
 
@@ -217,7 +226,6 @@ set(Vitis_EXPORTS
     Vitis_INCLUDE_DIRS
     Vitis_LIBRARIES
     Vitis_FLOATING_POINT_LIBRARY 
-    Vitis_USE_XRT
     Vitis_VERSION
     Vitis_MAJOR_VERSION
     Vitis_MINOR_VERSION)
