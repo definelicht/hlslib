@@ -78,8 +78,8 @@ find_program(Vitis_VIVADO vivado PATHS
              ${VITIS_ROOT_DIR}/Vivado/bin NO_DEFAULT_PATH)
 
 find_path(Vitis_HLS_INCLUDE_DIR hls_stream.h PATHS
-          ${VITIS_ROOT_DIR}/include
           ${VITIS_ROOT_DIR}/../../Vivado/${Vitis_VERSION}/include
+          ${VITIS_ROOT_DIR}/include
           ${VITIS_ROOT_DIR}/Vivado_HLS/include
           NO_DEFAULT_PATH)
 mark_as_advanced(Vitis_HLS_INCLUDE_DIR)
