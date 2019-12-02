@@ -58,7 +58,7 @@ get_filename_component(Vitis_VERSION "${VITIS_ROOT_DIR}" NAME)
 string(REGEX REPLACE "([0-9]+)\\.[0-9]+" "\\1" Vitis_MAJOR_VERSION "${Vitis_VERSION}")
 string(REGEX REPLACE "[0-9]+\\.([0-9]+)" "\\1" Vitis_MINOR_VERSION "${Vitis_VERSION}")
 
-find_program(Vitis_HLS NAMES vitis_hls vivado_hls PATHS
+find_program(Vitis_HLS NAMES vivado_hls PATHS
              ${VITIS_ROOT_DIR}/bin
              ${VITIS_ROOT_DIR}/../../Vivado/${Vitis_VERSION}/bin
              ${VITIS_ROOT_DIR}/Vivado_HLS/bin NO_DEFAULT_PATH)
