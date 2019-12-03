@@ -3,8 +3,8 @@
 cmake_minimum_required(VERSION 3.0)
 project(hlslib)
 
-# Include custom Find<Module>.cmake scripts to enable searching for SDAccel and
-# Intel FPGA OpenCL.
+# Include custom Find<Module>.cmake scripts to enable searching for
+# Vitis/SDAccel and Intel FPGA OpenCL.
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 # Without this variable set, CMake will build tests when running install
@@ -29,11 +29,11 @@ enable_testing()
 
 # Find Xilinx and Intel OpenCL software for enabling test targets 
 find_package(Threads)
-find_package(SDAccel)
+find_package(Vitis)
 find_package(IntelFPGAOpenCL)
 
 # Xilinx example setup and testing
-if(SDAccel_FOUND AND Threads_FOUND)
+if(Vitis_FOUND AND Threads_FOUND)
   add_subdirectory(xilinx_test)
 endif()
 if(IntelFPGAOpenCL_FOUND AND Threads_FOUND)
@@ -51,5 +51,6 @@ install(TARGETS hlslib
 install(EXPORT hlslibConfig DESTINATION cmake)
 export(TARGETS hlslib FILE hlslibConfig.cmake)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/hlslib DESTINATION include)
+install(FILES ${PROJECT_SOURCE_DIR}/cmake/FindVitis.cmake DESTINATION cmake)
 install(FILES ${PROJECT_SOURCE_DIR}/cmake/FindSDAccel.cmake DESTINATION cmake)
 install(FILES ${PROJECT_SOURCE_DIR}/cmake/FindIntelFPGAOpenCL.cmake DESTINATION cmake)

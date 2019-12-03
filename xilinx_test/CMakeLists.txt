@@ -1,12 +1,11 @@
 # User options
 set(HLSLIB_PART_NAME "xcvu9p-flgb2104-2-i" CACHE STRING "Part name for HLS.")
-set(HLSLIB_DSA_NAME "xilinx_vcu1525_dynamic_5_1" CACHE STRING
-    "DSA string for xocc.")
+set(HLSLIB_DSA_NAME "xilinx_vcu1525_dynamic_5_1" CACHE STRING "DSA string for v++/xocc.")
 
-include_directories(${SDAccel_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/include)
+include_directories(${Vitis_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/include)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -DHLSLIB_XILINX")
-if(((${SDAccel_MAJOR_VERSION} LESS 2018) AND (${SDAccel_MINOR_VERSION} LESS 3)) OR ${SDAccel_MAJOR_VERSION} LESS 2017)
+if(((${Vitis_MAJOR_VERSION} LESS 2018) AND (${Vitis_MINOR_VERSION} LESS 3)) OR ${Vitis_MAJOR_VERSION} LESS 2017)
   message(STATUS "Targeting legacy SDx.")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHLSLIB_LEGACY_SDX=1")
 else()
@@ -14,9 +13,6 @@ else()
 endif()
 
 # Unit tests 
-add_executable(TestSDAccelHostCode test/TestSDAccelHostCode.cpp)
-target_link_libraries(TestSDAccelHostCode ${SDAccel_LIBRARIES})
-add_test(TestSDAccelHostCode TestSDAccelHostCode)
 add_executable(TestDataPack test/TestDataPack.cpp)
 target_link_libraries(TestDataPack)
 add_test(TestDataPack TestDataPack)
@@ -25,6 +21,13 @@ target_link_libraries(TestReduce)
 add_test(TestReduce TestReduce)
 add_executable(TestFlatten test/TestFlatten.cpp)
 add_test(TestFlatten TestFlatten)
+if(NOT Vitis_USE_XRT)
+  # With newer runtimes, it's no longer possible to transfer memory without
+  # configuring a kernel on the device, so this test cannot run there.
+  add_executable(TestXilinxHostCode test/TestXilinxHostCode.cpp)
+  target_link_libraries(TestXilinxHostCode ${Vitis_LIBRARIES})
+  add_test(TestXilinxHostCode TestXilinxHostCode)
+endif()
 
 # Test kernels in software
 find_package(Threads)
@@ -62,7 +65,7 @@ function(synthesis_target KERNEL_NAME ADDITIONAL_FLAGS)
   set(HLSLIB_SYNTHESIS_FLAGS ${SYNTHESIS_FLAGS})
   configure_file(scripts/Synthesis.tcl.in Synthesize${KERNEL_NAME}.tcl)
   add_custom_target(synthesize_${KERNEL_NAME}
-    COMMAND ${SDAccel_VIVADO_HLS} -f Synthesize${KERNEL_NAME}.tcl) 
+    COMMAND ${Vitis_HLS} -f Synthesize${KERNEL_NAME}.tcl) 
 endfunction()
 
 function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
@@ -82,32 +85,32 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
     --profile_kernel "stall:all:all"
     --profile_kernel "exec:all:all"
     --max_memory_ports all)
-  if(((${SDAccel_MAJOR_VERSION} LESS 2018) AND (${SDAccel_MINOR_VERSION} LESS 3)) OR ${SDAccel_MAJOR_VERSION} LESS 2017)
+  if(((${Vitis_MAJOR_VERSION} LESS 2018) AND (${Vitis_MINOR_VERSION} LESS 3)) OR ${Vitis_MAJOR_VERSION} LESS 2017)
     add_custom_target(build_${KERNEL_NAME}_hardware
-      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -t hw
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -t hw
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw.xclbin) 
     add_custom_target(build_${KERNEL_NAME}_hardware_emulation
-      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -t hw_emu -g
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xclbin) 
   else()
     add_custom_target(compile_${KERNEL_NAME}_hardware
-      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -c -t hw
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -c -t hw
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw.xo) 
     add_custom_target(link_${KERNEL_NAME}_hardware
-      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -l -t hw
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -l -t hw
       ${XOCC_COMMAND} ${KERNEL_NAME}_hw.xo -o ${KERNEL_NAME}_hw.xclbin) 
     add_custom_target(compile_${KERNEL_NAME}_hardware_emulation
-      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -c -t hw_emu -g
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -c -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xo) 
     add_custom_target(link_${KERNEL_NAME}_hardware_emulation
-      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${SDAccel_XOCC} -l -t hw_emu -g
+      COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -l -t hw_emu -g
       ${XOCC_COMMAND} ${KERNEL_NAME}_hw_emu.xo -o ${KERNEL_NAME}_hw_emu.xclbin) 
   endif()
   add_executable(Run${KERNEL_NAME}.exe host/Run${KERNEL_NAME}.cpp ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp)
-  target_link_libraries(Run${KERNEL_NAME}.exe ${SDAccel_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(Run${KERNEL_NAME}.exe ${Vitis_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
   add_custom_target(run_${KERNEL_NAME}_hardware COMMAND ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe hardware)
-  add_custom_target(run_${KERNEL_NAME}_emulation COMMAND ${CMAKE_COMMAND} -E env XILINX_SDX=${SDACCEL_ROOT_DIR} XCL_EMULATION_MODE=hw_emu ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe emulation)
-  add_custom_target(run_${KERNEL_NAME}_simulation COMMAND ${CMAKE_COMMAND} -E env XCL_EMULATION_MODE=sw_emu XILINX_SDX=${SDACCEL_ROOT_DIR} ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe simulation)
+  add_custom_target(run_${KERNEL_NAME}_emulation COMMAND ${CMAKE_COMMAND} -E env XILINX_SDX=${VITIS_ROOT_DIR} XCL_EMULATION_MODE=hw_emu ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe emulation)
+  add_custom_target(run_${KERNEL_NAME}_simulation COMMAND ${CMAKE_COMMAND} -E env XCL_EMULATION_MODE=sw_emu XILINX_SDX=${VITIS_ROOT_DIR} ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe simulation)
 endfunction()
 
 synthesis_target("Reduce" "")
@@ -120,3 +123,4 @@ synthesis_target("AccumulateInt" "-DHLSLIB_COMPILE_ACCUMULATE_INT")
 sdaccel_target("AccumulateInt" "-DHLSLIB_COMPILE_ACCUMULATE_INT")
 synthesis_target("ShiftRegister" "")
 sdaccel_target("ShiftRegister" "")
+synthesis_target("StreamAPI" "")

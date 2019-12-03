@@ -276,7 +276,7 @@ public:
   // Compatibility with Vivado HLS interface
   T read() {
     #pragma HLS INLINE
-    return ReadOptimistic();
+    return ReadBlocking();
   }
 
   // Compatibility with Vivado HLS interface
@@ -390,7 +390,7 @@ public:
   // Compatibility with Vivado HLS interface
   void write(T const &val) {
     #pragma HLS INLINE
-    WriteOptimistic(val, std::numeric_limits<int>::max());
+    WriteBlocking(val, std::numeric_limits<int>::max());
   }
 
   void Push(T const &val) {
