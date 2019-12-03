@@ -1,7 +1,5 @@
 _Do you use hlslib? Please consider [citing us](https://arxiv.org/abs/1910.04436), and let us know so we can feature your project in the list of examples._
 
-For experimental support for Vitis, please see the "vitis" branch, which provides `FindVitis.cmake`.
-
 ## Quick introduction
 
 hlslib is a collection of C++ headers, CMake files, and examples, aimed at improving the quality of life of HLS developers. The current repertoire primarily supports Vivado HLS, but some Intel FPGA OpenCL support is being added. An extended abstract describing the project is [available here](https://arxiv.org/abs/1910.04436).
