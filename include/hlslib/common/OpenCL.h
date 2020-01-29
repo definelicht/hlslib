@@ -397,23 +397,25 @@ class Buffer {
       : context_(&context), nElements_(std::distance(begin, end)) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 
-    void *hostPtr = const_cast<T *>(&(*begin));
+    void *hostPtr = nullptr;
 
-    cl_mem_flags flags = CL_MEM_USE_HOST_PTR;
+    cl_mem_flags flags;
 
     switch (access) {
       case Access::read:
-        flags |= CL_MEM_READ_ONLY;
+        flags = CL_MEM_READ_ONLY;
         break;
       case Access::write:
-        flags |= CL_MEM_WRITE_ONLY;
+        flags = CL_MEM_WRITE_ONLY;
         break;
       case Access::readWrite:
-        flags |= CL_MEM_READ_WRITE;
+        flags = CL_MEM_READ_WRITE;
         break;
     }
 
 #ifdef HLSLIB_XILINX
+    hostPtr = const_cast<T *>(&(*begin));
+    flags |= CL_MEM_USE_HOST_PTR;
     // Allow specifying memory bank
     ExtendedMemoryPointer extendedHostPointer;
     if (memoryBank != MemoryBank::unspecified) {
@@ -423,6 +425,7 @@ class Buffer {
       flags |= kXilinxMemPointer;
     }
 #endif
+
 #ifdef HLSLIB_INTEL
     flags |= BankToFlag(memoryBank, false);
 #endif
@@ -430,6 +433,10 @@ class Buffer {
     cl_int errorCode;
     devicePtr_ = cl::Buffer(context.context(), flags, sizeof(T) * nElements_,
                             hostPtr, &errorCode);
+    #ifdef HLSLIB_INTEL
+    //copy data to device
+    CopyFromHost(begin);
+    #endif 
 
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to initialize and copy to device memory.");
