@@ -189,6 +189,6 @@ de Fine Licht, Johannes, and Hoefler, Torsten. "hlslib: Software Engineering for
 
 ## References
 
-- [1] De Matteis, Tiziano, de Fine Licht, Johannes, Beránek, Jakub, and Hoefler, Torsten. "Streaming Message Interface: High-Performance Distributed Memory Programming on Reconfigurable Hardware." arXiv preprint arXiv:1909.03231 (2019).
+- [1] De Matteis, Tiziano, de Fine Licht, Johannes, Beránek, Jakub, and Hoefler, Torsten. "Streaming Message Interface: High-Performance Distributed Memory Programming on Reconfigurable Hardware", in Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC'19), 2019.
 - [2] Diamantopoulos, Dionysios, and Hagleitner, Christoph. "HelmGemm: Managing GPUs and FPGAs for transprecision GEMM workloads in containerized environments." 2019 IEEE 30th International Conference on Application-specific Systems, Architectures and Processors (ASAP). Vol. 2160. IEEE, 2019.
-- [3] Ben-Nun, Tal, de Fine Licht, Johannes, Ziogas, Alexandros Nikolaos, Schneider, Timo, and Hoefler, Torsten. "Stateful Dataflow Multigraphs: A Data-Centric Model for High-Performance Parallel Programs." arXiv preprint arXiv:1902.10345 (2019).
+- [3] Ben-Nun, Tal, de Fine Licht, Johannes, Ziogas, Alexandros Nikolaos, Schneider, Timo, and Hoefler, Torsten. "Stateful Dataflow Multigraphs: A Data-Centric Model for High-Performance Parallel Programs", in Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC'19), 2019.
