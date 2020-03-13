@@ -17,6 +17,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #if !defined(HLSLIB_XILINX_OPENCL_H) && !defined(HLSLIB_INTEL_OPENCL_H)
@@ -370,9 +371,15 @@ class Context {
 /// Implement a singleton pattern for an SDAccel context.
 /// It is NOT recommend to use this if it can be avoided, but might be
 /// necssary when linking with external libraries.
-inline Context &GlobalContext() {
-  static Context singleton;
-  return singleton;
+inline Context &GlobalContext(int device_id = 0) {
+  static std::unordered_map<int, Context> context;
+  auto c = context.find(device_id);
+  if (c != context.end()) {
+    return c->second;
+  } else {
+    context.emplace(device_id, device_id);
+    return context.at(device_id);
+  }
 }
 
 //#############################################################################

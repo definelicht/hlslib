@@ -38,3 +38,7 @@ function(opencl_target KERNEL_NAME)
 endfunction()
 
 opencl_target("Jacobi2D")
+
+add_executable(TestGlobalContext.exe host/TestGlobalContext.cpp)
+target_link_libraries(TestGlobalContext.exe ${IntelFPGAOpenCL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+add_custom_target(run_TestGlobalContext_emulator COMMAND CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ${CMAKE_CURRENT_BINARY_DIR}/TestGlobalContext.exe)
