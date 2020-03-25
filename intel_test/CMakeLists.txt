@@ -10,6 +10,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -DHLSLIB_INTEL")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--disable-new-dtags")
 
 function(opencl_target KERNEL_NAME)
+  set(KERNEL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cl)
   set(AOC_COMMAND
     -I${CMAKE_CURRENT_SOURCE_DIR}/include
     -I${CMAKE_SOURCE_DIR}/include
@@ -18,16 +19,20 @@ function(opencl_target KERNEL_NAME)
     -cl-fast-relaxed-math
     -cl-single-precision-constant
     -board=${HLSLIB_BOARD_NAME}
-    ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cl)
+    ${KERNEL_FILE})
   add_custom_target(build_${KERNEL_NAME}_report
     COMMAND ${IntelFPGAOpenCL_AOC} 
     ${AOC_COMMAND} 
     -rtl -report)
-  add_custom_target(build_${KERNEL_NAME}_emulator
+  add_custom_command(
+    OUTPUT ${KERNEL_NAME}_emulator.aocx
     COMMAND ${IntelFPGAOpenCL_AOC} 
     ${AOC_COMMAND} -march=emulator
     -emulator-channel-depth-model=strict
-    -o ${KERNEL_NAME}_emulator.aocx)
+    -o ${KERNEL_NAME}_emulator.aocx
+    DEPENDS ${KERNEL_FILE})
+  add_custom_target(build_${KERNEL_NAME}_emulator ALL DEPENDS
+                    ${KERNEL_NAME}_emulator.aocx)
   add_custom_target(build_${KERNEL_NAME}_hardware
     COMMAND ${IntelFPGAOpenCL_AOC} 
     ${AOC_COMMAND} -o ${KERNEL_NAME}_hardware.aocx)
