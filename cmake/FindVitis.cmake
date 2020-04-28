@@ -28,7 +28,7 @@ if(NOT DEFINED VITIS_ROOT_DIR)
 
   find_path(VITIS_SEARCH_PATH v++ xocc 
             PATHS ENV XILINX_OPENCL ENV XILINX_VITIS ENV XILINX_SDACCEL
-						PATH_SUFFIXES bin)
+            PATH_SUFFIXES bin)
   get_filename_component(VITIS_ROOT_DIR ${VITIS_SEARCH_PATH} DIRECTORY) 
   mark_as_advanced(VITIS_SEARCH_PATH)
 
