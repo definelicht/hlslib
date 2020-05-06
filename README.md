@@ -181,7 +181,7 @@ If your project uses hlslib, please consider citing us:
 
 **Plain text:**
 ```
-de Fine Licht, Johannes, and Hoefler, Torsten. "hlslib: Software Engineering for Hardware Design" arXiv preprint arXiv:1910.04436 (2019).
+J. de Fine Licht and T. Hoefler, "hlslib: Software Engineering for Hardware Design", arXiv preprint arXiv:1910.04436 (2019).
 ```
 
 ## References
