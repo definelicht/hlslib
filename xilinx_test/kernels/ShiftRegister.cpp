@@ -27,8 +27,8 @@ void Compute(hlslib::Stream<Data_t> &s_in, hlslib::Stream<Data_t> &s_out) {
         // Shift buffer
         sw.Shift(s_in.Pop());
         if (i >= 2 && j >= 1 && j < W - 1) {
-          Data_t res = 0.25 * (sw.Get<2 * W>() + sw.Get<W - 1>() +
-                               sw.Get<W + 1>() + sw.Get<0>());
+          Data_t res = 0.25 * (sw.Get(2 * W) + sw.Get<W - 1>() +
+                               sw.Get(W + 1) + sw.Get<0>());
           s_out.Push(res);
         }
       }

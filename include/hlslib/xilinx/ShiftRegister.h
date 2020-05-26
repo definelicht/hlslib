@@ -108,6 +108,7 @@ class _ShiftRegisterStage {
 #ifndef HLSLIB_SYNTHESIS
     throw std::runtime_error("Accessed invalid index of shift register.");
 #endif
+    return T();
   }
 };
 
