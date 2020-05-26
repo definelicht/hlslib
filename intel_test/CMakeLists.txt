@@ -40,7 +40,6 @@ function(opencl_target KERNEL_NAME)
   target_link_libraries(Run${KERNEL_NAME}.exe ${IntelFPGAOpenCL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
   add_custom_target(run_${KERNEL_NAME}_hardware COMMAND ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe hardware)
   add_custom_target(run_${KERNEL_NAME}_emulator COMMAND CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ${CMAKE_CURRENT_BINARY_DIR}/Run${KERNEL_NAME}.exe emulator)
-  add_test(Test${KERNEL_NAME} COMMAND Run${KERNEL_NAME}.exe emulator)
 endfunction()
 
 opencl_target("Jacobi2D")

@@ -5,7 +5,10 @@
 
 #include <ap_int.h>
 #include <algorithm>
-#include <cstddef>
+#ifndef HLSLIB_SYNTHESIS
+#include <cstddef> // std::runtime_error
+#endif
+#include <stdexcept>
 #include "hlslib/xilinx/Utility.h"
 
 namespace hlslib {
@@ -57,6 +60,7 @@ class _ShiftRegisterStageImpl {
     index_ = (index_ == Size - 1) ? Index_t(0) : Index_t(index_ + 1);
     return evicted;
   }
+
   T Get() const {
     #pragma HLS INLINE
     return newest_;
@@ -100,6 +104,11 @@ class _ShiftRegisterStage {
   T Get() const {
     static_assert(I != I, "Invalid tap index specified.");
   }
+  T Get(size_t) const {
+#ifndef HLSLIB_SYNTHESIS
+    throw std::runtime_error("Accessed invalid index of shift register.");
+#endif
+  }
 };
 
 template <typename T, int IPrev, int IThis, int... Is>
@@ -123,6 +132,15 @@ class _ShiftRegisterStage<T, IPrev, IThis, Is...> {
     return _Get<T, I, IThis, decltype(next_stage_)>(impl_.Get(), next_stage_);
   }
 
+  T Get(size_t i) const {
+    #pragma HLS INLINE
+    if (i == IThis) {
+      return impl_.Get();
+    } else {
+      return next_stage_.Get(i);
+    }
+  }
+
  private:
   _ShiftRegisterStage<T, IThis, Is...> next_stage_{};
   _ShiftRegisterStageImpl<T, kSize> impl_{};
@@ -140,6 +158,11 @@ class ShiftRegister {
   T Get() const {
     #pragma HLS INLINE
     return impl_.template Get<I>();
+  }
+
+  T Get(const size_t i) const {
+    #pragma HLS INLINE
+    return impl_.Get(i);
   }
 
  private:
