@@ -186,7 +186,7 @@ J. de Fine Licht and T. Hoefler, "hlslib: Software Engineering for Hardware Desi
 
 ## References
 
-- [1] Johannes de Fine Licht, Grzegorz Kwasniewski, and Torsten Hoefler, _"Flexible Communication Avoiding Matrix Multiplication on FPGA with High-Level Synthesis"_, in Proceedings of 28th ACM/SIGDA International Symposium on Field-Programmable Gate Arrays (FPGA'20), 2020.
+- [1] Johannes de Fine Licht, Grzegorz Kwasniewski, and Torsten Hoefler, _"Flexible Communication Avoiding Matrix Multiplication on FPGA with High-Level Synthesis"_, in Proceedings of 28th ACM/SIGDA International Symposium on Field-Programmable Gate Arrays (FPGA'20).
 - [2] Tiziano De Matteis, Johannes de Fine Licht, Jakub Beránek, and Torsten Hoefler. _"Streaming Message Interface: High-Performance Distributed Memory Programming on Reconfigurable Hardware"_, in Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC'19).
 - [3] Dionysios Diamantopoulos, and Christoph Hagleitner. _"HelmGemm: Managing GPUs and FPGAs for transprecision GEMM workloads in containerized environments."_, in Proceedings of the 2019 IEEE 30th International Conference on Application-specific Systems, Architectures and Processors (ASAP'19).
 - [4] Tal Ben-Nun, Johannes de Fine Licht, Alexandros Nikolaos Ziogas, Timo Schneider, and Torsten Hoefler. _"Stateful Dataflow Multigraphs: A Data-Centric Model for High-Performance Parallel Programs"_, in Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC'19).
