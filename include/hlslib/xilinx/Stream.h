@@ -90,9 +90,16 @@ class Stream : public _StreamBase {
 
   Stream(char const *const name)
 #ifdef HLSLIB_SYNTHESIS
+#if defined(VITIS_MAJOR_VERSION) && VITIS_MAJOR_VERSION < 2020
       : stream_(name) {
+#else
+      // The name constructor is broken in Vitis 2020.1
+      : stream_() {
+#endif
     #pragma HLS INLINE
-    #pragma HLS STREAM variable=stream_ depth = depth
+    // This is only required for versions older than Vitis 2020.1, after which
+    // this method is replaced by an additional template argument to hls::stream
+    #pragma HLS STREAM variable = stream_ depth = _depth
     if (storage == Storage::BRAM) {
       #pragma HLS RESOURCE variable=stream_ core=FIFO_BRAM
     } else if (storage == Storage::LUTRAM) {
@@ -446,7 +453,11 @@ class Stream : public _StreamBase {
   std::string name_;
   size_t capacity_;
 #else
+#if defined(VITIS_MAJOR_VERSION) && VITIS_MAJOR_VERSION < 2020
+  hls::stream<T> stream_;
+#else
   hls::stream<T, depth> stream_;
+#endif
 #endif
 };
 
