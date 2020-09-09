@@ -6,7 +6,7 @@
 #   Vitis_INCLUDE_DIRS - Include directories for HLS. 
 #   Vitis_LIBRARIES - Runtime libraries required for host side code. 
 #   Vitis_COMPILER - Path to the compiler executable (v++ or xocc).
-#   Vitis_HLS - Path to Vivado HLS executable. 
+#   Vitis_HLS - Path to HLS executable (vitis_hls or vivado_hls). 
 #   Vitis_FLOATING_POINT_LIBRARY - Library required for emulation of fp16.
 #   Vitis_VERSION - Version of Vitis/SDx/SDAccel installation.
 #   Vitis_VERSION_MAJOR - Major version of Vitis/SDx/SDAccel installation.
@@ -14,27 +14,40 @@
 #   Vitis_IS_LEGACY - Set if using a pre-Vitis version (i.e., SDx or SDAccel)
 #
 # To specify the location of Vitis or SDAccel, or to force this script to use a
-# specific version, set the variable VITIS_ROOT_DIR or SDACCEL_ROOT_DIR to the
-# root directory of the desired Vitis or SDAccel installation, respectively.
-# For SDAccel 2018.3 or newer, Vitis/SDAccel relies on a separate Xilinx Runtime
-# (XRT). This script will search in the default installation location, but a
-# path can be specified with the XRT_ROOT_DIR variable.
+# specific version, set the variable VITIS_ROOT, SDX_ROOT, or SDACCEL_ROOT to
+# the root directory of the desired Vitis, SDx, or SDAccel installation,
+# respectively. For SDAccel 2018.3 or newer, Vitis/SDAccel relies on a separate
+# Xilinx Runtime (XRT). This script will search in the default installation
+# location, but a path can be specified with the XRT_ROOT variable.
 
-if(DEFINED SDACCEL_ROOT_DIR AND NOT DEFINED VITIS_ROOT_DIR)
-  set(VITIS_ROOT_DIR ${SDACCEL_ROOT_DIR})
+if(DEFINED SDACCEL_ROOT_DIR AND NOT DEFINED SDACCEL_ROOT)
+  set(SDACCEL_ROOT ${SDACCEL_ROOT_DIR})
+endif()
+if(DEFINED SDX_ROOT_DIR AND NOT DEFINED SDX_ROOT)
+  set(SDX_ROOT ${SDX_ROOT_DIR})
+endif()
+if(DEFINED VITIS_ROOT_DIR AND NOT DEFINED VITIS_ROOT)
+  set(VITIS_ROOT ${VITIS_ROOT_DIR})
+endif()
+if(DEFINED SDX_ROOT AND NOT DEFINED VITIS_ROOT)
+  set(VITIS_ROOT ${SDX_ROOT})
+endif()
+if(DEFINED SDACCEL_ROOT AND NOT DEFINED VITIS_ROOT)
+  set(VITIS_ROOT ${SDACCEL_ROOT})
 endif()
 
-if(NOT DEFINED VITIS_ROOT_DIR)
+if(NOT DEFINED VITIS_ROOT)
 
   find_path(VITIS_SEARCH_PATH v++ xocc 
             PATHS ENV XILINX_OPENCL ENV XILINX_VITIS ENV XILINX_SDACCEL
+                  ENV XILINX_SDX
             PATH_SUFFIXES bin)
-  get_filename_component(VITIS_ROOT_DIR ${VITIS_SEARCH_PATH} DIRECTORY) 
+  get_filename_component(VITIS_ROOT ${VITIS_SEARCH_PATH} DIRECTORY) 
   mark_as_advanced(VITIS_SEARCH_PATH)
 
 else()
 
-  message(STATUS "Using user defined directory: ${VITIS_ROOT_DIR}")
+  message(STATUS "Using user defined Vitis directory: ${VITIS_ROOT}")
 
 endif()
 
@@ -42,8 +55,8 @@ endif()
 # use the tools bundled together, so we restrict all further finds to only look
 # in paths relative to the determined installation. 
 
-find_program(Vitis_XOCC xocc PATHS ${VITIS_ROOT_DIR}/bin NO_DEFAULT_PATH)
-find_program(Vitis_VPP v++ PATHS ${VITIS_ROOT_DIR}/bin NO_DEFAULT_PATH)
+find_program(Vitis_XOCC xocc PATHS ${VITIS_ROOT}/bin NO_DEFAULT_PATH)
+find_program(Vitis_VPP v++ PATHS ${VITIS_ROOT}/bin NO_DEFAULT_PATH)
 mark_as_advanced(Vitis_XOCC)
 mark_as_advanced(Vitis_VPP)
 if(Vitis_XOCC)
@@ -59,28 +72,38 @@ set(Vitis_COMPILER ${VITIS_COMPILER} CACHE STRING "Compiler used to build FPGA k
 set(Vitis_IS_LEGACY ${VITIS_IS_LEGACY} CACHE STRING "Using legacy version of toolchain (pre-Vitis).")
 
 # Get version number string
-get_filename_component(VITIS_VERSION "${VITIS_ROOT_DIR}" NAME)
+get_filename_component(VITIS_VERSION "${VITIS_ROOT}" NAME)
 string(REGEX REPLACE "([0-9]+)\\.[0-9]+" "\\1" VITIS_MAJOR_VERSION "${VITIS_VERSION}")
 string(REGEX REPLACE "[0-9]+\\.([0-9]+)" "\\1" VITIS_MINOR_VERSION "${VITIS_VERSION}")
 set(Vitis_VERSION ${VITIS_VERSION} CACHE STRING "Version of Vitis found")
 set(Vitis_MAJOR_VERSION ${VITIS_MAJOR_VERSION} CACHE STRING "Major version of Vitis found")
 set(Vitis_MINOR_VERSION ${VITIS_MINOR_VERSION} CACHE STRING "Minor version of Vitis found")
 
-# vitis_hls is still in beta as of 2019.2 and breaks some functionality, so
-# prefer vivado_hls for now (subject to change).
-find_program(Vitis_HLS NAMES vivado_hls vitis_hls PATHS
-             ${VITIS_ROOT_DIR}/bin
-             ${VITIS_ROOT_DIR}/../../Vivado/${Vitis_VERSION}/bin
-             ${VITIS_ROOT_DIR}/Vivado_HLS/bin NO_DEFAULT_PATH)
+# Check if we should use vivado_hls or vitis_hls
+if(Vitis_MAJOR_VERSION GREATER_EQUAL 2020)
+  # vitis_hls is used internally for building kernels starting from 2020.1. 
+  set(Vitis_USE_VITIS_HLS ON)
+  find_program(Vitis_HLS NAMES vitis_hls vivado_hls PATHS
+               ${VITIS_ROOT}/bin
+               ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/bin
+               ${VITIS_ROOT}/Vivado_HLS/bin NO_DEFAULT_PATH)
+else()
+  # Prior to 2020.1, vivado_hls from the Vivado installation is used.
+  set(Vitis_USE_VITIS_HLS OFF)
+  find_program(Vitis_HLS NAMES vivado_hls vitis_hls PATHS
+               ${VITIS_ROOT}/bin
+               ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/bin
+               ${VITIS_ROOT}/Vivado_HLS/bin NO_DEFAULT_PATH)
+endif()
 
 find_program(Vitis_VIVADO vivado PATHS
-             ${VITIS_ROOT_DIR}/../../Vivado/${Vitis_VERSION}/bin
-             ${VITIS_ROOT_DIR}/Vivado/bin NO_DEFAULT_PATH)
+             ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/bin
+             ${VITIS_ROOT}/Vivado/bin NO_DEFAULT_PATH)
 
 find_path(Vitis_HLS_INCLUDE_DIR hls_stream.h PATHS
-          ${VITIS_ROOT_DIR}/../../Vivado/${Vitis_VERSION}/include
-          ${VITIS_ROOT_DIR}/include
-          ${VITIS_ROOT_DIR}/Vivado_HLS/include
+          ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/include
+          ${VITIS_ROOT}/include
+          ${VITIS_ROOT}/Vivado_HLS/include
           NO_DEFAULT_PATH)
 mark_as_advanced(Vitis_HLS_INCLUDE_DIR)
 
@@ -102,9 +125,9 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
 
   find_library(Vitis_FLOATING_POINT_LIBRARY Ip_floating_point_v7_0_bitacc_cmodel
                PATHS
-               ${VITIS_ROOT_DIR}/lnx64/tools/fpo_v7_0
-               ${VITIS_ROOT_DIR}/../../Vivado/${Vitis_VERSION}/lnx64/tools/fpo_v7_0
-               ${VITIS_ROOT_DIR}/Vivado_HLS/lnx64/tools/fpo_v7_0)
+               ${VITIS_ROOT}/lnx64/tools/fpo_v7_0
+               ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/lnx64/tools/fpo_v7_0
+               ${VITIS_ROOT}/Vivado_HLS/lnx64/tools/fpo_v7_0)
   mark_as_advanced(Vitis_FLOATING_POINT_LIBRARY)
 
   get_filename_component(VITIS_FP_DIR ${Vitis_FLOATING_POINT_LIBRARY}
@@ -130,7 +153,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
 
   if(NOT Vitis_USE_XRT)
 
-    set(VITIS_RUNTIME_DIR ${VITIS_ROOT_DIR}/runtime)
+    set(VITIS_RUNTIME_DIR ${VITIS_ROOT}/runtime)
 
     # Older versions of SDAccel ship with their own OpenCL headers. Make sure
     # to use them.
