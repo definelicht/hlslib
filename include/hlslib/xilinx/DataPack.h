@@ -1,5 +1,4 @@
 /// @author    Johannes de Fine Licht (definelicht@inf.ethz.ch)
-/// @date      April 2016
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
 #pragma once
