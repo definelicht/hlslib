@@ -62,39 +62,51 @@ mark_as_advanced(Vitis_VPP)
 if(Vitis_XOCC)
   set(VITIS_COMPILER ${Vitis_XOCC})
   set(VITIS_IS_LEGACY TRUE)
+  add_definitions(VITIS_IS_LEGACY)
 endif()
 # Prefer v++ over xocc executable 
 if(Vitis_VPP)
   set(VITIS_COMPILER ${Vitis_VPP})
   set(VITIS_IS_LEGACY FALSE)
 endif()
-set(Vitis_COMPILER ${VITIS_COMPILER} CACHE STRING "Compiler used to build FPGA kernels.")
-set(Vitis_IS_LEGACY ${VITIS_IS_LEGACY} CACHE STRING "Using legacy version of toolchain (pre-Vitis).")
+unset(Vitis_XOCC)
+unset(Vitis_VPP)
+set(Vitis_COMPILER ${VITIS_COMPILER} CACHE STRING "Compiler used to build FPGA kernels." FORCE)
+set(Vitis_IS_LEGACY ${VITIS_IS_LEGACY} CACHE STRING "Using legacy version of toolchain (pre-Vitis)." FORCE)
 
 # Get version number string
 get_filename_component(VITIS_VERSION "${VITIS_ROOT}" NAME)
 string(REGEX REPLACE "([0-9]+)\\.[0-9]+" "\\1" VITIS_MAJOR_VERSION "${VITIS_VERSION}")
 string(REGEX REPLACE "[0-9]+\\.([0-9]+)" "\\1" VITIS_MINOR_VERSION "${VITIS_VERSION}")
-set(Vitis_VERSION ${VITIS_VERSION} CACHE STRING "Version of Vitis found")
-set(Vitis_MAJOR_VERSION ${VITIS_MAJOR_VERSION} CACHE STRING "Major version of Vitis found")
-set(Vitis_MINOR_VERSION ${VITIS_MINOR_VERSION} CACHE STRING "Minor version of Vitis found")
+set(Vitis_VERSION ${VITIS_VERSION} CACHE STRING "Version of Vitis found" FORCE)
+set(Vitis_MAJOR_VERSION ${VITIS_MAJOR_VERSION} CACHE STRING "Major version of Vitis found" FORCE)
+set(Vitis_MINOR_VERSION ${VITIS_MINOR_VERSION} CACHE STRING "Minor version of Vitis found" FORCE)
+add_definitions(-DVITIS_VERSION=${Vitis_VERSION} -DVITIS_MAJOR_VERSION=${Vitis_MAJOR_VERSION} -DVITIS_MINOR_VERSION=${Vitis_MINOR_VERSION})
+
+find_program(Vitis_VIVADO_HLS NAMES vivado_hls PATHS
+             ${VITIS_ROOT}/bin
+             ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/bin
+             ${VITIS_ROOT}/Vivado_HLS/bin NO_DEFAULT_PATH DOC
+             "Vivado HLS compiler associated with this version of the tools.")
 
 # Check if we should use vivado_hls or vitis_hls
 if(Vitis_MAJOR_VERSION GREATER_EQUAL 2020)
   # vitis_hls is used internally for building kernels starting from 2020.1. 
-  set(Vitis_USE_VITIS_HLS ON)
-  find_program(Vitis_HLS NAMES vitis_hls vivado_hls PATHS
+  set(Vitis_USE_VITIS_HLS ON CACHE BOOL "Use vitis_hls instead of vivado_hls." FORCE)
+  find_program(VITIS_HLS NAMES vitis_hls vivado_hls PATHS
                ${VITIS_ROOT}/bin
                ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/bin
                ${VITIS_ROOT}/Vivado_HLS/bin NO_DEFAULT_PATH)
 else()
+  if(NOT DEFINED Vitis_USE_VITIS_HLS OR Vitis_USE_VITIS_HLS)
+    message(WARNING "Vitis 2020.1 introduced breaking changes to hls::stream. Please pass -DVIVADO_MAJOR_VERSION=${VITIS_MAJOR_VERSION} in your synthesis script to always use the correct implementation.")
+  endif()
   # Prior to 2020.1, vivado_hls from the Vivado installation is used.
-  set(Vitis_USE_VITIS_HLS OFF)
-  find_program(Vitis_HLS NAMES vivado_hls vitis_hls PATHS
-               ${VITIS_ROOT}/bin
-               ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/bin
-               ${VITIS_ROOT}/Vivado_HLS/bin NO_DEFAULT_PATH)
+  set(Vitis_USE_VITIS_HLS OFF CACHE BOOL "Use vitis_hls instead of vivado_hls." FORCE)
+  set(VITIS_HLS ${Vitis_VIVADO_HLS})
 endif()
+mark_as_advanced(VITIS_HLS)
+set(Vitis_HLS ${VITIS_HLS} CACHE STRING "Path to HLS executable." FORCE)
 
 find_program(Vitis_VIVADO vivado PATHS
              ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/bin
@@ -113,7 +125,7 @@ if(Vitis_VPP OR (Vitis_MAJOR_VERSION GREATER 2018) OR
 else()
   set(VITIS_USE_XRT FALSE)
 endif()
-set(Vitis_USE_XRT ${VITIS_USE_XRT} CACHE STRING "Use XRT as runtime. Otherwise, use SDAccel/SDx OpenCL runtime.")
+set(Vitis_USE_XRT ${VITIS_USE_XRT} CACHE STRING "Use XRT as runtime. Otherwise, use SDAccel/SDx OpenCL runtime." FORCE)
 
 # Currently only x86 support
 
@@ -213,7 +225,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
   # Only succeed if libraries were found
   if(Vitis_LIBXILINXOPENCL)
     set(Vitis_LIBRARIES ${OpenCL_LIBRARIES} ${Vitis_LIBXILINXOPENCL}
-        CACHE STRING "OpenCL runtime libraries.")
+        CACHE STRING "OpenCL runtime libraries." FORCE)
   endif()
 
   # For some reason, the executable finds the floating point library on the
@@ -234,7 +246,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
      Vitis_OPENCL_EXTENSIONS_INCLUDE_DIR)
     set(Vitis_INCLUDE_DIRS ${Vitis_HLS_INCLUDE_DIR}
         ${Vitis_OPENCL_INCLUDE_DIR} ${Vitis_OPENCL_EXTENSIONS_INCLUDE_DIR} 
-        CACHE STRING "Vitis include directories.")
+        CACHE STRING "Vitis include directories." FORCE)
   endif()
 
 else()
