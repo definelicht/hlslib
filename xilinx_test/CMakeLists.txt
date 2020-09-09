@@ -21,13 +21,6 @@ target_link_libraries(TestReduce)
 add_test(TestReduce TestReduce)
 add_executable(TestFlatten test/TestFlatten.cpp)
 add_test(TestFlatten TestFlatten)
-if(NOT Vitis_USE_XRT)
-  # With newer runtimes, it's no longer possible to transfer memory without
-  # configuring a kernel on the device, so this test cannot run there.
-  add_executable(TestXilinxHostCode test/TestXilinxHostCode.cpp)
-  target_link_libraries(TestXilinxHostCode ${Vitis_LIBRARIES})
-  add_test(TestXilinxHostCode TestXilinxHostCode)
-endif()
 
 # Test kernels in software
 find_package(Threads)
