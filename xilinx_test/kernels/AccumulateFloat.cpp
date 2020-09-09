@@ -1,5 +1,4 @@
 /// @author    Johannes de Fine Licht (definelicht@inf.ethz.ch)
-/// @date      May 2017
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
 #include "AccumulateCommon.h"
@@ -23,7 +22,7 @@ void AccumulateFloat(DataPack_t const *memoryIn, DataPack_t *memoryOut,
   hlslib::Stream<DataPack_t> pipeOut("pipeOut");
   hlslib::Stream<DataPack_t> toFeedback("fromFeedback");
   hlslib::Stream<DataPack_t> toReduce("toReduce");
-  hlslib::Stream<DataPack_t> fromFeedback("fromFeedback", kLatency);
+  hlslib::Stream<DataPack_t, kLatency> fromFeedback("fromFeedback");
 
 #ifndef HLSLIB_SYNTHESIS
   HLSLIB_DATAFLOW_INIT();

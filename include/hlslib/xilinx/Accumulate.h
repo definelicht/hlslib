@@ -1,5 +1,4 @@
 /// @author    Johannes de Fine Licht (definelicht@inf.ethz.ch)
-/// @date      June 2017
 /// @copyright This software is copyrighted under the BSD 3-Clause License.
 
 #pragma once
@@ -51,7 +50,7 @@
 namespace hlslib {
 
 template <typename T, class Operator, int latency>
-void AccumulateIterate(Stream<T> &input, Stream<T> &fromFeedback,
+void AccumulateIterate(Stream<T> &input, Stream<T, latency> &fromFeedback,
                        Stream<T> &toFeedback, int size, int iterations) {
 AccumulateIterate_Iterations:
   for (int i = 0; i < iterations; ++i) {
@@ -61,22 +60,22 @@ AccumulateIterate_Iterations:
       for (int k = 0; k < latency; ++k) {
         #pragma HLS PIPELINE
         #pragma HLS LOOP_FLATTEN
-        const T a = hlslib::ReadBlocking(input);
+        const T a = input.Pop();
         T b;
         if (j > 0) {
-          b = hlslib::ReadOptimistic(fromFeedback);
+          b = fromFeedback.ReadOptimistic();
         } else {
           b = Operator::identity();
         }
         const auto result = Operator::Apply(a, b);
-        hlslib::WriteBlocking(toFeedback, result, 1);
+        toFeedback.Push(result);
       }
     }
   }
 }
 
 template <typename T, int latency>
-void AccumulateFeedback(Stream<T> &toFeedback, Stream<T> &fromFeedback,
+void AccumulateFeedback(Stream<T> &toFeedback, Stream<T, latency> &fromFeedback,
                         Stream<T> &toReduce, int size, int iterations) {
 AccumulateFeedback_Iterations:
   for (int i = 0; i < iterations; ++i) {
@@ -86,13 +85,13 @@ AccumulateFeedback_Iterations:
       for (int k = 0; k < latency; ++k) {
         #pragma HLS PIPELINE
         #pragma HLS LOOP_FLATTEN
-        const auto read = hlslib::ReadBlocking(toFeedback);
+        const auto read = toFeedback.Pop();
         if (j < size / latency - 1) {
           // Feedback back
-          hlslib::WriteBlocking(fromFeedback, read, latency);
+          fromFeedback.Push(read);
         } else {
           // Write to output
-          hlslib::WriteBlocking(toReduce, read, 1);
+          toReduce.Push(read);
         }
       }
     }
@@ -108,10 +107,10 @@ AccumulateReduce_Iterations:
     T result(Operator::identity());
   AccumulateReduce_Latency:
     for (int j = 0; j < latency; ++j) {
-      const auto read = hlslib::ReadBlocking(toReduce);
+      const auto read = toReduce.Pop();
       result = Operator::Apply(result, read);
     }
-    hlslib::WriteBlocking(output, result, 1);
+    output.Push(result);
   }
 }
 
@@ -125,11 +124,11 @@ AccumulateSimple_Iterations:
     for (int j = 0; j < size; ++j) {
       #pragma HLS LOOP_FLATTEN
       #pragma HLS PIPELINE
-      const auto a = hlslib::ReadBlocking(in);
+      const auto a = in.Pop();
       const auto b = (j > 0) ? acc : T(Operator::identity());
       acc = Operator::Apply(a, b);
       if (j == size - 1) {
-        hlslib::WriteBlocking(out, acc, 1);
+        out.Push(acc);
       }
     }
   }

@@ -1,6 +1,5 @@
 /// @author    Johannes de Fine Licht (definelicht@inf.ethz.ch)
-/// @date      April 2017
-/// @copyright This software is copyrighted under the BSD 3-Clause License. 
+/// @copyright This software is copyrighted under the BSD 3-Clause License.
 
 #pragma once
 
@@ -17,6 +16,8 @@
 #include <string>
 #endif
 
+namespace hlslib {
+
 // Time in seconds until a blocking call on a stream should timeout and emit a
 // warning before going back to sleep
 #ifdef HLSLIB_STREAM_TIMEOUT
@@ -25,11 +26,12 @@ constexpr int kSecondsToTimeout = HLSLIB_STREAM_TIMEOUT;
 constexpr int kSecondsToTimeout = 3;
 #endif
 
-// This macro must be defined when synthesizing. Synthesis will fail otherwise.
+// This macro must be defined when synthesizing:
 // #ifdef HLSLIB_SYNTHESIS
+// Synthesis will fail otherwise.
 
 // If the macro HLSLIB_STREAM_SYNCHRONIZE is set, every stream object will only
-// allow reads and writes ATTEMPTS in lockstep. This way, no single dataflow
+// allow read and write ATTEMPTS in lockstep. This way, no single dataflow
 // function will run ahead of others.
 // This is left optional, as it will not work for all kernels, and can result in
 // deadlocks. If such a situation occurs, the synchronization method will print
@@ -41,159 +43,58 @@ constexpr bool kStreamVerbose = true;
 constexpr bool kStreamVerbose = false;
 #endif
 
-namespace hlslib {
-
+/// Instruct the HLS tool to implement the FIFO using a specific resource.
 enum class Storage {
-  Unspecified,
+  Unspecified,  // Let the tool decide
   BRAM,
   LUTRAM,
-  SRL,
-  UltraRAM
+  SRL
 };
 
-template <typename T, unsigned capacity = 1, Storage = Storage::Unspecified>
+// Forward declaration.
+template <typename T, unsigned depth = 0, Storage = Storage::Unspecified>
 class Stream;
-
-/// Attempt to read from a stream, blocking until a value can be read. Useful
-/// for inter-process communication and generally asynchronous behavior.
-template <typename T>
-T ReadBlocking(Stream<T> &stream) {
-  #pragma HLS INLINE
-  return stream.ReadBlocking();
-}
-
-/// Attempt to read from a stream, throwing an exception if no value is
-/// available. Useful for internal buffers and some synchronized dataflow
-/// applications.
-template <typename T>
-T ReadOptimistic(Stream<T> &stream) {
-  #pragma HLS INLINE
-  return stream.ReadOptimistic();
-}
-
-/// Attempts to read from a stream, returning whether a value was read or not. 
-/// Useful when a different action should be performed when the stream is empty.
-template <typename T>
-bool ReadNonBlocking(Stream<T> &stream, T &output) {
-  #pragma HLS INLINE
-  return stream.ReadNonBlocking(output);
-}
-
-/// Attempt to write to a stream, blocking until a value can be written. Useful
-/// for inter-process communication and generally asynchronous behavior.
-template <typename T>
-void WriteBlocking(Stream<T> &stream, T const &val, int size) {
-  #pragma HLS INLINE
-  stream.WriteBlocking(val, size);
-}
-
-/// Attempt to write to a stream, blocking until a value can be written. Useful
-/// for inter-process communication and generally asynchronous behavior.
-template <typename T>
-void WriteBlocking(Stream<T> &stream, T const &val) {
-  #pragma HLS INLINE
-  stream.WriteBlocking(val);
-}
-
-/// Attempt to write to a stream, throwing an exception if the stream is full.
-/// Useful for internal buffers and some synchronized dataflow applications.
-template <typename T>
-void WriteOptimistic(Stream<T> &stream, T const &val, int size) {
-  #pragma HLS INLINE
-  stream.WriteOptimistic(val, size);
-}
-
-/// Attempts to write to a stream, returning whether a value was written or not. 
-/// Useful when a different action should be performed when the stream is full.
-template <typename T>
-bool WriteNonBlocking(Stream<T> &stream, T const &val, int size) {
-  #pragma HLS INLINE
-  return stream.WriteNonBlocking(val, size);
-}
-
-/// Check if the stream is empty. Using this in kernel code essentially
-/// implements non-blocking behavior, and should be used with caution.
-template <typename T>
-bool IsEmpty(Stream<T> &stream) {
-  #pragma HLS INLINE
-  return stream.IsEmpty();
-}
-
-/// If running simulation, returns whether the stream is empty. If running in
-/// hardware, this always returns false.
-/// This is useful when simulating blocking behavior of non loop-based codes
-/// where the entire function is invoked every cycle.
-template <typename T>
-bool IsEmptySimulationOnly(Stream<T> &stream) {
-  #pragma HLS INLINE
-  return stream.IsEmpty();
-}
-
-/// Check if the stream is full. Using this in kernel code essentially
-/// implements non-blocking behavior, and should be used with caution.
-template <typename T>
-bool IsFull(Stream<T> &stream, int size) {
-  #pragma HLS INLINE
-  return stream.IsFull(size);
-}
-
-/// If running simulation, returns whether the stream is full. If running in
-/// hardware, this always returns false.
-/// This is useful when simulating blocking behavior of non loop-based codes
-/// where the entire function is invoked every cycle.
-template <typename T>
-bool IsFullSimulationOnly(Stream<T> &stream, int size) {
-  #pragma HLS INLINE
-  return stream.IsFull(size);
-}
 
 #ifndef HLSLIB_SYNTHESIS
 /// Set the name of a stream. Useful when initializing arrays of streams that
-/// cannot be constructed individually. Currently only raw strings are supported.
+/// cannot be constructed individually. Currently only raw strings are
+/// supported.
 template <typename T>
 void SetName(Stream<T> &stream, const char *name) {
   stream.set_name(name);
 }
 #else
-template <typename T> void SetName(Stream<T> &stream, const char *) {}
+template <typename T>
+void SetName(Stream<T> &stream, const char *) {}
 #endif
 
-/// For internal use. Used to store arrays of streams of different types
+/// For internal use. Allows containers of streams of different types and
+/// depths.
 class _StreamBase {};
 
 /// Custom stream implementation, implementing thread-safe and blocking Push
 /// and Pop, as well as read/write conforming to the hls::stream interface.
-/// The capacityDefault template parameter is a convenience override used
-/// when instantiating arrays of streams, as the capacity cannot be passed
-/// to the constructor then.
-/// The constructor argument is always favored over the template argument, if
-/// specified.
-template <typename T, unsigned capacityDefault, Storage storage>
+/// The depth argument specifies the maximum depth of the stream, which will be
+/// reflected both in hardware and in simulation.
+template <typename T, unsigned _depth, Storage storage>
 class Stream : public _StreamBase {
+ public:
+  // Allow inspecting the depth of the stream. Setting a depth of 0 will be
+  // interpreted as a depth of 1 in simulation, but the underlying hls::stream
+  // object will receive 0, indicating that it was undefined.
+  static constexpr auto depth = _depth < 1 ? 1 : _depth;
 
-public:
-
-  Stream() : Stream("(unnamed)", capacityDefault) {
+  Stream() : Stream("(unnamed)") {
     #pragma HLS INLINE
   }
 
-  Stream(char const *const name) : Stream(name, capacityDefault) {
-    #pragma HLS INLINE
-  }
-
-  Stream(size_t capacity) : Stream("(unnamed)", capacity) {
-    #pragma HLS INLINE
-  }
-
-  Stream(char const *const name, size_t capacity)
+  Stream(char const *const name)
 #ifdef HLSLIB_SYNTHESIS
       : stream_(name) {
     #pragma HLS INLINE
-    #pragma HLS STREAM variable=stream_ depth=capacity 
+    #pragma HLS STREAM variable=stream_ depth = depth
     if (storage == Storage::BRAM) {
       #pragma HLS RESOURCE variable=stream_ core=FIFO_BRAM
-    } else if (storage == Storage::UltraRAM) {
-      #pragma HLS RESOURCE variable=stream_ core=XPM_MEMORY
     } else if (storage == Storage::LUTRAM) {
       #pragma HLS RESOURCE variable=stream_ core=FIFO_LUTRAM
     } else if (storage == Storage::SRL) {
@@ -201,8 +102,9 @@ public:
     }
   }
 #else
-      : name_(name), capacity_(capacity) {}
-#endif // !HLSLIB_SYNTHESIS
+      : name_(name) {
+  }
+#endif  // !HLSLIB_SYNTHESIS
 
   // Streams represent hardware entities. Don't allow copy or assignment.
   Stream(Stream<T> const &) = delete;
@@ -212,6 +114,7 @@ public:
 
   ~Stream() {
 #ifndef HLSLIB_SYNTHESIS
+    // Don't throw exceptions during destruction. Resort to printing to stderr
     if (queue_.size() > 0) {
       std::cerr << name_ << " contained " << queue_.size()
                 << " elements at destruction.\n";
@@ -219,25 +122,62 @@ public:
 #endif
   }
 
-#ifndef HLSLIB_SYNTHESIS
-  void ReadSynchronize(std::unique_lock<std::mutex> &lock) {
-    (void)lock; // Silence unused warning
-#ifdef HLSLIB_STREAM_SYNCHRONIZE
-    while (!readNext_) {
-      if (cvSync_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
-          std::cv_status::timeout) {
-        std::stringstream ss;
-        ss << "Stream synchronization stuck on reading \"" << name_
-           << "\". Possibly a deadlock?" << std::endl;
-        std::cerr << ss.str();
-      }
-    }
-    readNext_ = false;
-    cvSync_.notify_all();
-#endif // !HLSLIB_SYNTHESIS
-  }
-#endif
+  /////////////////////////////////////////////////////////////////////////////
 
+  /// Primary interface to pushing elements to the stream. Blocks if the stream
+  /// is full, both in hardware and in simulation.
+  void Push(T const &val) {
+    #pragma HLS INLINE
+    WriteBlocking(val);
+  }
+
+  /// Primary interface to popping elements from the stream. Blocks if the
+  /// stream is empty, both in hardware and in simulation.
+  T Pop() {
+    #pragma HLS INLINE
+    return ReadBlocking();
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Compatibility functions to comply to the hls::stream interface.
+  /////////////////////////////////////////////////////////////////////////////
+
+  /// Compatibility with hls::stream interface.
+  T read() {
+    #pragma HLS INLINE
+    return ReadBlocking();
+  }
+
+  /// Compatibility with hls::stream interface.
+  void read(T &out) {
+    #pragma HLS INLINE
+    out = read();
+  }
+
+  /// Compatibility with hls::stream interface.
+  void write(T const &val) {
+    #pragma HLS INLINE
+    WriteBlocking(val, std::numeric_limits<int>::max());
+  }
+
+  /// Compatibility with hls::stream interface.
+  bool empty() const {
+    #pragma HLS INLINE
+    return IsEmpty();
+  }
+
+  /// Compatibility with hls::stream interface.
+  bool full() const {
+    #pragma HLS INLINE
+    return IsFull();
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Below are more exotic interfaces to hlslib::Stream. You probably don't
+  // need these, but they can be useful in specific scenarios.
+  /////////////////////////////////////////////////////////////////////////////
+
+  /// Equivalent to Pop().
   T ReadBlocking() {
 #ifdef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
@@ -270,43 +210,12 @@ public:
     queue_.pop();
     cvWrite_.notify_all();
     return front;
-#endif // !HLSLIB_SYNTHESIS
+#endif  // !HLSLIB_SYNTHESIS
   }
 
-  // Compatibility with Vivado HLS interface
-  T read() {
-    #pragma HLS INLINE
-    return ReadBlocking();
-  }
-
-  // Compatibility with Vivado HLS interface
-  void read(T &out) {
-    #pragma HLS INLINE
-    out = read();
-  }
-
-  T Pop() {
-    #pragma HLS INLINE
-    return ReadBlocking();
-  }
-
-  T ReadOptimistic() {
-#ifdef HLSLIB_SYNTHESIS
-    #pragma HLS INLINE
-    return stream_.read();
-#else
-    std::unique_lock<std::mutex> lock(mutex_);
-    ReadSynchronize(lock);
-    if (queue_.empty()) {
-      throw std::runtime_error(name_ + ": read while empty.");
-    }
-    auto front = queue_.front();
-    queue_.pop();
-    cvWrite_.notify_all();
-    return front;
-#endif // !HLSLIB_SYNTHESIS
-  }
-
+  /// Attempts to read from a stream, returning whether a value was read or not.
+  /// Useful when a different action should be performed when the stream is
+  /// empty.
   bool ReadNonBlocking(T &output) {
 #ifdef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
@@ -321,83 +230,52 @@ public:
     queue_.pop();
     cvWrite_.notify_all();
     return true;
-#endif // !HLSLIB_SYNTHESIS
+#endif  // !HLSLIB_SYNTHESIS
   }
 
-#ifndef HLSLIB_SYNTHESIS
-  void WriteSynchronize(std::unique_lock<std::mutex> &lock) {
-    (void)lock; // Silence unused warning
-#ifdef HLSLIB_STREAM_SYNCHRONIZE
-    while (readNext_) {
-      if (cvSync_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
-          std::cv_status::timeout) {
-        std::stringstream ss;
-        ss << "Stream synchronization stuck on writing \"" << name_
-           << "\". Possibly a deadlock?" << std::endl;
-        std::cerr << ss.str();
-      }
-    }
-    readNext_ = true;
-    cvSync_.notify_all();
-#endif
-  }
-#endif
-  
-  void WriteBlocking(T const &val, size_t capacity) {
+  /// Attempt to read from a stream, throwing an exception if no value is
+  /// available when run in simulation. Useful for sanity checking internal
+  /// buffers and some synchronized dataflow applications.
+  T ReadOptimistic() {
 #ifdef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
-    stream_.write(val);
+    return stream_.read();
 #else
     std::unique_lock<std::mutex> lock(mutex_);
-    WriteSynchronize(lock);
-    bool slept = false;
-    while (queue_.size() == capacity) {
-      if (kStreamVerbose && !slept) {
-        std::stringstream ss;
-        ss << name_ << " full [" << queue_.size() << "/" << capacity 
-           << " elements, sleeping].\n";
-        std::cout << ss.str();
-      }
-      slept = true;
-      if (cvWrite_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
-          std::cv_status::timeout) {
-        std::stringstream ss;
-        ss << "Stream \"" << name_
-           << "\" is stuck as being FULL. Possibly a deadlock?" << std::endl;
-        std::cerr << ss.str();
-      }
+    ReadSynchronize(lock);
+    if (queue_.empty()) {
+      throw std::runtime_error(name_ + ": read while empty.");
     }
-    if (kStreamVerbose && slept) {
-      std::stringstream ss;
-      ss << name_ << " full [" << queue_.size() << "/" << capacity 
-         << " elements, woke up].\n";
-      std::cout << ss.str();
-    }
-    queue_.emplace(val);
-    cvRead_.notify_all();
-#endif // !HLSLIB_SYNTHESIS
+    auto front = queue_.front();
+    queue_.pop();
+    cvWrite_.notify_all();
+    return front;
+#endif  // !HLSLIB_SYNTHESIS
   }
 
+  /// Equivalent to Push().
   void WriteBlocking(T const &val) {
 #ifndef HLSLIB_SYNTHESIS
-    WriteBlocking(val, capacity_);
+    WriteBlocking(val, depth);
 #else
     #pragma HLS INLINE
     WriteBlocking(val, std::numeric_limits<int>::max());
 #endif
   }
 
-  // Compatibility with Vivado HLS interface
-  void write(T const &val) {
+  /// Non-blocking interface.
+  bool WriteNonBlocking(T const &val) {
+#ifndef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
-    WriteBlocking(val, std::numeric_limits<int>::max());
+    return WriteNonBlocking(val, depth);
+#else
+    return WriteNonBlocking(val, std::numeric_limits<int>::max());
+#endif
   }
 
-  void Push(T const &val) {
-    #pragma HLS INLINE
-    WriteBlocking(val);
-  }
-  
+  /// Attempt to write to a stream, throwing an exception if the stream is full
+  /// in simulation. Useful for sanity checking internal buffers and some
+  /// synchronized dataflow applications.
   void WriteOptimistic(T const &val, size_t capacity) {
 #ifdef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
@@ -410,47 +288,7 @@ public:
     }
     queue_.emplace(val);
     cvRead_.notify_all();
-#endif // !HLSLIB_SYNTHESIS
-  }
-
-  void WriteOptimistic(T const &val) {
-#ifndef HLSLIB_SYNTHESIS
-    WriteOptimistic(val, capacity_);
-#else
-    #pragma HLS INLINE
-    WriteOptimistic(val, std::numeric_limits<int>::max());
-#endif
-  }
-
-  bool WriteNonBlocking(T const &val, size_t capacity) {
-#ifdef HLSLIB_SYNTHESIS
-    #pragma HLS INLINE
-    return stream_.write_nb(val);
-#else
-    std::unique_lock<std::mutex> lock(mutex_);
-    WriteSynchronize(lock);
-    if (queue_.size() == capacity) {
-      return false;
-    }
-    queue_.emplace(val);
-    cvRead_.notify_all();
-    return true; 
-#endif
-  }
-
-  bool WriteNonBlocking(T const &val) {
-#ifndef HLSLIB_SYNTHESIS
-    #pragma HLS INLINE
-    return WriteNonBlocking(val, capacity_); 
-#else
-    return WriteNonBlocking(val, std::numeric_limits<int>::max());
-#endif
-  }
-
-  // Compatibility with Vivado HLS interface
-  bool empty() const {
-    #pragma HLS INLINE
-    return IsEmpty();
+#endif  // !HLSLIB_SYNTHESIS
   }
 
   bool IsEmpty() const {
@@ -463,26 +301,10 @@ public:
 #endif
   }
 
-  // Compatibility with Vivado HLS interface
-  bool full() const {
-    #pragma HLS INLINE
-    return IsFull();
-  }
-
-  bool IsFull(size_t capacity) const {
-#ifdef HLSLIB_SYNTHESIS
-    #pragma HLS INLINE
-    return stream_.full();
-#else
-    std::lock_guard<std::mutex> lock(mutex_);
-    return queue_.size() == capacity;
-#endif
-  }
-
   bool IsFull() const {
 #ifndef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
-    return IsFull(capacity_);
+    return IsFull(depth);
 #else
     return IsFull(std::numeric_limits<int>::max());
 #endif
@@ -499,9 +321,7 @@ public:
   }
 
 #ifndef HLSLIB_SYNTHESIS
-  std::string const &name() const {
-    return name_;
-  }
+  std::string const &name() const { return name_; }
 #endif
 
   void set_name(char const *const name) {
@@ -510,7 +330,109 @@ public:
 #endif
   }
 
-private:
+  /////////////////////////////////////////////////////////////////////////////
+
+ private:
+#ifndef HLSLIB_SYNTHESIS
+  void ReadSynchronize(std::unique_lock<std::mutex> &lock) {
+    (void)lock;  // Silence unused warning
+#ifdef HLSLIB_STREAM_SYNCHRONIZE
+    while (!readNext_) {
+      if (cvSync_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
+          std::cv_status::timeout) {
+        std::stringstream ss;
+        ss << "Stream synchronization stuck on reading \"" << name_
+           << "\". Possibly a deadlock?" << std::endl;
+        std::cerr << ss.str();
+      }
+    }
+    readNext_ = false;
+    cvSync_.notify_all();
+#endif  // !HLSLIB_SYNTHESIS
+  }
+#endif
+
+#ifndef HLSLIB_SYNTHESIS
+  void WriteSynchronize(std::unique_lock<std::mutex> &lock) {
+    (void)lock;  // Silence unused warning
+#ifdef HLSLIB_STREAM_SYNCHRONIZE
+    while (readNext_) {
+      if (cvSync_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
+          std::cv_status::timeout) {
+        std::stringstream ss;
+        ss << "Stream synchronization stuck on writing \"" << name_
+           << "\". Possibly a deadlock?" << std::endl;
+        std::cerr << ss.str();
+      }
+    }
+    readNext_ = true;
+    cvSync_.notify_all();
+#endif
+  }
+#endif
+
+  void WriteBlocking(T const &val, size_t depth_runtime) {
+#ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
+    stream_.write(val);
+#else
+    std::unique_lock<std::mutex> lock(mutex_);
+    WriteSynchronize(lock);
+    bool slept = false;
+    while (queue_.size() == depth_runtime) {
+      if (kStreamVerbose && !slept) {
+        std::stringstream ss;
+        ss << name_ << " full [" << queue_.size() << "/" << depth_runtime
+           << " elements, sleeping].\n";
+        std::cout << ss.str();
+      }
+      slept = true;
+      if (cvWrite_.wait_for(lock, std::chrono::seconds(kSecondsToTimeout)) ==
+          std::cv_status::timeout) {
+        std::stringstream ss;
+        ss << "Stream \"" << name_
+           << "\" is stuck as being FULL. Possibly a deadlock?" << std::endl;
+        std::cerr << ss.str();
+      }
+    }
+    if (kStreamVerbose && slept) {
+      std::stringstream ss;
+      ss << name_ << " full [" << queue_.size() << "/" << depth_runtime
+         << " elements, woke up].\n";
+      std::cout << ss.str();
+    }
+    queue_.emplace(val);
+    cvRead_.notify_all();
+#endif  // !HLSLIB_SYNTHESIS
+  }
+
+  bool WriteNonBlocking(T const &val, size_t depth_runtime) {
+#ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
+    return stream_.write_nb(val);
+#else
+    std::unique_lock<std::mutex> lock(mutex_);
+    WriteSynchronize(lock);
+    if (queue_.size() == depth_runtime) {
+      return false;
+    }
+    queue_.emplace(val);
+    cvRead_.notify_all();
+    return true;
+#endif
+  }
+
+  bool IsFull(size_t depth_runtime) const {
+#ifdef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
+    return stream_.full();
+#else
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.size() == depth_runtime;
+#endif
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
 
 #ifndef HLSLIB_SYNTHESIS
   mutable std::mutex mutex_{};
@@ -524,8 +446,10 @@ private:
   std::string name_;
   size_t capacity_;
 #else
-  hls::stream<T> stream_;
+  hls::stream<T, depth> stream_;
 #endif
 };
 
-} // End namespace hlslib
+///////////////////////////////////////////////////////////////////////////////
+
+}  // End namespace hlslib
