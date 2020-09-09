@@ -62,7 +62,7 @@ mark_as_advanced(Vitis_VPP)
 if(Vitis_XOCC)
   set(VITIS_COMPILER ${Vitis_XOCC})
   set(VITIS_IS_LEGACY TRUE)
-  add_definitions(VITIS_IS_LEGACY)
+  add_definitions(-DVITIS_IS_LEGACY)
 endif()
 # Prefer v++ over xocc executable 
 if(Vitis_VPP)
