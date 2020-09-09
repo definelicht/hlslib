@@ -80,9 +80,9 @@ template <typename T, unsigned _depth, Storage storage>
 class Stream : public _StreamBase {
  public:
   // Allow inspecting the depth of the stream. Setting a depth of 0 will be
-  // interpreted as a depth of 1 in simulation, but the underlying hls::stream
+  // interpreted as a depth of 2 in simulation, but the underlying hls::stream
   // object will receive 0, indicating that it was undefined.
-  static constexpr auto depth = _depth < 1 ? 1 : _depth;
+  static constexpr auto depth = _depth < 1 ? 2 : _depth;
 
   Stream() : Stream("(unnamed)") {
     #pragma HLS INLINE
