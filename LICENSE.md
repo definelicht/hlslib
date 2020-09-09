@@ -1,6 +1,6 @@
 BSD 3-Clause License
 
-Copyright (c) 2019, Johannes de Fine Licht, Scalable Parallel Computing Lab, ETH Zurich
+Copyright (c) 2017-2020, Johannes de Fine Licht, Scalable Parallel Computing Lab (SPCL), Department of Computer Science, ETH Zurich
 
 All rights reserved.
 
