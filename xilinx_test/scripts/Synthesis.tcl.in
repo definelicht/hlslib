@@ -6,11 +6,10 @@
 open_project ${HLSLIB_PROJECT_NAME} 
 open_solution ${HLSLIB_PART_NAME}  
 set_part ${HLSLIB_PART_NAME} 
-add_files -cflags "${HLSLIB_SYNTHESIS_FLAGS}" "${HLSLIB_SRC_SYNTHESIS}" 
+add_files -cflags "${HLSLIB_SYNTHESIS_FLAGS} -DVITIS_MAJOR_VERSION=${Vitis_MAJOR_VERSION}" "${HLSLIB_SRC_SYNTHESIS}" 
 set_top ${HLSLIB_ENTRY_FUNCTION} 
 create_clock -period ${HLSLIB_TARGET_CLOCK}MHz -name default
 # SDAccel default options
-config_rtl -register_reset
 config_interface -m_axi_addr64
 config_schedule -relax_ii_for_timing
 config_compile -pipeline_loops 64

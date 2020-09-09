@@ -12,6 +12,6 @@ void StreamAPI(hlslib::Stream<int> &in, hlslib::Stream<int> &out) {
 }
 
 int main() {
-    hlslib::Stream<int, 10> strm;
-    bool empty = strm.IsEmpty();
+  hlslib::Stream<int, 10> strm;
+  bool empty = strm.IsEmpty();
 }

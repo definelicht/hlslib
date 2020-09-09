@@ -1,5 +1,4 @@
 /// @author    Johannes de Fine Licht (definelicht@inf.ethz.ch)
-/// @date      June 2017
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
 #pragma once
@@ -13,7 +12,7 @@ void Read(T const *memoryIn, hlslib::Stream<T> &streamIn, int iterations) {
   for (int i = 0; i < iterations; ++i) {
     #pragma HLS PIPELINE
     const auto val = memoryIn[i];
-    hlslib::WriteBlocking(streamIn, val, 1);
+    streamIn.Push(val);
   }
 }
 
@@ -21,7 +20,7 @@ template <typename T>
 void Write(hlslib::Stream<T> &streamOut, T *memoryOut, int iterations) {
   for (int i = 0; i < iterations; ++i) {
     #pragma HLS PIPELINE
-    const auto read = hlslib::ReadBlocking(streamOut);
+    const auto read = streamOut.Pop();
     memoryOut[i] = read;
   }
 }
