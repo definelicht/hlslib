@@ -54,16 +54,21 @@ function(synthesis_target KERNEL_NAME ADDITIONAL_FLAGS FORCE_VIVADO_HLS)
   set(HLSLIB_PROJECT_NAME "${KERNEL_NAME}")
   set(HLSLIB_SRC_SYNTHESIS "${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp")
   set(HLSLIB_ENTRY_FUNCTION "${KERNEL_NAME}")
-  set(HLSLIB_TARGET_CLOCK "200")
+  set(HLSLIB_TARGET_CLOCK "300")
   set(HLSLIB_SYNTHESIS_FLAGS ${SYNTHESIS_FLAGS})
   configure_file(scripts/Synthesis.tcl.in Synthesize${KERNEL_NAME}.tcl)
   if(FORCE_VIVADO_HLS)
-    add_custom_target(synthesize_${KERNEL_NAME}
-      COMMAND ${Vitis_VIVADO_HLS} -f Synthesize${KERNEL_NAME}.tcl) 
+    set(HLSLIB_${KERNEL_NAME}_HLS ${Vitis_VIVADO_HLS})
   else()
-    add_custom_target(synthesize_${KERNEL_NAME}
-      COMMAND ${Vitis_HLS} -f Synthesize${KERNEL_NAME}.tcl) 
+    set(HLSLIB_${KERNEL_NAME}_HLS ${Vitis_HLS})
   endif()
+  add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_PROJECT_NAME}/${HLSLIB_PART_NAME}/syn/report/${KERNEL_NAME}_csynth.rpt
+      COMMENT "Running high-level synthesis for kernel ${KERNEL_NAME}."
+      COMMAND ${HLSLIB_${KERNEL_NAME}_HLS} -f Synthesize${KERNEL_NAME}.tcl
+      DEPENDS ${HLSLIB_SRC_SYNTHESIS}) 
+  add_custom_target(synthesize_${KERNEL_NAME} DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_PROJECT_NAME}/${HLSLIB_PART_NAME}/syn/report/${KERNEL_NAME}_csynth.rpt)
+  add_test(NAME Test${KERNEL_NAME}Synthesis COMMAND ${CMAKE_COMMAND} --build ${CMAKE_CURRENT_BINARY_DIR} --target synthesize_${KERNEL_NAME}) 
 endfunction()
 
 function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
