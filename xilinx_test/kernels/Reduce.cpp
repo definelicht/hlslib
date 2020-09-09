@@ -17,12 +17,12 @@ void FloatSum(hlslib::Stream<Float_t> &in, hlslib::Stream<float> &out) {
 FloatSum:
   for (int i = 0; i < kIterations; ++i) {
     #pragma HLS PIPELINE
-    const auto read = hlslib::ReadBlocking(in);
+    const auto read = in.Pop();
     float arr[kFloatWidth];
     read >> arr;
     const auto result =
         hlslib::TreeReduce<float, hlslib::op::Add<float>, kFloatWidth>(arr);
-    hlslib::WriteBlocking(out, result, 1);
+    out.Push(result);
   }
 }
 
@@ -30,12 +30,12 @@ void BoolAll(hlslib::Stream<Bool_t> &in, hlslib::Stream<bool> &out) {
 BoolAll:
   for (int i = 0; i < kIterations; ++i) {
     #pragma HLS PIPELINE
-    const auto read = hlslib::ReadBlocking(in);
+    const auto read = in.Pop();
     bool arr[kBoolWidth];
     read >> arr;
     const auto result =
         hlslib::TreeReduce<bool, hlslib::op::And<bool>, kBoolWidth>(arr);
-    hlslib::WriteBlocking(out, result, 1);
+    out.Push(result);
   }
 }
 
