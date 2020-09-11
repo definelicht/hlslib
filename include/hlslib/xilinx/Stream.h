@@ -52,7 +52,7 @@ enum class Storage {
 };
 
 // Forward declaration.
-template <typename T, unsigned depth = 0, Storage = Storage::Unspecified>
+template <typename T, size_t depth = 0, Storage = Storage::Unspecified>
 class Stream;
 
 #ifndef HLSLIB_SYNTHESIS
@@ -65,7 +65,7 @@ void SetName(Stream<T> &stream, const char *name) {
 }
 #else
 template <typename T>
-void SetName(Stream<T> &stream, const char *) {}
+void SetName(Stream<T> &, const char *) {}
 #endif
 
 /// For internal use. Allows containers of streams of different types and
@@ -76,30 +76,29 @@ class _StreamBase {};
 /// and Pop, as well as read/write conforming to the hls::stream interface.
 /// The depth argument specifies the maximum depth of the stream, which will be
 /// reflected both in hardware and in simulation.
-template <typename T, unsigned _depth, Storage storage>
-class Stream : public _StreamBase {
+template <typename T>
+class Stream<T, 0, Storage::Unspecified> {
  public:
-  // Allow inspecting the depth of the stream. Setting a depth of 0 will be
-  // interpreted as a depth of 2 in simulation, but the underlying hls::stream
-  // object will receive 0, indicating that it was undefined.
-  static constexpr auto depth = _depth < 1 ? 2 : _depth;
 
   Stream() : Stream("(unnamed)") {
     #pragma HLS INLINE
   }
 
-  Stream(char const *const name)
+  // Setting a depth of 0 will be interpreted as a depth of 2 in simulation,
+  // but the underlying hls::stream object will receive 0, indicating that it
+  // was undefined. The generic implementation below can override this with the
+  // specified value.
+  Stream(char const *const name) : Stream(name, 2, Storage::Unspecified) {
+    #pragma HLS INLINE
+  }
+
+ protected:
 #ifdef HLSLIB_SYNTHESIS
 #if defined(VITIS_MAJOR_VERSION) && VITIS_MAJOR_VERSION < 2020
+  Stream(char const *const name, const size_t depth, const Storage storage)
       : stream_(name) {
-#else
-      // The name constructor is broken in Vitis 2020.1
-      : stream_() {
-#endif
     #pragma HLS INLINE
-    // This is only required for versions older than Vitis 2020.1, after which
-    // this method is replaced by an additional template argument to hls::stream
-    #pragma HLS STREAM variable = stream_ depth = _depth
+    #pragma HLS STREAM variable=stream_ depth=depth
     if (storage == Storage::BRAM) {
       #pragma HLS RESOURCE variable=stream_ core=FIFO_BRAM
     } else if (storage == Storage::LUTRAM) {
@@ -108,9 +107,16 @@ class Stream : public _StreamBase {
       #pragma HLS RESOURCE variable=stream_ core=FIFO_SRL
     }
   }
-#else
-      : name_(name) {
+#else  // VITIS_MAJOR_VERSION >= 2020.1
+  // The name constructor is broken in Vitis 2020.1
+  Stream(char const *const, size_t, Storage) : stream_() {
+    // Setting depth and storage are doned from the derived class
+    #pragma HLS INLINE
   }
+#endif
+#else
+  Stream(char const *const name, size_t depth, Storage)
+      : name_(name), depth_(depth) {}
 #endif  // !HLSLIB_SYNTHESIS
 
   // Streams represent hardware entities. Don't allow copy or assignment.
@@ -118,6 +124,8 @@ class Stream : public _StreamBase {
   Stream(Stream<T> &&) = delete;
   Stream<T> &operator=(Stream<T> const &) = delete;
   Stream<T> &operator=(Stream<T> &&) = delete;
+
+ public:
 
   ~Stream() {
 #ifndef HLSLIB_SYNTHESIS
@@ -263,7 +271,7 @@ class Stream : public _StreamBase {
   /// Equivalent to Push().
   void WriteBlocking(T const &val) {
 #ifndef HLSLIB_SYNTHESIS
-    WriteBlocking(val, depth);
+    WriteBlocking(val, depth_);
 #else
     #pragma HLS INLINE
     WriteBlocking(val, std::numeric_limits<int>::max());
@@ -274,29 +282,31 @@ class Stream : public _StreamBase {
   bool WriteNonBlocking(T const &val) {
 #ifndef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
-    return WriteNonBlocking(val, depth);
+    return WriteNonBlocking(val, depth_);
 #else
     return WriteNonBlocking(val, std::numeric_limits<int>::max());
 #endif
   }
 
+#ifdef HLSLIB_SYNTHESIS
+  void WriteOptimistic(T const &val, size_t) {
+    #pragma HLS INLINE
+    stream_.write(val);
+  }
+#else
   /// Attempt to write to a stream, throwing an exception if the stream is full
   /// in simulation. Useful for sanity checking internal buffers and some
   /// synchronized dataflow applications.
-  void WriteOptimistic(T const &val, size_t capacity) {
-#ifdef HLSLIB_SYNTHESIS
-    #pragma HLS INLINE
-    stream_.write(val);
-#else
+  void WriteOptimistic(T const &val, size_t depth) {
     std::unique_lock<std::mutex> lock(mutex_);
     WriteSynchronize(lock);
-    if (queue_.size() == capacity) {
+    if (queue_.size() == depth) {
       throw std::runtime_error(std::string(name_) + ": written while full.");
     }
     queue_.emplace(val);
     cvRead_.notify_all();
-#endif  // !HLSLIB_SYNTHESIS
   }
+#endif  // !HLSLIB_SYNTHESIS
 
   bool IsEmpty() const {
 #ifdef HLSLIB_SYNTHESIS
@@ -311,7 +321,7 @@ class Stream : public _StreamBase {
   bool IsFull() const {
 #ifndef HLSLIB_SYNTHESIS
     #pragma HLS INLINE
-    return IsFull(depth);
+    return IsFull(depth_);
 #else
     return IsFull(std::numeric_limits<int>::max());
 #endif
@@ -378,18 +388,20 @@ class Stream : public _StreamBase {
   }
 #endif
 
-  void WriteBlocking(T const &val, size_t depth_runtime) {
 #ifdef HLSLIB_SYNTHESIS
+  void WriteBlocking(T const &val, size_t) {
     #pragma HLS INLINE
     stream_.write(val);
+  }
 #else
+  void WriteBlocking(T const &val, size_t depth) {
     std::unique_lock<std::mutex> lock(mutex_);
     WriteSynchronize(lock);
     bool slept = false;
-    while (queue_.size() == depth_runtime) {
+    while (queue_.size() == depth) {
       if (kStreamVerbose && !slept) {
         std::stringstream ss;
-        ss << name_ << " full [" << queue_.size() << "/" << depth_runtime
+        ss << name_ << " full [" << queue_.size() << "/" << depth
            << " elements, sleeping].\n";
         std::cout << ss.str();
       }
@@ -404,40 +416,44 @@ class Stream : public _StreamBase {
     }
     if (kStreamVerbose && slept) {
       std::stringstream ss;
-      ss << name_ << " full [" << queue_.size() << "/" << depth_runtime
+      ss << name_ << " full [" << queue_.size() << "/" << depth 
          << " elements, woke up].\n";
       std::cout << ss.str();
     }
     queue_.emplace(val);
     cvRead_.notify_all();
-#endif  // !HLSLIB_SYNTHESIS
   }
+#endif  // !HLSLIB_SYNTHESIS
 
-  bool WriteNonBlocking(T const &val, size_t depth_runtime) {
 #ifdef HLSLIB_SYNTHESIS
+  bool WriteNonBlocking(T const &val, size_t) {
     #pragma HLS INLINE
     return stream_.write_nb(val);
+  }
 #else
+  bool WriteNonBlocking(T const &val, size_t depth) {
     std::unique_lock<std::mutex> lock(mutex_);
     WriteSynchronize(lock);
-    if (queue_.size() == depth_runtime) {
+    if (queue_.size() == depth) {
       return false;
     }
     queue_.emplace(val);
     cvRead_.notify_all();
     return true;
-#endif
   }
+#endif
 
-  bool IsFull(size_t depth_runtime) const {
 #ifdef HLSLIB_SYNTHESIS
+  bool IsFull(size_t) const {
     #pragma HLS INLINE
     return stream_.full();
-#else
-    std::lock_guard<std::mutex> lock(mutex_);
-    return queue_.size() == depth_runtime;
-#endif
   }
+#else
+  bool IsFull(size_t depth) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.size() == depth;
+  }
+#endif
 
   /////////////////////////////////////////////////////////////////////////////
 
@@ -451,14 +467,40 @@ class Stream : public _StreamBase {
 #endif
   std::queue<T> queue_;
   std::string name_;
-  size_t capacity_;
+  size_t depth_;
 #else
-#if defined(VITIS_MAJOR_VERSION) && VITIS_MAJOR_VERSION < 2020
+ protected:
   hls::stream<T> stream_;
-#else
-  hls::stream<T, depth> stream_;
 #endif
+};
+
+template <typename T, size_t depth, Storage storage>
+class Stream : public Stream<T, 0, storage> {
+
+public:
+  Stream() : Stream("(unnamed)") {
+    #pragma HLS INLINE
+  }
+
+  Stream(char const *const name) : Stream<T, 0, storage>(name, depth, storage) {
+    #pragma HLS INLINE
+#if !defined(VITIS_MAJOR_VERSION) || VITIS_MAJOR_VERSION >= 2020
+    #pragma HLS STREAM variable=this->stream_ depth=depth
+    if (storage == Storage::BRAM) {
+      #pragma HLS RESOURCE variable=this->stream_ core=FIFO_BRAM
+    } else if (storage == Storage::LUTRAM) {
+      #pragma HLS RESOURCE variable=this->stream_ core=FIFO_LUTRAM
+    } else if (storage == Storage::SRL) {
+      #pragma HLS RESOURCE variable=this->stream_ core=FIFO_SRL
+    }
 #endif
+  }
+
+  // Streams represent hardware entities. Don't allow copy or assignment.
+  Stream(Stream<T> const &) = delete;
+  Stream(Stream<T> &&) = delete;
+  Stream<T> &operator=(Stream<T> const &) = delete;
+  Stream<T> &operator=(Stream<T> &&) = delete;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
