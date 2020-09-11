@@ -94,7 +94,7 @@ class Stream<T, 0, Storage::Unspecified> {
 
  protected:
 #ifdef HLSLIB_SYNTHESIS
-#if defined(VITIS_MAJOR_VERSION) && VITIS_MAJOR_VERSION < 2020
+#if defined(__VIVADO_HLS__) && !defined(__VITIS_HLS)
   Stream(char const *const name, const size_t depth, const Storage storage)
       : stream_(name) {
     #pragma HLS INLINE
@@ -107,7 +107,7 @@ class Stream<T, 0, Storage::Unspecified> {
       #pragma HLS RESOURCE variable=stream_ core=FIFO_SRL
     }
   }
-#else  // VITIS_MAJOR_VERSION >= 2020.1
+#else  // Assume we're using vitis_hls 
   // The name constructor is broken in Vitis 2020.1
   Stream(char const *const, size_t, Storage) : stream_() {
     // Setting depth and storage are doned from the derived class
@@ -484,7 +484,7 @@ public:
 
   Stream(char const *const name) : Stream<T, 0, storage>(name, depth, storage) {
     #pragma HLS INLINE
-#if !defined(VITIS_MAJOR_VERSION) || VITIS_MAJOR_VERSION >= 2020
+#if !defined(__VIVADO_HLS__) || defined(__VITIS_HLS__) 
     #pragma HLS STREAM variable=this->stream_ depth=depth
     if (storage == Storage::BRAM) {
       #pragma HLS RESOURCE variable=this->stream_ core=FIFO_BRAM
