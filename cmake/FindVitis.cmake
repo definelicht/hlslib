@@ -99,7 +99,7 @@ if(Vitis_MAJOR_VERSION GREATER_EQUAL 2020)
                ${VITIS_ROOT}/Vivado_HLS/bin NO_DEFAULT_PATH)
 else()
   if(NOT DEFINED Vitis_USE_VITIS_HLS OR Vitis_USE_VITIS_HLS)
-    message(WARNING "Vitis 2020.1 introduced breaking changes to hls::stream. Please pass -DVIVADO_MAJOR_VERSION=${VITIS_MAJOR_VERSION} in your synthesis script to always use the correct implementation.")
+    message(WARNING "vitis_hls used from Vitis 2020.1 and onwards introduces breaking changes to hls::stream. Please pass -D__VITIS_HLS__ or -D__VIVADO_HLS__ in your synthesis script depending on which tool you are using to always use a working version.")
   endif()
   # Prior to 2020.1, vivado_hls from the Vivado installation is used.
   set(Vitis_USE_VITIS_HLS OFF CACHE BOOL "Use vitis_hls instead of vivado_hls." FORCE)
