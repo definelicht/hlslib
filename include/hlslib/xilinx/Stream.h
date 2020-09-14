@@ -288,6 +288,16 @@ class Stream<T, 0, Storage::Unspecified> {
 #endif
   }
 
+  void WriteOptimistic(T const &val) {
+    #pragma HLS INLINE
+#ifndef HLSLIB_SYNTHESIS
+    #pragma HLS INLINE
+    return WriteOptimistic(val, depth_);
+#else
+    return WriteOptimistic(val, std::numeric_limits<int>::max());
+#endif
+  }
+
 #ifdef HLSLIB_SYNTHESIS
   void WriteOptimistic(T const &val, size_t) {
     #pragma HLS INLINE
