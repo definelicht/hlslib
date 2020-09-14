@@ -2,7 +2,6 @@
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
 #include "hlslib/xilinx/Flatten.h"
-#define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
 TEST_CASE("Flatten") {

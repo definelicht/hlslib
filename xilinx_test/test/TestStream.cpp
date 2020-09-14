@@ -3,7 +3,6 @@
 
 #include "hlslib/xilinx/Stream.h"
 #include "MultiStageAdd.h"
-#define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
 TEST_CASE("MultiStageAdd", "[MultiStageAdd]") {

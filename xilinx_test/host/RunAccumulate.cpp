@@ -14,7 +14,6 @@ using Dist_t = std::uniform_int_distribution<Data_t>;
 #error "Must be compiled for either float or int"
 #endif
 #include <iostream>
-#define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
 TEST_CASE(kKernelName, kKernelName) {

@@ -4,7 +4,6 @@
 #include "hlslib/xilinx/DataPack.h"
 #include "hlslib/xilinx/Operators.h"
 #include "hlslib/xilinx/TreeReduce.h"
-#define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
 TEST_CASE("TreeReduce", "[TreeReduce]") {

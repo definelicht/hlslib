@@ -2,7 +2,6 @@
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
 #include "hlslib/xilinx/Simulation.h"
-#define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
 void PassByValueAndReference(int value, std::vector<int> &reference) {

@@ -1,5 +1,4 @@
 #include "hlslib/xilinx/ShiftRegister.h"
-#define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
 constexpr size_t W = 32;
