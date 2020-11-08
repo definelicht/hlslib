@@ -90,7 +90,7 @@ find_program(Vitis_VIVADO_HLS NAMES vivado_hls PATHS
              "Vivado HLS compiler associated with this version of the tools.")
 
 # Check if we should use vivado_hls or vitis_hls
-if(Vitis_MAJOR_VERSION GREATER_EQUAL 2020)
+if(Vitis_MAJOR_VERSION GREATER 2020 OR Vitis_MAJOR_VERSION EQUAL 2020)
   # vitis_hls is used internally for building kernels starting from 2020.1. 
   set(Vitis_USE_VITIS_HLS ON CACHE BOOL "Use vitis_hls instead of vivado_hls." FORCE)
   find_program(VITIS_HLS NAMES vitis_hls vivado_hls PATHS
