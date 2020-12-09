@@ -94,6 +94,7 @@ if(Vitis_MAJOR_VERSION GREATER 2020 OR Vitis_MAJOR_VERSION EQUAL 2020)
   # vitis_hls is used internally for building kernels starting from 2020.1. 
   set(Vitis_USE_VITIS_HLS ON CACHE BOOL "Use vitis_hls instead of vivado_hls." FORCE)
   find_program(VITIS_HLS NAMES vitis_hls vivado_hls PATHS
+               ${VITIS_ROOT}/../../Vitis_HLS/${Vitis_VERSION}/bin
                ${VITIS_ROOT}/bin
                ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/bin
                ${VITIS_ROOT}/Vivado_HLS/bin NO_DEFAULT_PATH)
