@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.0)
 project(hlslib)
 
 option(BUILD_TESTS "Build tests for hlslib" ON)
+option(BUILD_DOCUMENTATION "Build documentation for hlslib" ON)
 
 # Include custom Find<Module>.cmake scripts to enable searching for
 # Vitis/SDx/SDAccel and Intel FPGA OpenCL.
@@ -13,8 +14,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY ON)
 
 # Generate Doxygen if available
-find_package(Doxygen)
-if(Doxygen_FOUND)
+if(${BUILD_DOCUMENTATION})
+  find_package(Doxygen REQUIRED)
   configure_file(${CMAKE_SOURCE_DIR}/Doxyfile.in Doxyfile)
   add_custom_target(doxygen ALL
       COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile
