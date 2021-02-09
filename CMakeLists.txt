@@ -5,6 +5,8 @@ project(hlslib)
 
 option(BUILD_TESTS "Build tests for hlslib" ON)
 option(BUILD_DOCUMENTATION "Build documentation for hlslib" ON)
+option(HLSLIB_XILINX "Use Xilinx FPGA ecosystem" ON)
+option(HLSLIB_INTEL "Use Intel FPGA ecosystem" ON)
 
 # Include custom Find<Module>.cmake scripts to enable searching for
 # Vitis/SDx/SDAccel and Intel FPGA OpenCL.
@@ -23,10 +25,14 @@ if(${BUILD_DOCUMENTATION})
 endif()
 
 # Find Xilinx and Intel OpenCL software for enabling test targets
-find_package(Threads)
-find_package(Vitis)
-find_package(IntelFPGAOpenCL)
-find_package(OpenCL)
+find_package(Threads REQUIRED)
+find_package(OpenCL REQUIRED)
+if(${HLSLIB_XILINX})
+  find_package(Vitis REQUIRED)
+endif()
+if(${HLSLIB_INTEL})
+  find_package(IntelFPGAOpenCL REQUIRED)
+endif()
 
 # hlslib target
 add_library(hlslib INTERFACE)
@@ -41,10 +47,10 @@ target_link_libraries(hlslib INTERFACE
 if(${BUILD_TESTS})
   enable_testing()
   # Xilinx example setup and testing
-  if(Vitis_FOUND AND Threads_FOUND)
+  if(${HLSLIB_XILINX})
     add_subdirectory(xilinx_test)
   endif()
-  if(IntelFPGAOpenCL_FOUND AND Threads_FOUND)
+  if(${HLSLIB_INTEL})
     add_subdirectory(intel_test)
   endif()
 endif()
