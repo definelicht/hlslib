@@ -1,9 +1,12 @@
 /// @author    Johannes de Fine Licht (definelicht@inf.ethz.ch)
-/// @copyright This software is copyrighted under the BSD 3-Clause License. 
+/// @copyright This software is copyrighted under the BSD 3-Clause License.
 
 #pragma once
 
 #ifndef HLSLIB_SYNTHESIS
+#include <condition_variable>
+#include <mutex>
+#include <queue>
 #include <thread>
 #include <vector>
 // #include "hlslib/Stream.h"
@@ -32,15 +35,19 @@ namespace hlslib {
 #ifdef HLSLIB_SYNTHESIS
 #define HLSLIB_DATAFLOW_INIT()
 #define HLSLIB_DATAFLOW_FUNCTION(func, ...) func(__VA_ARGS__)
+#define HLSLIB_ADD_SUBFLOW(func, ...) func(__VA_ARGS__)
+#define HLSLIB_SUBFLOW_INIT()
+#define HLSLIB_SUBFLOW_FINALIZE()
 #define HLSLIB_DATAFLOW_FINALIZE()
 #else
 namespace {
 class _Dataflow {
 
-private:
-  inline _Dataflow() {}
+public:
+  inline _Dataflow() : subflow_active_(false) {}
   inline ~_Dataflow() { this->Join(); }
 
+private:
   template <typename T>
   struct non_deducible {
     using type = T;
@@ -62,13 +69,43 @@ private:
  public:
   inline static _Dataflow& Get() { // Singleton pattern
     static _Dataflow df;
-    return df; 
+    return df;
   }
 
   template <class Ret, typename... Args>
   void AddFunction(Ret (*func)(Args...), non_deducible_t<Args>... args) {
-    threads_.emplace_back(func, passed_by(std::forward<Args>(args),
-                                          std::is_reference<Args>{})...);
+    if (subflow_active_) {
+      subflows_.back().AddFunction(func, args...);
+    } else {
+      threads_.emplace_back(func, passed_by(std::forward<Args>(args),
+                                            std::is_reference<Args>{})...);
+    }
+  }
+
+  template <class Ret, typename... Args>
+  void AddSubflow(Ret (*func)(Args...), non_deducible_t<Args>... args) {
+    if (subflow_active_) {
+      subflows_.back().AddSubflow(func, args...);
+    } else {
+      subflows_.emplace();
+      std::unique_lock<std::mutex> lock(mutex_);
+      subflow_active_ = true;
+      threads_.emplace_back(func, passed_by(std::forward<Args>(args),
+                                            std::is_reference<Args>{})...);
+      while (subflow_active_) cond_var_.wait(lock);
+    }
+  }
+
+  inline void FinalizeSubflow() {
+    if (subflows_.back().subflow_active_) {
+      subflows_.back().FinalizeSubflow();
+    } else {
+      std::unique_lock<std::mutex> send_lock(mutex_);
+      subflow_active_ = false;
+      send_lock.unlock();
+      cond_var_.notify_one();
+      subflows_.back().Join();
+    }
   }
 
   // template <typename T, typename... Args>
@@ -82,15 +119,24 @@ private:
       t.join();
     }
     threads_.clear();
+    while (!subflows_.empty()) subflows_.pop();
   }
 
 private:
   std::vector<std::thread> threads_{};
+  std::queue<_Dataflow> subflows_;
+  bool subflow_active_;
+  std::mutex mutex_;
+  std::condition_variable cond_var_;
   // std::vector<std::unique_ptr<_StreamBase>> streams_{};
 };
-#define HLSLIB_DATAFLOW_INIT() 
+#define HLSLIB_DATAFLOW_INIT()
 #define HLSLIB_DATAFLOW_FUNCTION(func, ...) \
   ::hlslib::_Dataflow::Get().AddFunction(func, __VA_ARGS__)
+#define HLSLIB_ADD_SUBFLOW(func, ...) \
+  ::hlslib::_Dataflow::Get().AddSubflow(func, __VA_ARGS__)
+#define HLSLIB_SUBFLOW_INIT()
+#define HLSLIB_SUBFLOW_FINALIZE() ::hlslib::_Dataflow::Get().FinalizeSubflow()
 #define HLSLIB_DATAFLOW_FINALIZE() ::hlslib::_Dataflow::Get().Join();
 }
 #endif
