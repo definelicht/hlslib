@@ -15,7 +15,7 @@ find_package(Doxygen)
 if(Doxygen_FOUND)
   configure_file(${CMAKE_SOURCE_DIR}/Doxyfile.in Doxyfile)
   add_custom_target(doxygen ALL
-      COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile 
+      COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
 
@@ -27,7 +27,7 @@ target_include_directories(hlslib INTERFACE
 
 enable_testing()
 
-# Find Xilinx and Intel OpenCL software for enabling test targets 
+# Find Xilinx and Intel OpenCL software for enabling test targets
 find_package(Threads)
 find_package(Vitis)
 find_package(IntelFPGAOpenCL)
