@@ -33,12 +33,10 @@ add_library(hlslib INTERFACE)
 target_include_directories(hlslib INTERFACE
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
-    ${Vitis_INCLUDE_DIRS}
-)
+    ${Vitis_INCLUDE_DIRS})
 target_link_libraries(hlslib INTERFACE
     ${CMAKE_THREAD_LIBS_INIT}
-    OpenCL::OpenCL
-)
+    OpenCL::OpenCL)
 
 if(${BUILD_TESTS})
   enable_testing()
