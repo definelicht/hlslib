@@ -3,6 +3,8 @@
 cmake_minimum_required(VERSION 3.0)
 project(hlslib)
 
+option(ENABLE_TESTING "Build tests for hlslib" ON)
+
 # Include custom Find<Module>.cmake scripts to enable searching for
 # Vitis/SDx/SDAccel and Intel FPGA OpenCL.
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
@@ -25,8 +27,6 @@ target_include_directories(hlslib INTERFACE
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
 
-enable_testing()
-
 # Find Xilinx and Intel OpenCL software for enabling test targets
 find_package(Threads)
 find_package(Vitis)
@@ -35,12 +35,15 @@ find_package(OpenCL)
 
 target_link_libraries(hlslib INTERFACE OpenCL::OpenCL)
 
-# Xilinx example setup and testing
-if(Vitis_FOUND AND Threads_FOUND)
-  add_subdirectory(xilinx_test)
-endif()
-if(IntelFPGAOpenCL_FOUND AND Threads_FOUND)
-  add_subdirectory(intel_test)
+if(${ENABLE_TESTING})
+  enable_testing()
+  # Xilinx example setup and testing
+  if(Vitis_FOUND AND Threads_FOUND)
+    add_subdirectory(xilinx_test)
+  endif()
+  if(IntelFPGAOpenCL_FOUND AND Threads_FOUND)
+    add_subdirectory(intel_test)
+  endif()
 endif()
 
 # Installation
