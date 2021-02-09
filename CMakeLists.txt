@@ -21,19 +21,23 @@ if(Doxygen_FOUND)
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
 
-# hlslib target
-add_library(hlslib INTERFACE)
-target_include_directories(hlslib INTERFACE
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>)
-
 # Find Xilinx and Intel OpenCL software for enabling test targets
 find_package(Threads)
 find_package(Vitis)
 find_package(IntelFPGAOpenCL)
 find_package(OpenCL)
 
-target_link_libraries(hlslib INTERFACE OpenCL::OpenCL)
+# hlslib target
+add_library(hlslib INTERFACE)
+target_include_directories(hlslib INTERFACE
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    ${Vitis_INCLUDE_DIRS}
+)
+target_link_libraries(hlslib INTERFACE
+    ${CMAKE_THREAD_LIBS_INIT}
+    OpenCL::OpenCL
+)
 
 if(${BUILD_TESTS})
   enable_testing()
