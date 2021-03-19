@@ -3,9 +3,9 @@
 cmake_minimum_required(VERSION 3.0)
 project(hlslib)
 
-set(HLSLIB_ENABLE_TESTING CACHE BOOL ON
+set(HLSLIB_ENABLE_TESTING ON CACHE BOOL
     "Enable CTest when built as a standalone CMake project.")
-set(HLSLIB_BUILD_DOCUMENTATION CACHE BOOL ON
+set(HLSLIB_BUILD_DOCUMENTATION ON CACHE BOOL
     "Build Doxygen documentation when built as a standalone CMake project.")
 
 # Include custom Find<Module>.cmake scripts to enable searching for
