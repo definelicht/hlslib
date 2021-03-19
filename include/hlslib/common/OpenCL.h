@@ -239,8 +239,8 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified) {
       if (failIfUnspecified) {
         ThrowRuntimeError("Memory bank must be specified.");
       }
-      return 0;
   }
+  return 0;
 }
 
 }  // End anonymous namespace
