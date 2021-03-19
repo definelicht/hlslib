@@ -3,11 +3,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(hlslib)
 
-option(BUILD_TESTS "Build tests for hlslib" ON)
-option(BUILD_DOCUMENTATION "Build documentation for hlslib" ON)
-option(HLSLIB_XILINX "Use Xilinx FPGA ecosystem" ON)
-option(HLSLIB_INTEL "Use Intel FPGA ecosystem" ON)
-
 # Include custom Find<Module>.cmake scripts to enable searching for
 # Vitis/SDx/SDAccel and Intel FPGA OpenCL.
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
@@ -16,43 +11,33 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY ON)
 
 # Generate Doxygen if available
-if(${BUILD_DOCUMENTATION})
-  find_package(Doxygen REQUIRED)
+find_package(Doxygen)
+if(Doxygen_FOUND)
   configure_file(${CMAKE_SOURCE_DIR}/Doxyfile.in Doxyfile)
   add_custom_target(doxygen ALL
-      COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile
+      COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile 
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-endif()
-
-# Find Xilinx and Intel OpenCL software for enabling test targets
-find_package(Threads REQUIRED)
-find_package(OpenCL REQUIRED)
-if(${HLSLIB_XILINX})
-  find_package(Vitis REQUIRED)
-endif()
-if(${HLSLIB_INTEL})
-  find_package(IntelFPGAOpenCL REQUIRED)
 endif()
 
 # hlslib target
 add_library(hlslib INTERFACE)
 target_include_directories(hlslib INTERFACE
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-    ${Vitis_INCLUDE_DIRS})
-target_link_libraries(hlslib INTERFACE
-    ${CMAKE_THREAD_LIBS_INIT}
-    OpenCL::OpenCL)
+    $<INSTALL_INTERFACE:include>)
 
-if(${BUILD_TESTS})
-  enable_testing()
-  # Xilinx example setup and testing
-  if(${HLSLIB_XILINX})
-    add_subdirectory(xilinx_test)
-  endif()
-  if(${HLSLIB_INTEL})
-    add_subdirectory(intel_test)
-  endif()
+enable_testing()
+
+# Find Xilinx and Intel OpenCL software for enabling test targets 
+find_package(Threads)
+find_package(Vitis)
+find_package(IntelFPGAOpenCL)
+
+# Xilinx example setup and testing
+if(Vitis_FOUND AND Threads_FOUND)
+  add_subdirectory(xilinx_test)
+endif()
+if(IntelFPGAOpenCL_FOUND AND Threads_FOUND)
+  add_subdirectory(intel_test)
 endif()
 
 # Installation
