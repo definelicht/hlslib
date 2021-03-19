@@ -1,7 +1,7 @@
 /// @author    Johannes de Fine Licht (definelicht@inf.ethz.ch)
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
-#include "hlslib/xilinx/SDAccel.h"
+#include "hlslib/xilinx/OpenCL.h"
 #include "MultiStageAdd.h"
 #include <iostream>
 

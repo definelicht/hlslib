@@ -1,7 +1,7 @@
 #include <cmath>
 #include <iostream>
 #include "ShiftRegister.h"
-#include "hlslib/xilinx/SDAccel.h"
+#include "hlslib/xilinx/OpenCL.h"
 
 // Convert from C to C++
 constexpr auto kUsage = "Usage: ./RunShiftRegister <[emulator/hardware]>\n";

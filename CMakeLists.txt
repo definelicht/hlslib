@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.0)
 project(hlslib)
 
 # Include custom Find<Module>.cmake scripts to enable searching for
-# Vitis/SDAccel and Intel FPGA OpenCL.
+# Vitis/SDx/SDAccel and Intel FPGA OpenCL.
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 # Without this variable set, CMake will build tests when running install
@@ -52,5 +52,4 @@ install(EXPORT hlslibConfig DESTINATION cmake)
 export(TARGETS hlslib FILE hlslibConfig.cmake)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/hlslib DESTINATION include)
 install(FILES ${PROJECT_SOURCE_DIR}/cmake/FindVitis.cmake DESTINATION cmake)
-install(FILES ${PROJECT_SOURCE_DIR}/cmake/FindSDAccel.cmake DESTINATION cmake)
 install(FILES ${PROJECT_SOURCE_DIR}/cmake/FindIntelFPGAOpenCL.cmake DESTINATION cmake)

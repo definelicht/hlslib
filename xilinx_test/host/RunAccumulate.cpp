@@ -2,7 +2,7 @@
 /// @copyright This software is copyrighted under the BSD 3-Clause License. 
 
 #include "AccumulateCommon.h"
-#include "hlslib/xilinx/SDAccel.h"
+#include "hlslib/xilinx/OpenCL.h"
 #include <random>
 #ifdef HLSLIB_COMPILE_ACCUMULATE_FLOAT
 #include "AccumulateFloat.h"

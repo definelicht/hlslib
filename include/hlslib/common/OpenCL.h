@@ -21,7 +21,7 @@
 #include <vector>
 
 #if !defined(HLSLIB_XILINX_OPENCL_H) && !defined(HLSLIB_INTEL_OPENCL_H)
-#error "This header should not be included directly. Include either the Xilinx (hlslib/xilinx/SDAccel.h) or Intel OpenCL (hlslib/intel/OpenCL.h) header."
+#error "This header should not be included directly. Include either the Xilinx (hlslib/xilinx/OpenCL.h) or Intel OpenCL (hlslib/intel/OpenCL.h) header."
 #endif
 
 #if defined(HLSLIB_XILINX_OPENCL_H) && defined(HLSLIB_INTEL_OPENCL_H)
@@ -84,7 +84,7 @@ void ThrowConfigurationError(std::string const &message) {
 #ifndef HLSLIB_DISABLE_EXCEPTIONS
   throw ConfigurationError(message);
 #else
-  std::cerr << "SDAccel [Configuration Error]: " << message << std::endl;
+  std::cerr << "OpenCL [Configuration Error]: " << message << std::endl;
 #endif
 }
 
@@ -92,7 +92,7 @@ void ThrowRuntimeError(std::string const &message) {
 #ifndef HLSLIB_DISABLE_EXCEPTIONS
   throw RuntimeError(message);
 #else
-  std::cerr << "SDAccel [Runtime Error]: " << message << std::endl;
+  std::cerr << "OpenCL [Runtime Error]: " << message << std::endl;
 #endif
 }
 
@@ -821,7 +821,7 @@ class Kernel {
 #endif
 
   /// Execute the kernel as an OpenCL task, wait for it to finish, then return
-  /// the time elapsed as reported by SDAccel (first) and as measured with
+  /// the time elapsed as reported by OpenCL (first) and as measured with
   /// chrono (second).
   inline std::pair<double, double> ExecuteTask() {
     const auto start = std::chrono::high_resolution_clock::now();
@@ -835,8 +835,8 @@ class Kernel {
     cl_ulong timeStart, timeEnd;
     event.getProfilingInfo(CL_PROFILING_COMMAND_START, &timeStart);
     event.getProfilingInfo(CL_PROFILING_COMMAND_END, &timeEnd);
-    const double elapsedSDAccel = 1e-9 * (timeEnd - timeStart);
-    return {elapsedSDAccel, elapsedChrono};
+    const double elapsedOpenCL = 1e-9 * (timeEnd - timeStart);
+    return {elapsedOpenCL, elapsedChrono};
 #else
     return {elapsedChrono, elapsedChrono};
 #endif
@@ -994,7 +994,7 @@ Kernel Program::MakeKernel(F &&hostFunction, std::string const &kernelName,
 }
 
 //#############################################################################
-// Aligned allocator, for creating page-aligned vectors to stop SDAccel from
+// Aligned allocator, for creating page-aligned vectors to stop OpenCL from
 // complaining.
 //#############################################################################
 

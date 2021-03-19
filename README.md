@@ -17,7 +17,7 @@ There are a few ways:
 
 Just `#include` the header(s) you are interested in. You can see an example [here](https://github.com/spcl/gemm_hls).
 
-When a Xilinx hlslib header is included, compilation must allow C++11 features, and the macro `HLSLIB_SYNTHESIS` must be set whenever HLS is run. Set `-cflags "-std=c++11 -DHLSLIB_SYNTHESIS"` in your synthesis script, and `--xp prop:kernel.<entry function>.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS"` when building SDAccel kernels. See the included `xilinx_test/CMakeLists.txt` for reference. 
+When a Xilinx hlslib header is included, compilation must allow C++11 features, and the macro `HLSLIB_SYNTHESIS` must be set whenever HLS is run. Set `-cflags "-std=c++11 -DHLSLIB_SYNTHESIS"` in your synthesis script, and `--xp prop:kernel.<entry function>.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS"` when building Xilinx kernels. See the included `xilinx_test/CMakeLists.txt` for reference. 
 
 ## Feature overview
 
@@ -27,7 +27,7 @@ A brief overview of hlslib features is given below.
 
 #### CMake integration
 
-For integrating the Xilinx or Intel HLS tools in your project, the `FindSDAccel.cmake` and `FindIntelFPGAOpenCL.cmake` are provided in the `cmake` subdirectory. The scripts will set all necessary variables required to build both host and device code.
+For integrating the Xilinx or Intel HLS tools in your project, the `FindVitis.cmake` and `FindIntelFPGAOpenCL.cmake` are provided in the `cmake` subdirectory. The scripts will set all necessary variables required to build both host and device code.
 
 Example `CMakeLists.txt`:
 ```cmake
@@ -113,7 +113,7 @@ void Foo(hlslib::Stream<int> &in_stream, // Specifying stream depth is optional
 
 #### OpenCL host code
 
-To greatly reduce the amount of boilerplate code required to create and launch OpenCL kernels, and to handle FPGA-specific configuration required by the vendors, hlslib provides a C++14 convenience interface in `hlslib/xilinx/SDAccel.h` and `hlslib/intel/OpenCL.h` for Vivado HLS and Intel FPGA OpenCL, respectively.
+To greatly reduce the amount of boilerplate code required to create and launch OpenCL kernels, and to handle FPGA-specific configuration required by the vendors, hlslib provides a C++14 convenience interface in `hlslib/xilinx/OpenCL.h` and `hlslib/intel/OpenCL.h` for Xilinx and Intel FPGA OpenCL, respectively.
 
 Example usage:
 ```cpp
