@@ -10,7 +10,7 @@ set(HLSLIB_BUILD_DOCUMENTATION CACHE BOOL ON
 
 # Include custom Find<Module>.cmake scripts to enable searching for
 # Vitis/SDx/SDAccel and Intel FPGA OpenCL.
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
 # Find Xilinx and Intel OpenCL software for enabling test targets 
 find_package(Threads)
@@ -31,7 +31,7 @@ target_link_libraries(hlslib INTERFACE
 
 # Check if hlslib is being built standalone or as a subproject
 if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  set(HLSLIB_IS_SUBPROJECT)
+  set(HLSLIB_IS_SUBPROJECT TRUE)
 endif()
 
 # Only build tests and documentation if hlslib is built standalone
@@ -59,7 +59,7 @@ if(NOT HLSLIB_IS_SUBPROJECT)
     # Generate Doxygen if available
     find_package(Doxygen)
     if(Doxygen_FOUND)
-      configure_file(${CMAKE_SOURCE_DIR}/Doxyfile.in Doxyfile)
+      configure_file(${PROJECT_SOURCE_DIR}/Doxyfile.in Doxyfile)
       add_custom_target(doxygen ALL
           COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile 
           WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
