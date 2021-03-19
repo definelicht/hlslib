@@ -12,6 +12,7 @@
 #   Vitis_VERSION_MAJOR - Major version of Vitis/SDx/SDAccel installation.
 #   Vitis_VERSION_MINOR - Minor version of Vitis/SDx/SDAccel installation.
 #   Vitis_IS_LEGACY - Set if using a pre-Vitis version (i.e., SDx or SDAccel)
+#   Vitis_PLATFORMINFO - Path to the utility for extracting information from installed platforms
 #
 # To specify the location of Vitis or SDAccel, or to force this script to use a
 # specific version, set the variable VITIS_ROOT, SDX_ROOT, or SDACCEL_ROOT to
@@ -57,6 +58,7 @@ endif()
 
 find_program(Vitis_XOCC xocc PATHS ${VITIS_ROOT}/bin NO_DEFAULT_PATH)
 find_program(Vitis_VPP v++ PATHS ${VITIS_ROOT}/bin NO_DEFAULT_PATH)
+find_program(Vitis_PLATFORMINFO platforminfo PATHS ${VITIS_ROOT}/bin NO_DEFAULT_PATH)
 mark_as_advanced(Vitis_XOCC)
 mark_as_advanced(Vitis_VPP)
 if(Vitis_XOCC)
@@ -73,6 +75,7 @@ unset(Vitis_XOCC)
 unset(Vitis_VPP)
 set(Vitis_COMPILER ${VITIS_COMPILER} CACHE STRING "Compiler used to build FPGA kernels." FORCE)
 set(Vitis_IS_LEGACY ${VITIS_IS_LEGACY} CACHE STRING "Using legacy version of toolchain (pre-Vitis)." FORCE)
+set(Vitis_PLATFORMINFO ${Vitis_PLATFORMINFO} CACHE STRING "Utility for extracting information from Xilinx platforms." FORCE)
 
 # Get version number string
 get_filename_component(VITIS_VERSION "${VITIS_ROOT}" NAME)
@@ -264,7 +267,8 @@ set(Vitis_EXPORTS
     Vitis_FLOATING_POINT_LIBRARY 
     Vitis_VERSION
     Vitis_MAJOR_VERSION
-    Vitis_MINOR_VERSION)
+    Vitis_MINOR_VERSION
+    Vitis_PLATFORMINFO)
 mark_as_advanced(Vitis_EXPORTS)
 
 include(FindPackageHandleStandardArgs)
