@@ -1,5 +1,5 @@
 /// @author    Johannes de Fine Licht (definelicht@inf.ethz.ch)
-/// @copyright This software is copyrighted under the BSD 3-Clause License. 
+/// @copyright This software is copyrighted under the BSD 3-Clause License.
 
 #pragma once
 
@@ -62,7 +62,7 @@ private:
  public:
   inline static _Dataflow& Get() { // Singleton pattern
     static _Dataflow df;
-    return df; 
+    return df;
   }
 
   template <class Ret, typename... Args>
@@ -88,7 +88,7 @@ private:
   std::vector<std::thread> threads_{};
   // std::vector<std::unique_ptr<_StreamBase>> streams_{};
 };
-#define HLSLIB_DATAFLOW_INIT() 
+#define HLSLIB_DATAFLOW_INIT()
 #define HLSLIB_DATAFLOW_FUNCTION(func, ...) \
   ::hlslib::_Dataflow::Get().AddFunction(func, __VA_ARGS__)
 #define HLSLIB_DATAFLOW_FINALIZE() ::hlslib::_Dataflow::Get().Join();
