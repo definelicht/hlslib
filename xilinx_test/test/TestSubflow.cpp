@@ -7,7 +7,7 @@
 TEST_CASE("Subflow", "[Subflow]") {
   std::random_device rd;
   std::default_random_engine re(rd());
-  std::uniform_real_distribution<Data_t> dist(10, 1);
+  std::uniform_int_distribution<Data_t> dist(10, 1);
   std::vector<Data_t> memIn(dataSize), memOut(dataSize);
   for (unsigned i=0; i<dataSize; ++i) {
     memIn[i] = dist(re);
