@@ -4,7 +4,8 @@
 #pragma once
 
 #ifndef HLSLIB_SYNTHESIS
-#include <atomic>
+#include <condition_variable>
+#include <mutex>
 #include <queue>
 #include <thread>
 #include <vector>
@@ -87,10 +88,11 @@ private:
       subflows_.back().AddSubflow(func, args...);
     } else {
       subflows_.emplace();
+      std::unique_lock<std::mutex> lock(mutex_);
       subflow_active_ = true;
       threads_.emplace_back(func, passed_by(std::forward<Args>(args),
                                             std::is_reference<Args>{})...);
-      while (subflow_active_) continue;
+      while (subflow_active_) cond_var_.wait(lock);
     }
   }
 
@@ -98,7 +100,10 @@ private:
     if (subflows_.back().subflow_active_) {
       subflows_.back().FinalizeSubflow();
     } else {
+      std::unique_lock<std::mutex> send_lock(mutex_);
       subflow_active_ = false;
+      send_lock.unlock();
+      cond_var_.notify_one();
       subflows_.back().Join();
     }
   }
@@ -120,7 +125,9 @@ private:
 private:
   std::vector<std::thread> threads_{};
   std::queue<_Dataflow> subflows_;
-  std::atomic<bool> subflow_active_;
+  bool subflow_active_;
+  std::mutex mutex_;
+  std::condition_variable cond_var_;
   // std::vector<std::unique_ptr<_StreamBase>> streams_{};
 };
 #define HLSLIB_DATAFLOW_INIT()
