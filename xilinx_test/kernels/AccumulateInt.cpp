@@ -22,13 +22,13 @@ void AccumulateInt(DataPack_t const *memoryIn, DataPack_t *memoryOut, int size,
   // functions with multiple template arguments
 #ifndef HLSLIB_SYNTHESIS
   HLSLIB_DATAFLOW_INIT();
-  hlslib::_Dataflow::Get().AddFunction(Read<DataPack_t>, memoryIn, pipeIn,
-                                       iterations * size);
-  hlslib::_Dataflow::Get().AddFunction(
+  __hlslib_dataflow_context.AddFunction(Read<DataPack_t>, memoryIn, pipeIn,
+                                        iterations * size);
+  __hlslib_dataflow_context.AddFunction(
       hlslib::AccumulateSimple<DataPack_t, Operator>, pipeIn, pipeOut,
       iterations, size);
-  hlslib::_Dataflow::Get().AddFunction(Write<DataPack_t>, pipeOut,
-                                       memoryOut, iterations);
+  __hlslib_dataflow_context.AddFunction(Write<DataPack_t>, pipeOut, memoryOut,
+                                        iterations);
   HLSLIB_DATAFLOW_FINALIZE();
 #else
   Read<DataPack_t>(memoryIn, pipeIn, iterations * size);

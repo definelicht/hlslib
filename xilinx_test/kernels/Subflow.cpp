@@ -26,11 +26,11 @@ void MultiplyByTwo(hlslib::Stream<Data_t>& internal,
 }
 
 void Subtask(hlslib::Stream<Data_t>& inPipe, hlslib::Stream<Data_t>& outPipe) {
-  HLSLIB_SUBFLOW_INIT();
+  HLSLIB_DATAFLOW_INIT();
   hlslib::Stream<Data_t> internal;
   HLSLIB_DATAFLOW_FUNCTION(AddOne, inPipe, internal);
   HLSLIB_DATAFLOW_FUNCTION(MultiplyByTwo, internal, outPipe);
-  HLSLIB_SUBFLOW_FINALIZE();
+  HLSLIB_DATAFLOW_FINALIZE();
 }
 
 void WriteOut(hlslib::Stream<Data_t>& outPipe, Data_t* memOut) {
@@ -45,7 +45,7 @@ void Subflow(const Data_t* memIn, Data_t* memOut) {
   HLSLIB_DATAFLOW_INIT();
   hlslib::Stream<Data_t> inPipe, outPipe;
   HLSLIB_DATAFLOW_FUNCTION(ReadIn, memIn, inPipe);
-  HLSLIB_ADD_SUBFLOW(Subtask, inPipe, outPipe);
+  HLSLIB_DATAFLOW_FUNCTION(Subtask, inPipe, outPipe);
   HLSLIB_DATAFLOW_FUNCTION(WriteOut, outPipe, memOut);
   HLSLIB_DATAFLOW_FINALIZE();
 }

@@ -19,9 +19,10 @@
 // which will launch them as a C++ thread when running simulation, but will
 // fall back on normal function calls when running synthesis.
 //
+// The macro HLSLIB_DATAFLOW_INIT must be called before adding dataflow
+// functions, in order to initialize the local context.
 // The macro HLSLIB_DATAFLOW_FINALIZE must be called before returning from the
 // top level function to join the dataflow threads.
-// HLSLIB_DATAFLOW_INIT currently has no purpose, but is included for symmetry.
 //
 // TODO: HLSLIB_DATAFLOW_FUNCTION does not work when calling templated functions
 //       with multiple arguments, as it considers the comma a separator between
@@ -35,19 +36,15 @@ namespace hlslib {
 #ifdef HLSLIB_SYNTHESIS
 #define HLSLIB_DATAFLOW_INIT()
 #define HLSLIB_DATAFLOW_FUNCTION(func, ...) func(__VA_ARGS__)
-#define HLSLIB_ADD_SUBFLOW(func, ...) func(__VA_ARGS__)
-#define HLSLIB_SUBFLOW_INIT()
-#define HLSLIB_SUBFLOW_FINALIZE()
 #define HLSLIB_DATAFLOW_FINALIZE()
 #else
 namespace {
 class _Dataflow {
-
-public:
-  inline _Dataflow() : subflow_active_(false) {}
+ public:
+  inline _Dataflow() {}
   inline ~_Dataflow() { this->Join(); }
 
-private:
+ private:
   template <typename T>
   struct non_deducible {
     using type = T;
@@ -67,78 +64,27 @@ private:
   }
 
  public:
-  inline static _Dataflow& Get() { // Singleton pattern
-    static _Dataflow df;
-    return df;
-  }
-
   template <class Ret, typename... Args>
   void AddFunction(Ret (*func)(Args...), non_deducible_t<Args>... args) {
-    if (subflow_active_) {
-      subflows_.back().AddFunction(func, args...);
-    } else {
-      threads_.emplace_back(func, passed_by(std::forward<Args>(args),
-                                            std::is_reference<Args>{})...);
-    }
+    threads_.emplace_back(func, passed_by(std::forward<Args>(args),
+                                          std::is_reference<Args>{})...);
   }
-
-  template <class Ret, typename... Args>
-  void AddSubflow(Ret (*func)(Args...), non_deducible_t<Args>... args) {
-    if (subflow_active_) {
-      subflows_.back().AddSubflow(func, args...);
-    } else {
-      subflows_.emplace();
-      std::unique_lock<std::mutex> lock(mutex_);
-      subflow_active_ = true;
-      threads_.emplace_back(func, passed_by(std::forward<Args>(args),
-                                            std::is_reference<Args>{})...);
-      while (subflow_active_) cond_var_.wait(lock);
-    }
-  }
-
-  inline void FinalizeSubflow() {
-    if (subflows_.back().subflow_active_) {
-      subflows_.back().FinalizeSubflow();
-    } else {
-      std::unique_lock<std::mutex> send_lock(mutex_);
-      subflow_active_ = false;
-      send_lock.unlock();
-      cond_var_.notify_one();
-      subflows_.back().Join();
-    }
-  }
-
-  // template <typename T, typename... Args>
-  // Stream<T>& EmplaceStream(Args&&... args) {
-  //   streams_.emplace_back(std::unique_ptr<Stream<T>>(new Stream<T>(args...)));
-  //   return *static_cast<Stream<T> *>(streams_.back().get());
-  // }
 
   inline void Join() {
-    for (auto &t : threads_) {
+    for (auto& t : threads_) {
       t.join();
     }
     threads_.clear();
-    while (!subflows_.empty()) subflows_.pop();
   }
 
-private:
+ private:
   std::vector<std::thread> threads_{};
-  std::queue<_Dataflow> subflows_;
-  bool subflow_active_;
-  std::mutex mutex_;
-  std::condition_variable cond_var_;
-  // std::vector<std::unique_ptr<_StreamBase>> streams_{};
 };
-#define HLSLIB_DATAFLOW_INIT()
+#define HLSLIB_DATAFLOW_INIT() ::hlslib::_Dataflow __hlslib_dataflow_context;
 #define HLSLIB_DATAFLOW_FUNCTION(func, ...) \
-  ::hlslib::_Dataflow::Get().AddFunction(func, __VA_ARGS__)
-#define HLSLIB_ADD_SUBFLOW(func, ...) \
-  ::hlslib::_Dataflow::Get().AddSubflow(func, __VA_ARGS__)
-#define HLSLIB_SUBFLOW_INIT()
-#define HLSLIB_SUBFLOW_FINALIZE() ::hlslib::_Dataflow::Get().FinalizeSubflow()
-#define HLSLIB_DATAFLOW_FINALIZE() ::hlslib::_Dataflow::Get().Join();
-}
+  __hlslib_dataflow_context.AddFunction(func, __VA_ARGS__)
+#define HLSLIB_DATAFLOW_FINALIZE() __hlslib_dataflow_context.Join();
+}  // namespace
 #endif
 
-} // End namespace hlslib
+}  // End namespace hlslib
