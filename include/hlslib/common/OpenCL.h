@@ -21,7 +21,8 @@
 #include <vector>
 
 #if !defined(HLSLIB_XILINX_OPENCL_H) && !defined(HLSLIB_INTEL_OPENCL_H)
-#error "This header should not be included directly. Include either the Xilinx (hlslib/xilinx/OpenCL.h) or Intel OpenCL (hlslib/intel/OpenCL.h) header."
+#error \
+    "This header should not be included directly. Include either the Xilinx (hlslib/xilinx/OpenCL.h) or Intel OpenCL (hlslib/intel/OpenCL.h) header."
 #endif
 
 #if defined(HLSLIB_XILINX_OPENCL_H) && defined(HLSLIB_INTEL_OPENCL_H)
@@ -298,7 +299,7 @@ class Context {
 #endif
   }
 
-  /// Performs initialization of the specified device index. 
+  /// Performs initialization of the specified device index.
   inline Context(int index) : Context(HLSLIB_OPENCL_VENDOR_STRING, index) {}
 
   /// Performs initialization of first available device.
@@ -426,18 +427,17 @@ class Buffer {
     cl_int errorCode;
     devicePtr_ = cl::Buffer(context.context(), flags, sizeof(T) * nElements_,
                             hostPtr, &errorCode);
-    #ifdef HLSLIB_INTEL
-    //copy data to device
+#ifdef HLSLIB_INTEL
     CopyFromHost(begin);
-    #endif 
+#endif
 
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to initialize and copy to device memory.");
       return;
     }
 #else
-    devicePtr_ = std::vector<T>(nElements_);
-    std::copy(begin, end, devicePtr_.begin());
+    devicePtr_ = std::make_unique<T[]>(nElements_);
+    std::copy(begin, end, devicePtr_.get());
 #endif
   }
 
@@ -492,7 +492,7 @@ class Buffer {
       return;
     }
 #else
-    devicePtr_ = std::vector<T>(nElements_);
+    devicePtr_ = std::make_unique<T[]>(nElements_);
 #endif
   }
 
@@ -533,7 +533,7 @@ class Buffer {
       throw std::runtime_error("Failed to copy data to device.");
     }
 #else
-    std::copy(source, source + numElements, devicePtr_.begin() + deviceOffset);
+    std::copy(source, source + numElements, devicePtr_.get() + deviceOffset);
 #endif
   }
 
@@ -564,8 +564,8 @@ class Buffer {
       return;
     }
 #else
-    std::copy(devicePtr_.begin() + deviceOffset,
-              devicePtr_.begin() + deviceOffset + numElements, target);
+    std::copy(devicePtr_.get() + deviceOffset,
+              devicePtr_.get() + deviceOffset + numElements, target);
 #endif
   }
 
@@ -599,9 +599,9 @@ class Buffer {
       return;
     }
 #else
-    std::copy(devicePtr_.begin() + offsetSource,
-              devicePtr_.begin() + offsetSource + numElements,
-              other.devicePtr_.begin() + offsetDestination);
+    std::copy(devicePtr_.get() + offsetSource,
+              devicePtr_.get() + offsetSource + numElements,
+              other.devicePtr_.get() + offsetDestination);
 #endif
   }
 
@@ -625,9 +625,9 @@ class Buffer {
 
   cl::Buffer &devicePtr() { return devicePtr_; }
 #else
-  T const *devicePtr() const { return devicePtr_.data(); }
+  T const *devicePtr() const { return devicePtr_.get(); }
 
-  T *devicePtr() { return devicePtr_.data(); }
+  T *devicePtr() { return devicePtr_.get(); }
 #endif
 
   size_t nElements() const { return nElements_; }
@@ -648,7 +648,7 @@ class Buffer {
 #ifndef HLSLIB_SIMULATE_OPENCL
   cl::Buffer devicePtr_{};
 #else
-  std::vector<T> devicePtr_{};
+  std::unique_ptr<T[]> devicePtr_{};
 #endif
   size_t nElements_;
 
@@ -800,7 +800,7 @@ class Kernel {
     // Pass kernel arguments
     SetKernelArguments(0, std::forward<Ts>(kernelArgs)...);
 
-#ifdef HLSLIB_INTEL // Every kernel has it's own command queue on Intel
+#ifdef HLSLIB_INTEL  // Every kernel has it's own command queue on Intel
     commandQueue_ = CreateCommandQueue(program_.context().context(),
                                        program_.context().device());
 #endif
