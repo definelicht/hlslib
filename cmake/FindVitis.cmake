@@ -187,9 +187,9 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
     if(NOT DEFINED XRT_ROOT_DIR)
 
       find_path(XRT_SEARCH_PATH libxilinxopencl.so 
-                PATHS /opt/xilinx/xrt /opt/Xilinx/xrt
+                PATHS ENV XILINX_XRT
+                      /opt/xilinx/xrt /opt/Xilinx/xrt
                       /tools/Xilinx/xrt /tools/xilinx/xrt
-                      ENV XILINX_XRT
                 PATH_SUFFIXES lib)
       get_filename_component(XRT_ROOT_DIR ${XRT_SEARCH_PATH} DIRECTORY) 
       mark_as_advanced(XRT_SEARCH_PATH)
