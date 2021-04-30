@@ -184,29 +184,29 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
 
   else()
 
-    if(NOT DEFINED XRT_ROOT_DIR)
+    if(NOT DEFINED XRT_ROOT)
 
       find_path(XRT_SEARCH_PATH libxilinxopencl.so 
                 PATHS /opt/xilinx/xrt /opt/Xilinx/xrt
                       /tools/Xilinx/xrt /tools/xilinx/xrt
                       ENV XILINX_XRT
                 PATH_SUFFIXES lib)
-      get_filename_component(XRT_ROOT_DIR ${XRT_SEARCH_PATH} DIRECTORY) 
+      get_filename_component(XRT_ROOT ${XRT_SEARCH_PATH} DIRECTORY) 
       mark_as_advanced(XRT_SEARCH_PATH)
 
       if(NOT XRT_SEARCH_PATH)
-        message(FATAL_ERROR "The Xilinx Runtime (XRT) was not found. You can specify the XRT directory with the XRT_ROOT_DIR variable.")
+        message(FATAL_ERROR "The Xilinx Runtime (XRT) was not found. You can specify the XRT directory with the XRT_ROOT variable or set the XILINX_XRT environment variable.")
       endif()
 
-      message(STATUS "Found Xilinx Runtime (XRT): ${XRT_ROOT_DIR}")
+      message(STATUS "Found Xilinx Runtime (XRT): ${XRT_ROOT}")
 
     else() 
 
-      message(STATUS "Using user defined Xilinx Runtime (XRT) directory \"${XRT_ROOT_DIR}\".")
+      message(STATUS "Using user defined Xilinx Runtime (XRT) directory \"${XRT_ROOT}\".")
 
     endif()
 
-    set(VITIS_RUNTIME_DIR ${XRT_ROOT_DIR})
+    set(VITIS_RUNTIME_DIR ${XRT_ROOT})
 
     # XRT doesn't ship with its own OpenCL headers and standard OpenCL library:
     # use system OpenCL libraries and headers.
