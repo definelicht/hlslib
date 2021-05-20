@@ -32,6 +32,7 @@ constexpr auto kMemoryBank0 = XCL_MEM_DDR_BANK0;
 constexpr auto kMemoryBank1 = XCL_MEM_DDR_BANK1;
 constexpr auto kMemoryBank2 = XCL_MEM_DDR_BANK2;
 constexpr auto kMemoryBank3 = XCL_MEM_DDR_BANK3;
+constexpr auto hbmStorageMagicNumber = XCL_MEM_TOPOLOGY;
 using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
 #else
 // Before 2017.4, these values were only available numerically, and the

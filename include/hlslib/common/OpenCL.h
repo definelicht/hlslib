@@ -44,6 +44,9 @@ enum class Access { read, write, readWrite };
 /// Mapping to specific memory banks on the FPGA
 enum class MemoryBank { unspecified, bank0, bank1, bank2, bank3 };
 
+///Enum for storage types on the FPGA
+enum class StorageType {DDR, HBM};
+
 //#############################################################################
 // OpenCL exceptions
 //#############################################################################
@@ -499,6 +502,98 @@ class Buffer {
   Buffer(Context &context, size_t nElements)
       : Buffer(context, MemoryBank::unspecified, nElements) {}
 
+#ifdef HLSLIB_XILINX
+  //HBMDACE
+  /// Allocate DDR or HBM but don't perform any transfers.
+  Buffer(Context &context, StorageType storageType, uint8_t bankIndex, size_t nElements)
+      : context_(&context), nElements_(nElements) {
+#ifndef HLSLIB_SIMULATE_OPENCL
+
+    cl_mem_flags flags;
+    switch (access) {
+      case Access::read:
+        flags = CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        flags = CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        flags = CL_MEM_READ_WRITE;
+        break;
+    }
+
+    void *hostPtr = nullptr;
+    ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
+      nullptr, storageType, bankIndex
+    );
+    hostPtr = &extendedHostPointer;
+    flags |= kXilinxMemPointer;
+
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      devicePtr_ = cl::Buffer(context_->context(), flags,
+                              sizeof(T) * nElements_, hostPtr, &errorCode);
+    }
+
+    if (errorCode != CL_SUCCESS) {
+      ThrowRuntimeError("Failed to initialize device memory.");
+      return;
+    }
+#else
+    devicePtr_ = std::make_unique<T[]>(nElements_);
+#endif
+  }
+
+ /// Allocate on HBM or DDR and copy to device
+  template <typename IteratorType, typename = typename std::enable_if<
+                                       IsIteratorOfType<IteratorType, T>() &&
+                                       IsRandomAccess<IteratorType>()>::type>
+  Buffer(Context &context, StorageType storageType, uint8_t bankIndex, IteratorType begin,
+         IteratorType end)
+      : context_(&context), nElements_(std::distance(begin, end)) {
+#ifndef HLSLIB_SIMULATE_OPENCL
+
+    void *hostPtr = nullptr;
+    cl_mem_flags flags;
+
+    switch (access) {
+      case Access::read:
+        flags = CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        flags = CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        flags = CL_MEM_READ_WRITE;
+        break;
+    }
+
+    hostPtr = const_cast<T *>(&(*begin));
+    flags |= CL_MEM_USE_HOST_PTR;
+    // Allow specifying memory bank
+    ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
+      hostPtr, storageType, bankIndex
+    );
+    hostPtr = &extendedHostPointer;
+    flags |= kXilinxMemPointer;
+
+    cl_int errorCode;
+    devicePtr_ = cl::Buffer(context.context(), flags, sizeof(T) * nElements_,
+                            hostPtr, &errorCode);
+
+    if (errorCode != CL_SUCCESS) {
+      ThrowRuntimeError("Failed to initialize and copy to device memory.");
+      return;
+    }
+#else
+    devicePtr_ = std::make_unique<T[]>(nElements_);
+    std::copy(begin, end, devicePtr_.get());
+#endif
+  }
+
+#endif //HLSLIB_XILINX
+
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
     std::swap(first.context_, second.context_);
     std::swap(first.devicePtr_, second.devicePtr_);
@@ -511,6 +606,8 @@ class Buffer {
     swap(*this, other);
     return *this;
   }
+
+  //TODO: Add constructor
 
   ~Buffer() = default;
 
@@ -620,6 +717,102 @@ class Buffer {
     CopyToDevice(0, nElements_, other, 0);
   }
 
+//HBMDACE
+//Add an overload that allows to Read/Write/Copy 2d or 3d parts of object (using EnqueueReadBufferRect and friends)
+template <typename IteratorType, typename = typename std::enable_if<
+                                      IsIteratorOfType<IteratorType, T>() &&
+                                      IsRandomAccess<IteratorType>()>::type>
+  void CopyBlockFromHost(const std::array<size_t, 3> hostBlockOffset, const std::array<size_t, 3> deviceBlockOffset,
+                        const std::array<size_t, 3> copyBlockSize, const std::array<size_t, 3> hostBlockSize,
+                        const std::array<size_t, 3> deviceBlockSize, IteratorType source) {
+#ifndef HLSLIB_SIMULATE_OPENCL
+    cl::Event event;
+    std::array<size_t, 3> hostBlockOffsetBytes, deviceBlockOffsetBytes, copyBlockSizeBytes;
+    std::array<size_t, 2> hostBlockSizesBytes, deviceBlockSizesBytes;
+    BlockOffsetsToBytes(hostBlockOffset, deviceBlockOffset, copyBlockSize, hostBlockSize, deviceBlockSize,
+                      hostBlockOffsetBytes, deviceBlockOffsetBytes, copyBlockSizeBytes, hostBlockSizesBytes, 
+                      deviceBlockSizesBytes, sizeof(T));
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      errorCode = context_->commandQueue().enqueueWriteBufferRect(
+        devicePtr_, CL_TRUE, deviceBlockOffsetBytes, hostBlockOffsetBytes, copyBlockSizeBytes, 
+        deviceBlockSizesBytes[0], deviceBlockSizesBytes[1], hostBlockOffsetBytes[0],
+        hostBlockSizesBytes[1], const_cast<T *>(&(*source)), nullptr, &event
+      );
+    }
+    if (errorCode != CL_SUCCESS) {
+      throw std::runtime_error("Failed to copy data to device.");
+    }
+#else
+    CopyMemoryBlockSimulate(hostBlockOffset, deviceBlockOffset, copyBlockSize, hostBlockSize, deviceBlockSize,
+      source, devicePtr_.get());
+#endif
+  }
+
+  template <typename IteratorType, typename = typename std::enable_if<
+                                      IsIteratorOfType<IteratorType, T>() &&
+                                      IsRandomAccess<IteratorType>()>::type>
+  void CopyBlockToHost(const std::array<size_t, 3> hostBlockOffset, const std::array<size_t, 3> deviceBlockOffset,
+                        const std::array<size_t, 3> copyBlockSize, const std::array<size_t, 3> hostBlockSize,
+                        const std::array<size_t, 3> deviceBlockSize, IteratorType target) {
+#ifndef HLSLIB_SIMULATE_OPENCL
+    cl::Event event;
+    std::array<size_t, 3> hostBlockOffsetBytes, deviceBlockOffsetBytes, copyBlockSizeBytes;
+    std::array<size_t, 2> hostBlockSizesBytes, deviceBlockSizesBytes;
+    BlockOffsetsToBytes(hostBlockOffset, deviceBlockOffset, copyBlockSize, hostBlockSize, deviceBlockSize,
+                      hostBlockOffsetBytes, deviceBlockOffsetBytes, copyBlockSizeBytes, hostBlockSizesBytes, 
+                      deviceBlockSizesBytes, sizeof(T));
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+        errorCode = context_->commandQueue().enqueueReadBufferRect(
+          devicePtr_, CL_TRUE, deviceBlockOffsetBytes, hostBlockOffsetBytes, copyBlockSizeBytes,
+          deviceBlockSizesBytes[0], deviceBlockSizesBytes[1], hostBlockOffsetBytes[0],
+          hostBlockSizesBytes[1], const_cast<T *>(&(*target)), nullptr, &event
+        );
+    }
+    if (errorCode != CL_SUCCESS) {
+      ThrowRuntimeError("Failed to copy back memory from device.");
+      return;
+    }
+#else
+    CopyMemoryBlockSimulate(deviceBlockOffset, hostBlockOffset, copyBlockSize, deviceBlockSize, hostBlockSize,
+                              devicePtr_.get(), target);
+#endif
+  }
+
+    template <Access accessType>
+  void CopyBlockToDevice(const std::array<size_t, 3> sourceBlockOffset, const std::array<size_t, 3> destBlockOffset,
+                        const std::array<size_t, 3> copyBlockSize, const std::array<size_t, 3> sourceBlockSize,
+                        const std::array<size_t, 3> destBlockSize, Buffer<T, accessType> &other) {
+#ifndef HLSLIB_SIMULATE_OPENCL
+    cl::Event event;
+    std::array<size_t, 3> sourceBlockOffsetBytes, destBlockOffsetBytes, copyBlockSizeBytes;
+    std::array<size_t, 2> sourceBlockSizesBytes, destBlockSizesBytes;
+    BlockOffsetsToBytes(sourceBlockOffset, destBlockOffset, copyBlockSize, sourceBlockSize, destBlockSize,
+                      sourceBlockOffsetBytes, destBlockOffsetBytes, copyBlockSizeBytes, sourceBlockSizesBytes, 
+                      destBlockSizesBytes, sizeof(T));
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      errorCode = context_->commandQueue().enqueueCopyBufferRect(
+        devicePtr_, other.devicePtr_, sourceBlockOffsetBytes, destBlockOffsetBytes, copyBlockSizeBytes,
+        sourceBlockSizesBytes[0], sourceBlockSizesBytes[1], destBlockSizesBytes[0], destBlockSizesBytes[1],
+        nullptr, &event
+      );
+    }
+    event.wait();
+    if (errorCode != CL_SUCCESS) {
+      ThrowRuntimeError("Failed to copy from device to device.");
+      return;
+    }
+#else
+    CopyMemoryBlockSimulate(sourceBlockOffset, destBlockOffset, copyBlockSize, sourceBlockSize, destBlockSize,
+                                devicePtr_.get(), other.devicePtr_.get());
+#endif
+  }
+
 #ifndef HLSLIB_SIMULATE_OPENCL
   cl::Buffer const &devicePtr() const { return devicePtr_; }
 
@@ -641,6 +834,87 @@ class Buffer {
     extendedPointer.obj = hostPtr;
     extendedPointer.param = 0;
     return extendedPointer;
+  }
+
+//HBMDACE
+  ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
+                                              StorageType storageType,
+                                              uint8_t bankIndex) {
+    ExtendedMemoryPointer extendedPointer;
+    extendedPointer.obj = hostPtr;
+    extendedPointer.param = 0;
+
+    switch(storageType) {
+      case HBM:
+        if(bankIndex >= 32)
+          ThrowRuntimeError("HBM bank index out of range. The bank index must be below 32.");
+        extendedPointer.flags = bankIndex | hbmStorageMagicNumber;
+        break;
+      case DDR:
+        switch(bankIndex) {
+          case 0:
+            extendedPointer.flags = kMemoryBank0;
+            break;
+          case 1:
+            extendedPointer.flags = kMemoryBank1;
+            break;
+          case 2:
+            extendedPointer.flags = kMemoryBank2;
+            break;
+          case 3:
+            extendedPointer.flags = kMemoryBank3;
+            break;
+          default:
+            ThrowRuntimeError("DDR bank index out of range. The bank index must be below 4.")
+        }
+    }
+    return extendedPointer
+  }
+#endif
+
+#ifndef HLSLIB_SIMULATE_OPENCL
+  void BlockOffsetsToBytes(const std::array<size_t, 3> hostBlockOffset, const std::array<size_t, 3> deviceBlockOffset,
+                        const std::array<size_t, 3> blockSize, const std::array<size_t, 3> hostBlockSizes,
+                        const std::array<size_t, 3> deviceBlockSizes, std::array<size_t, 3> &hostBlockOffsetBytes,
+                        std::array<size_t, 3> &deviceBlockOffsetBytes, std::array<size_t, 3> &blockSizeBytes, 
+                        std::array<size_t, 2> &hostBlockSizesBytes, std::array<size_t, 2> &deviceBlockSizesBytes,
+                        const size_t multiplyBy) {
+    hostBlockOffsetBytes = {hostBlockOffset[0] * multiplyBy, hostBlockOffset[1] * multiplyBy, 
+                            hostBlockOffset[2] *multiplyBy};
+    deviceBlockOffsetBytes = {deviceBlockOffset[0] * multiplyBy, deviceBlockOffset[1] * multiplyBy,
+                              deviceBlockOffset[2] *multiplyBy};
+    blockSizeBytes = {blockSize[0] * multiplyBy, blockSize[1] * multiplyBy, blockSize[2] *multiplyBy};
+    if(blockSize[2] == 1) {
+      blockSizeBytes[2] = 1;
+    }
+    hostBlockSizesBytes = {hostBlockSizes[0] * multiplyBy, hostBlockSizes[0] * hostBlockSizes[1] * multiplyBy};
+    deviceBlockSizesBytes = {deviceBlockSizes[0] * multiplyBy, deviceBlockSizes[0] * deviceBlockSizes[1] * multiplyBy};
+  }
+
+#else
+  template <typename IteratorType, typename = typename std::enable_if<
+                                      IsIteratorOfType<IteratorType, T>() &&
+                                      IsRandomAccess<IteratorType>()>::type>
+  void CopyMemoryBlockSimulate(const std::array<size_t, 3> blockOffsetSource, const std::array<size_t, 3> blockOffsetDest,
+                          const std::array<size_t, 3> copyBlockSize, const std::array<size_t, 3> blockSizeSource,
+                          const std::array<size_t, 3> blockSizeDest, IteratorType source, IteratorType dest) {
+    size_t sourceRowJmp = blockSizeSource[0] - copyBlockSize[0];
+    size_t sourceSliceJmp = blockSizeSource[0] * blockSizeSource[1] - copyBlockSize[0] * copyBlockSize[1];
+    size_t destRowJmp = blockSizeDest[0] - copyBlockSize[0];
+    size_t destSliceJmp = blockSizeDest[0] * blockSizeDest[1] - copyBlockSize[0] * copyBlockSize[1];
+
+    IteratorType srcIt = source + blockOffsetSource[0] + blockOffsetSource[1] * blockSizeSource[0]
+                          + blockOffsetSource[2] * blockSizeSource[1] * blockSizeSource[0];
+    IteratorType dstIt = dest + blockOffsetDest[0] + blockOffsetDest[1] * blockSizeDest[0]
+                          + blockOffsetDest[2] * blockSizeDest[1] * blockSizeDest[0];
+
+    for(size_t sliceCounter = 0; sliceCounter < copyBlockSize[2]; sliceCounter++, 
+          srcIt += sourceSliceJmp, dstIt += destSliceJmp) {
+      for(size_t rowCounter = 0; rowCounter < copyBlockSize[1]; rowCounter++, 
+          srcIt += sourceRowJmp, dstIt += destRowJmp) {
+            std::copy(srcIt, srcIt + copyBlockSize[0], dstIt);
+      }
+    }
   }
 #endif
 
