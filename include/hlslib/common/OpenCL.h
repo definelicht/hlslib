@@ -607,8 +607,6 @@ class Buffer {
     return *this;
   }
 
-  //TODO: Add constructor
-
   ~Buffer() = default;
 
   template <typename IteratorType, typename = typename std::enable_if<
