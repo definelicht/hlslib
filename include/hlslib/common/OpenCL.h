@@ -725,19 +725,18 @@ template <typename IteratorType, typename = typename std::enable_if<
                         const std::array<size_t, 3> deviceBlockSize, IteratorType source) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
-    std::array<size_t, 3> hostBlockOffsetBytes, deviceBlockOffsetBytes, copyBlockSizeBytes;
+    std::array<size_t, 3> copyBlockSizePrepared, hostBlockOffsetsPrepared, deviceBlockOffsetsPrepared;
     std::array<size_t, 2> hostBlockSizesBytes, deviceBlockSizesBytes;
-    BlockOffsetsToBytes(hostBlockOffset, deviceBlockOffset, copyBlockSize, hostBlockSize, deviceBlockSize,
-                      hostBlockOffsetBytes, deviceBlockOffsetBytes, copyBlockSizeBytes, hostBlockSizesBytes, 
-                      deviceBlockSizesBytes, sizeof(T));
+    BlockOffsetsPreprocess(copyBlockSize, hostBlockSize, deviceBlockSize, hostBlockOffset, deviceBlockOffset,
+                      copyBlockSizePrepared, hostBlockSizesBytes, deviceBlockSizesBytes, 
+                      hostBlockOffsetsPrepared, deviceBlockOffsetsPrepared, sizeof(T));
     cl_int errorCode;
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
       errorCode = context_->commandQueue().enqueueWriteBufferRect(
-        devicePtr_, CL_TRUE, deviceBlockOffsetBytes, hostBlockOffsetBytes, copyBlockSizeBytes, 
-        deviceBlockSizesBytes[0], deviceBlockSizesBytes[1], hostBlockOffsetBytes[0],
-        hostBlockSizesBytes[1], const_cast<T *>(&(*source)), nullptr, &event
-      );
+        devicePtr_, CL_TRUE, deviceBlockOffsetsPrepared, hostBlockOffsetsPrepared, copyBlockSizePrepared, 
+        deviceBlockSizesBytes[0], deviceBlockSizesBytes[1], hostBlockSizesBytes[0],
+        hostBlockSizesBytes[1], const_cast<T *>(&(*source)), nullptr, &event);
     }
     if (errorCode != CL_SUCCESS) {
       throw std::runtime_error("Failed to copy data to device.");
@@ -756,19 +755,18 @@ template <typename IteratorType, typename = typename std::enable_if<
                         const std::array<size_t, 3> deviceBlockSize, IteratorType target) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
-    std::array<size_t, 3> hostBlockOffsetBytes, deviceBlockOffsetBytes, copyBlockSizeBytes;
+    std::array<size_t, 3> copyBlockSizePrepared, hostBlockOffsetsPrepared, deviceBlockOffsetsPrepared;
     std::array<size_t, 2> hostBlockSizesBytes, deviceBlockSizesBytes;
-    BlockOffsetsToBytes(hostBlockOffset, deviceBlockOffset, copyBlockSize, hostBlockSize, deviceBlockSize,
-                      hostBlockOffsetBytes, deviceBlockOffsetBytes, copyBlockSizeBytes, hostBlockSizesBytes, 
-                      deviceBlockSizesBytes, sizeof(T));
+    BlockOffsetsPreprocess(copyBlockSize, hostBlockSize, deviceBlockSize, hostBlockOffset, deviceBlockOffset,
+                      copyBlockSizePrepared, hostBlockSizesBytes, deviceBlockSizesBytes, 
+                      hostBlockOffsetsPrepared, deviceBlockOffsetsPrepared, sizeof(T));
     cl_int errorCode;
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
         errorCode = context_->commandQueue().enqueueReadBufferRect(
-          devicePtr_, CL_TRUE, deviceBlockOffsetBytes, hostBlockOffsetBytes, copyBlockSizeBytes,
-          deviceBlockSizesBytes[0], deviceBlockSizesBytes[1], hostBlockOffsetBytes[0],
-          hostBlockSizesBytes[1], const_cast<T *>(&(*target)), nullptr, &event
-        );
+          devicePtr_, CL_TRUE, deviceBlockOffsetsPrepared, hostBlockOffsetsPrepared, copyBlockSizePrepared,
+          deviceBlockSizesBytes[0], deviceBlockSizesBytes[1], hostBlockSizesBytes[0],
+          hostBlockSizesBytes[1], const_cast<T *>(&(*target)), nullptr, &event);
     }
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy back memory from device.");
@@ -781,21 +779,21 @@ template <typename IteratorType, typename = typename std::enable_if<
   }
 
     template <Access accessType>
-  void CopyBlockToDevice(const std::array<size_t, 3> sourceBlockOffset, const std::array<size_t, 3> destBlockOffset,
-                        const std::array<size_t, 3> copyBlockSize, const std::array<size_t, 3> sourceBlockSize,
-                        const std::array<size_t, 3> destBlockSize, Buffer<T, accessType> &other) {
+  void CopyBlockToDevice(const std::array<size_t, 3> &sourceBlockOffset, const std::array<size_t, 3> &destBlockOffset,
+                        const std::array<size_t, 3> &copyBlockSize, const std::array<size_t, 3> &sourceBlockSize,
+                        const std::array<size_t, 3> &destBlockSize, Buffer<T, accessType> &other) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
-    std::array<size_t, 3> sourceBlockOffsetBytes, destBlockOffsetBytes, copyBlockSizeBytes;
+    std::array<size_t, 3> copyBlockSizePrepared, sourceBlockOffsetsPrepared, destBlockOffsetsPrepared;
     std::array<size_t, 2> sourceBlockSizesBytes, destBlockSizesBytes;
-    BlockOffsetsToBytes(sourceBlockOffset, destBlockOffset, copyBlockSize, sourceBlockSize, destBlockSize,
-                      sourceBlockOffsetBytes, destBlockOffsetBytes, copyBlockSizeBytes, sourceBlockSizesBytes, 
-                      destBlockSizesBytes, sizeof(T));
+    BlockOffsetsPreprocess(copyBlockSize, sourceBlockSize, destBlockSize, sourceBlockOffset, destBlockOffset,
+                      copyBlockSizePrepared, sourceBlockSizesBytes, destBlockSizesBytes,
+                      sourceBlockOffsetsPrepared, destBlockOffsetsPrepared, sizeof(T));
     cl_int errorCode;
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
       errorCode = context_->commandQueue().enqueueCopyBufferRect(
-        devicePtr_, other.devicePtr_, sourceBlockOffsetBytes, destBlockOffsetBytes, copyBlockSizeBytes,
+        devicePtr_, other.devicePtr(), sourceBlockOffsetsPrepared, destBlockOffsetsPrepared, copyBlockSizePrepared,
         sourceBlockSizesBytes[0], sourceBlockSizesBytes[1], destBlockSizesBytes[0], destBlockSizesBytes[1],
         nullptr, &event
       );
@@ -843,12 +841,12 @@ template <typename IteratorType, typename = typename std::enable_if<
     extendedPointer.param = 0;
 
     switch(storageType) {
-      case HBM:
+      case StorageType::HBM:
         if(bankIndex >= 32)
           ThrowRuntimeError("HBM bank index out of range. The bank index must be below 32.");
         extendedPointer.flags = bankIndex | hbmStorageMagicNumber;
         break;
-      case DDR:
+      case StorageType::DDR:
         switch(bankIndex) {
           case 0:
             extendedPointer.flags = kMemoryBank0;
@@ -863,55 +861,56 @@ template <typename IteratorType, typename = typename std::enable_if<
             extendedPointer.flags = kMemoryBank3;
             break;
           default:
-            ThrowRuntimeError("DDR bank index out of range. The bank index must be below 4.")
+            ThrowRuntimeError("DDR bank index out of range. The bank index must be below 4.");
         }
     }
-    return extendedPointer
+    return extendedPointer;
   }
 #endif
 
 #ifndef HLSLIB_SIMULATE_OPENCL
-  void BlockOffsetsToBytes(const std::array<size_t, 3> hostBlockOffset, const std::array<size_t, 3> deviceBlockOffset,
-                        const std::array<size_t, 3> blockSize, const std::array<size_t, 3> hostBlockSizes,
-                        const std::array<size_t, 3> deviceBlockSizes, std::array<size_t, 3> &hostBlockOffsetBytes,
-                        std::array<size_t, 3> &deviceBlockOffsetBytes, std::array<size_t, 3> &blockSizeBytes, 
+  inline void BlockOffsetsPreprocess(const std::array<size_t, 3> &blockSize, const std::array<size_t, 3> &hostBlockSizes,
+                        const std::array<size_t, 3> &deviceBlockSizes, const std::array<size_t, 3> &hostBlockOffsets, 
+                        const std::array<size_t, 3> &deviceBlockOffsets, std::array<size_t, 3> &copyBlockSizePrepared, 
                         std::array<size_t, 2> &hostBlockSizesBytes, std::array<size_t, 2> &deviceBlockSizesBytes,
+                        std::array<size_t, 3> &hostBlockOffsetsPrepared, std::array<size_t, 3> &deviceBlockOffsetsPrepared,
                         const size_t multiplyBy) {
-    hostBlockOffsetBytes = {hostBlockOffset[0] * multiplyBy, hostBlockOffset[1] * multiplyBy, 
-                            hostBlockOffset[2] *multiplyBy};
-    deviceBlockOffsetBytes = {deviceBlockOffset[0] * multiplyBy, deviceBlockOffset[1] * multiplyBy,
-                              deviceBlockOffset[2] *multiplyBy};
-    blockSizeBytes = {blockSize[0] * multiplyBy, blockSize[1] * multiplyBy, blockSize[2] *multiplyBy};
-    if(blockSize[2] == 1) {
-      blockSizeBytes[2] = 1;
-    }
+    copyBlockSizePrepared = {blockSize[0] * multiplyBy, blockSize[1], blockSize[2]};
     hostBlockSizesBytes = {hostBlockSizes[0] * multiplyBy, hostBlockSizes[0] * hostBlockSizes[1] * multiplyBy};
     deviceBlockSizesBytes = {deviceBlockSizes[0] * multiplyBy, deviceBlockSizes[0] * deviceBlockSizes[1] * multiplyBy};
+    hostBlockOffsetsPrepared = {hostBlockOffsets[0] * multiplyBy, hostBlockOffsets[1], hostBlockOffsets[2]};
+    deviceBlockOffsetsPrepared = {deviceBlockOffsets[0] * multiplyBy, deviceBlockOffsets[1], deviceBlockOffsets[2]};
   }
 
 #else
-  template <typename IteratorType, typename = typename std::enable_if<
-                                      IsIteratorOfType<IteratorType, T>() &&
-                                      IsRandomAccess<IteratorType>()>::type>
+  //Is this syntax correct? (for the Iterators)
+  template <typename IteratorType1, typename IteratorType2, 
+  typename = typename std::enable_if<IsIteratorOfType<IteratorType1, T>() && IsRandomAccess<IteratorType1>()>::type,
+  typename = typename std::enable_if<IsIteratorOfType<IteratorType2, T>() && IsRandomAccess<IteratorType2>()>::type>
   void CopyMemoryBlockSimulate(const std::array<size_t, 3> blockOffsetSource, const std::array<size_t, 3> blockOffsetDest,
                           const std::array<size_t, 3> copyBlockSize, const std::array<size_t, 3> blockSizeSource,
-                          const std::array<size_t, 3> blockSizeDest, IteratorType source, IteratorType dest) {
-    size_t sourceRowJmp = blockSizeSource[0] - copyBlockSize[0];
-    size_t sourceSliceJmp = blockSizeSource[0] * blockSizeSource[1] - copyBlockSize[0] * copyBlockSize[1];
-    size_t destRowJmp = blockSizeDest[0] - copyBlockSize[0];
-    size_t destSliceJmp = blockSizeDest[0] * blockSizeDest[1] - copyBlockSize[0] * copyBlockSize[1];
-
-    IteratorType srcIt = source + blockOffsetSource[0] + blockOffsetSource[1] * blockSizeSource[0]
+                          const std::array<size_t, 3> blockSizeDest, const IteratorType1 source, const IteratorType2 dst) {
+    size_t sourceSliceJmp = blockSizeSource[0] - copyBlockSize[0] + 
+                            (blockSizeSource[1] - copyBlockSize[1])*blockSizeSource[0];
+    size_t destSliceJmp = blockSizeDest[0] - copyBlockSize[0] 
+                          + (blockSizeDest[1] - copyBlockSize[1]) * blockSizeDest[0];
+    size_t srcindex = blockOffsetSource[0] + blockOffsetSource[1] * blockSizeSource[0]
                           + blockOffsetSource[2] * blockSizeSource[1] * blockSizeSource[0];
-    IteratorType dstIt = dest + blockOffsetDest[0] + blockOffsetDest[1] * blockSizeDest[0]
+    size_t dstindex = blockOffsetDest[0] + blockOffsetDest[1] * blockSizeDest[0]
                           + blockOffsetDest[2] * blockSizeDest[1] * blockSizeDest[0];
 
-    for(size_t sliceCounter = 0; sliceCounter < copyBlockSize[2]; sliceCounter++, 
-          srcIt += sourceSliceJmp, dstIt += destSliceJmp) {
-      for(size_t rowCounter = 0; rowCounter < copyBlockSize[1]; rowCounter++, 
-          srcIt += sourceRowJmp, dstIt += destRowJmp) {
-            std::copy(srcIt, srcIt + copyBlockSize[0], dstIt);
+    for(size_t sliceCounter = 0; sliceCounter < copyBlockSize[2]; sliceCounter++) {
+      size_t nextaddsource = 0;
+      size_t nextadddest = 0;
+      for(size_t rowCounter = 0; rowCounter < copyBlockSize[1]; rowCounter++) {
+            srcindex += nextaddsource;
+            dstindex += nextadddest;
+            std::copy(source + srcindex, source + srcindex + copyBlockSize[0], dst + dstindex);
+            nextaddsource = blockSizeSource[0];
+            nextadddest = blockSizeDest[0];
       }
+      srcindex += sourceSliceJmp + copyBlockSize[0];
+      dstindex += destSliceJmp + copyBlockSize[0];
     }
   }
 #endif

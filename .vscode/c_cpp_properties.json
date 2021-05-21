@@ -4,7 +4,7 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:\\Users\\Admin\\Desktop\\ETH\\hbmfpga\\4_dev\\include"
+                "/opt/xilinx/xrt/include/"
             ],
             "defines": [
                 "_DEBUG",

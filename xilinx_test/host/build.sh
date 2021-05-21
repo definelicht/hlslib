@@ -1,0 +1,1 @@
+g++ RunHBMandBlockCopy.cpp -I /opt/xilinx/xrt/include/ -g -L /opt/xilinx/xrt/lib/ -lOpenCL -lpthread -o testprog -Wall
