@@ -4,6 +4,8 @@
 #include <iostream>
 #include <assert.h>
 
+#define DATA_SIZE = 1024*100
+
 template<typename T>
 bool checkBlockHasValue(const std::array<size_t, 3> blockOffsetSource, const std::array<size_t, 3> copyBlockSize, 
                         const std::array<size_t, 3> blockSizeSource, const T* source, T checkValue) {
@@ -32,9 +34,11 @@ bool checkBlockHasValue(const std::array<size_t, 3> blockOffsetSource, const std
 int main(int argc, char **argv) {
     std::cout << "Initializing OpenCL context..." << std::endl;
     hlslib::ocl::Context context("xilinx_u280_xdma_201920_3");
-    std::cout << "Done." << std::endl;
+    std::cout << "Done." << std::endl << "Loading Kernel" << std::endl << std::flush;
 
-    std::cout << "Initializing memory..." << std::flush;
+    auto program = context.MakeProgram("HBMKernel.xclbin");
+
+    std::cout << "Done" << std::endl << "Initializing memory..." << std::endl << std::flush;
     std::array<size_t, 3> buf1Size = {5, 5, 5};
     std::array<size_t, 3> buf2Size = {3, 3, 3};
     size_t buf1Elems = buf1Size[0]*buf1Size[1]*buf1Size[2];
@@ -48,22 +52,13 @@ int main(int argc, char **argv) {
     std::fill(memHostBuf1.begin(), memHostBuf1.end(), 1.0);
     std::fill(memHostBuf2.begin(), memHostBuf2.end(), 2.0);
 
-    //A program needs to be loaded because Xilinx does not initialize the buffers otherwise
-    if (argc < 2) {
-        std::cerr << "Required argument: xclbin-file. It can be any xclbin file, since the kernel is not actually"
-        << "executed, but if no program is loaded, vitis will not create the buffers" << std::endl << std::flush;
-        return 1;
-  }
-
-    auto program = context.MakeProgram(argv[1]); 
-
     auto memDevice1 = context.MakeBuffer<double, hlslib::ocl::Access::readWrite>(
         hlslib::ocl::StorageType::DDR, 1, buf1Elems);
     auto memDevice2 = context.MakeBuffer<double, hlslib::ocl::Access::readWrite>(
         hlslib::ocl::StorageType::HBM, 10, memDeviceBuf2.begin(), memDeviceBuf2.end());
-    std::cout << " Done." << std::endl << std::flush;
+    std::cout << " Done" << std::endl << std::flush;
 
-    std::cout << "Copy data around" << std::endl << std::flush;
+    std::cout << "Copy data around (Block copy test)" << std::endl << std::flush;
     double* dptr = nullptr;
 
     //Some checks for the simulation. The check function is not used here, because it's based on the function tested here;
@@ -164,5 +159,56 @@ int main(int argc, char **argv) {
     assert(checkBlockHasValue({0, 0, 3}, {2, 2, 2}, buf1Size, dptr, 11.0));
 
     std::cout << "Done. " << std::endl << std::flush;
+    std::cout << "Executing HBMKernel (HBM and DDR test)" << std::endl << std::flush;
+
+
+    std::vector<int, hlslib::ocl::AlignedAllocator<double, 4096>> hbm0mem(DATA_SIZE);
+    std::vector<int, hlslib::ocl::AlignedAllocator<double, 4096>> ddr3mem(DATA_SIZE);
+    std::vector<int, hlslib::ocl::AlignedAllocator<double, 4096>> hbm13mem(DATA_SIZE);
+    std::vector<int, hlslib::ocl::AlignedAllocator<double, 4096>> hbm20mem(DATA_SIZE);
+    std::vector<int, hlslib::ocl::AlignedAllocator<double, 4096>> hbm31mem(DATA_SIZE);
+    std::vector<int, hlslib::ocl::AlignedAllocator<double, 4096>> ddr0mem(DATA_SIZE);
+    std::srand(0);
+    std::generate(hbm0mem.begin(), hbm0mem.end(), std::rand);
+    std::generate(ddr3mem.begin(), ddr3mem.end(), std::rand);
+    std::generate(hbm13mem.begin(), hbm13mem.end(), std::rand);
+    std::generate(hbm20mem.begin(), hbm20mem.end(), std::rand);
+    std::generate(hbm31mem.begin(), hbm31mem.end(), std::rand);
+    std::generate(ddr0mem.begin(), ddr0mem.end(), std::rand);
+
+    auto hbm0device = context.MakeBuffer<double, hlslib::ocl::Access::read>(
+        hlslib::ocl::StorageType::HBM, 0, hbm0mem.begin(), hbm0mem.end());
+    auto ddr3device = context.MakeBuffer<double, hlslib::ocl::Access::read>(
+        hlslib::ocl::StorageType::DDR, 3, ddr3mem.begin(), ddr3mem.end());
+    auto hbm13device = context.MakeBuffer<double, hlslib::ocl::Access::read>(
+        hlslib::ocl::StorageType::HBM, 13, hbm13mem.begin(), hbm13mem.end());
+    auto hbm20device = context.MakeBuffer<double, hlslib::ocl::Access::read>(
+        hlslib::ocl::StorageType::HBM, 20, hbm20mem.begin(), hbm20mem.end());
+    auto hbm31device = context.MakeBuffer<double, hlslib::ocl::Access::read>(
+        hlslib::ocl::StorageType::HBM, 31);
+    auto ddr0device = context.MakeBuffer<double, hlslib::ocl::Access::write>(
+        hlslib::ocl::StorageType::DDR, 0);
+
+    hbm31device.CopyFromHost(hbm31mem.begin());
+    ddr0device.CopyFromHost(ddr0mem.begin());
+    
+    auto kernel = program.MakeKernel("hbmkernel");
+    kernel.SetKernelArguments(0, hbm0device);
+    kernel.SetKernelArguments(1, ddr3device);
+    kernel.SetKernelArguments(2, hbm13device);
+    kernel.SetKernelArguments(3, hbm20device);
+    kernel.SetKernelArguments(4, hbm31device);
+    kernel.SetKernelArguments(5, ddr0device);
+
+    kernel.ExecuteTask();
+
+    ddr0device.CopyToHost(ddr0mem.begin());
+
+    for(int i = 0; i < DATA_SIZE; i++) {
+        assert(ddr0mem[i] == hbm0mem[i] + ddr3mem[i] + hbm13mem[i] + hbm20mem[i] + hbm31mem[i]);
+    }
+
+    std::cout << "Done" << std::endl << std::flush;
+
     return 0;
 }
