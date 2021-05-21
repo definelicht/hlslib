@@ -503,7 +503,6 @@ class Buffer {
       : Buffer(context, MemoryBank::unspecified, nElements) {}
 
 #ifdef HLSLIB_XILINX
-  //HBMDACE
   /// Allocate DDR or HBM but don't perform any transfers.
   Buffer(Context &context, StorageType storageType, uint8_t bankIndex, size_t nElements)
       : context_(&context), nElements_(nElements) {
@@ -715,8 +714,21 @@ class Buffer {
     CopyToDevice(0, nElements_, other, 0);
   }
 
-//HBMDACE
-//Add an overload that allows to Read/Write/Copy 2d or 3d parts of object (using EnqueueReadBufferRect and friends)
+/*
+The following functions copy 3D blocks of memory between host and device or on the device.
+xxxOffset -> the offset of destination or target in (elements, rows, slices).
+             For 2d arrays xxxOffset[2] should be 0.
+copyBlockSize -> The size of the block that is actually copied in (elements, rows, slices).
+hostBlockSize/deviceBlockSize/sourceBlockSize/destBlockSize: The size of the whole host/device/
+             source/destination Array in (elements, rows, slices)
+
+Note: (elements, rows, slices) means just "default"-indices, like one would index a default 
+c++ multidimensional array. 
+
+For hostBlockSize/deviceBlockSize/sourceBlockSize/destBlockSize it should hold that their product is
+smaller or equal to the size of the array they reference. Not explicitely checked, because openCL will
+throw an error if violated.
+*/
 template <typename IteratorType, typename = typename std::enable_if<
                                       IsIteratorOfType<IteratorType, T>() &&
                                       IsRandomAccess<IteratorType>()>::type>
@@ -832,7 +844,6 @@ template <typename IteratorType, typename = typename std::enable_if<
     return extendedPointer;
   }
 
-//HBMDACE
   ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
                                               StorageType storageType,
                                               uint8_t bankIndex) {
