@@ -134,4 +134,4 @@ sdaccel_target("ShiftRegister" "" "")
 synthesis_target("StreamAPI" "")
 synthesis_target("Subflow" "")
 synthesis_target("HBMKernel" "") 
-sdaccel_target("HBMKernel" "" "--config {CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg") #adds \ between whitespace
+sdaccel_target("HBMKernel" "" "--config ${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg") #adds \ between whitespace
