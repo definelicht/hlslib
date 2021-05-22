@@ -76,8 +76,8 @@ function(synthesis_target KERNEL_NAME ADDITIONAL_FLAGS)
   add_test(NAME Test${KERNEL_NAME}Synthesis COMMAND ${CMAKE_COMMAND} --build ${CMAKE_CURRENT_BINARY_DIR} --target synthesize_${KERNEL_NAME}) 
 endfunction()
 
-function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
-  set(HLSLIB_SYNTHESIS_FLAGS "${SYNTHESIS_FLAGS} ${ADDITIONAL_FLAGS}")
+function(sdaccel_target KERNEL_NAME ADDITIONAL_HLS_FLAGS ADDITIONAL_VPP_FLAGS)
+  set(HLSLIB_SYNTHESIS_FLAGS "${SYNTHESIS_FLAGS} ${ADDITIONAL_HLS_FLAGS}")
   set(XOCC_COMMAND
     -s
     -O3
@@ -101,18 +101,19 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_FLAGS)
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xclbin) 
   else()
+    message(STATUS ${ADDITIONAL_VPP_FLAGS})
     add_custom_target(compile_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -c -t hw
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw.xo) 
     add_custom_target(link_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -l -t hw
-      ${XOCC_COMMAND} ${KERNEL_NAME}_hw.xo -o ${KERNEL_NAME}_hw.xclbin) 
+      ${XOCC_COMMAND} ${ADDITIONAL_VPP_FLAGS} ${KERNEL_NAME}_hw.xo -o ${KERNEL_NAME}_hw.xclbin) 
     add_custom_target(compile_${KERNEL_NAME}_hardware_emulation
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -c -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xo) 
     add_custom_target(link_${KERNEL_NAME}_hardware_emulation
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -l -t hw_emu -g
-      ${XOCC_COMMAND} ${KERNEL_NAME}_hw_emu.xo -o ${KERNEL_NAME}_hw_emu.xclbin) 
+      ${XOCC_COMMAND} ${ADDITIONAL_VPP_FLAGS} ${KERNEL_NAME}_hw_emu.xo -o ${KERNEL_NAME}_hw_emu.xclbin) 
   endif()
   add_executable(Run${KERNEL_NAME}.exe host/Run${KERNEL_NAME}.cpp ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp)
   target_link_libraries(Run${KERNEL_NAME}.exe ${Vitis_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} catch)
@@ -123,12 +124,14 @@ endfunction()
 
 synthesis_target("Reduce" "")
 synthesis_target("MultiStageAdd" "")
-sdaccel_target("MultiStageAdd" "")
+sdaccel_target("MultiStageAdd" "" "")
 synthesis_target("AccumulateFloat" "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
-sdaccel_target("AccumulateFloat" "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
+sdaccel_target("AccumulateFloat" "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT" "")
 synthesis_target("AccumulateInt" "-DHLSLIB_COMPILE_ACCUMULATE_INT")
-sdaccel_target("AccumulateInt" "-DHLSLIB_COMPILE_ACCUMULATE_INT")
+sdaccel_target("AccumulateInt" "-DHLSLIB_COMPILE_ACCUMULATE_INT" "")
 synthesis_target("ShiftRegister" "")
-sdaccel_target("ShiftRegister" "")
+sdaccel_target("ShiftRegister" "" "")
 synthesis_target("StreamAPI" "")
 synthesis_target("Subflow" "")
+set(mystring --config [=[ ]=] ${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg) 
+sdaccel_target("HBMKernel" "" "${mystring}")

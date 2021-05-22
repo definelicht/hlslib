@@ -376,6 +376,18 @@ class Context {
 // Buffer
 //#############################################################################
 
+
+/*
+Found a "half" bug - when instantiating this with T = int,
+then the constructors which do not copy actual memory cannot be called anymore with just a number
+probably because the compiler fails in checking the overload 
+message : 
+In instantiation of ‘constexpr bool hlslib::ocl::{anonymous}::IsIteratorOfType() [with IteratorType = int; T = int]’
+required by substitution of ‘template<class IteratorType, class> hlslib::ocl::Buffer<int, hlslib::ocl::Access::read>::Buffer(hlslib::ocl::Context&, hlslib::ocl::MemoryBank, IteratorType, IteratorType) [with IteratorType = int; <template-parameter-1-2> = <missing>]’
+ error: no type named ‘value_type’ in ‘struct std::iterator_traits<int>’
+
+ The call still works if one casts the number to size_t explicitely.
+*/
 template <typename T, Access access>
 class Buffer {
  public:
