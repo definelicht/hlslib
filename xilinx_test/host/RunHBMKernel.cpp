@@ -35,9 +35,27 @@ bool checkBlockHasValue(const std::array<size_t, 3> blockOffsetSource, const std
 int main(int argc, char **argv) {
     std::cout << "Initializing OpenCL context..." << std::endl;
     hlslib::ocl::Context context("xilinx_u280_xdma_201920_3");
-    std::cout << "Done." << std::endl << "Loading Kernel" << std::endl << std::flush;
+    std::cout << "Done." << std::endl << std::flush;
 
-    auto program = context.MakeProgram("/home/widmerja/build/xilinx_test/HBMKernel_hw_emu.xclbin");
+    // Handle input arguments
+    std::string kUsage = "./RunHBMKernel [emulation|hardware]";
+    if (argc != 2) {
+        std::cout << kUsage << std::flush;
+        return 1;
+    }
+    std::string mode_str(argv[1]);
+    std::string kernel_path;
+    if (mode_str == "emulation") {
+        kernel_path = "HBMKernel_hw_emu.xclbin";
+    } else if (mode_str == "hardware") {
+        kernel_path = "HBMKernel_hw.xclbin";
+    } else {
+        std::cout << kUsage << std::flush;
+        return 2;
+    }
+
+    std::cout << std::endl << "Loading Kernel" << std::endl << std::flush;
+    auto program = context.MakeProgram(kernel_path);
 
     std::cout << "Done" << std::endl << "Initializing memory..." << std::endl << std::flush;
     std::array<size_t, 3> buf1Size = {5, 5, 5};
