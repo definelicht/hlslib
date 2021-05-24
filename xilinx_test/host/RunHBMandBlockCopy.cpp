@@ -1,14 +1,14 @@
 //#define HLSLIB_SIMULATE_OPENCL
 
-#include "../../include/hlslib/xilinx/OpenCL.h"
 #include <iostream>
+#include "../../include/hlslib/xilinx/OpenCL.h"
 #include <algorithm>
 #include <assert.h>
 
 #define DATA_SIZE 1024
 
 template<typename T>
-bool checkBlockHasValue(const std::array<size_t, 3> blockOffsetSource, const std::array<size_t, 3> copyBlockSize, 
+bool CheckBlockHasValue(const std::array<size_t, 3> blockOffsetSource, const std::array<size_t, 3> copyBlockSize, 
                         const std::array<size_t, 3> blockSizeSource, const T* source, T checkValue) {
     size_t sourceSliceJmp = blockSizeSource[0] - copyBlockSize[0] + 
                             (blockSizeSource[1] - copyBlockSize[1])*blockSizeSource[0];
@@ -46,9 +46,9 @@ int main(int argc, char **argv) {
     std::string mode_str(argv[1]);
     std::string kernel_path;
     if (mode_str == "emulation") {
-        kernel_path = "HBMKernel_hw_emu.xclbin";
+        kernel_path = "HBMandBlockCopy_hw_emu.xclbin";
     } else if (mode_str == "hardware") {
-        kernel_path = "HBMKernel_hw.xclbin";
+        kernel_path = "HBMandBlockCopy_hw.xclbin";
     } else {
         std::cout << kUsage << std::flush;
         return 2;
@@ -72,9 +72,9 @@ int main(int argc, char **argv) {
     std::fill(memHostBuf2.begin(), memHostBuf2.end(), 2.0);
 
     auto memDevice1 = context.MakeBuffer<double, hlslib::ocl::Access::readWrite>(
-        hlslib::ocl::StorageType::DDR, 1, buf1Elems);
+        hlslib::ocl::StorageType::HBM, 13, buf1Elems);
     auto memDevice2 = context.MakeBuffer<double, hlslib::ocl::Access::readWrite>(
-        hlslib::ocl::StorageType::HBM, 10, memDeviceBuf2.begin(), memDeviceBuf2.end());
+        hlslib::ocl::StorageType::HBM, 0, memDeviceBuf2.begin(), memDeviceBuf2.end());
     std::cout << " Done" << std::endl << std::flush;
 
     std::cout << "Copy data around (Block copy test)" << std::endl << std::flush;
@@ -82,7 +82,11 @@ int main(int argc, char **argv) {
 
     //Some checks for the simulation. The check function is not used here, because it's based on the function tested here;
     //In other words the assertions here are more to test the check function than the Copy operations
-    memDevice1.CopyBlockFromHost({0, 0, 0}, {0, 0, 0}, {5, 5, 5}, buf1Size, buf1Size, memHostBuf1.begin());
+   // memDevice1.CopyBlockFromHost<std::array<size_t, 3>(std::array<size_t, 3>({0, 0, 0}), std::array<size_t, 3>({0, 0, 0}), std::array<size_t, 3>({5, 5, 5}), buf1Size, buf1Size, memHostBuf1.begin());
+   std::array<size_t, 3> at1 = {0, 0, 0};
+   std::array<size_t, 3> at2 = {0, 0, 0};
+   std::array<size_t, 3> at3 = {5, 5, 5};
+    memDevice1.CopyBlockFromHost(at1, at2, at3, buf1Size, buf1Size, memHostBuf1.begin());
     #ifdef HLSLIB_SIMULATE_OPENCL
     dptr = memDevice1.devicePtr();
     for(int i = 0; i < 125; i++) {
@@ -108,7 +112,7 @@ int main(int argc, char **argv) {
     assert(checkBlockHasValue({1, 1, 1}, {2, 2, 2}, buf1Size, dptr, 3.0));
     assert(checkBlockHasValue({0, 0, 3}, {5, 5, 2}, buf1Size, dptr, 1.0));
     #endif
-    memDevice1.CopyBlockToHost({0, 0, 0}, {1, 1, 1}, {4, 4, 4}, buf1Size, buf1Size, memHostBuf1.begin());
+    memDevice1.CopyBlockToHost({0, 0, 0},  {1, 1, 1}, {4, 4, 4}, buf1Size, buf1Size, memHostBuf1.begin());
     #ifdef HLSLIB_SIMULATE_OPENCL
     dptr = memHostBuf1.data();
     for(int i = 0; i < 2; i++) {
@@ -129,10 +133,10 @@ int main(int argc, char **argv) {
     #endif
 
     dptr = memHostBuf1.data();
-    assert(checkBlockHasValue({0, 0, 0}, {2, 2, 2}, buf1Size, dptr, 3.0));
-    assert(checkBlockHasValue({0, 0, 2}, {5, 5, 3}, buf1Size, dptr, 1.0));
-    assert(checkBlockHasValue({2, 0, 0}, {3, 5, 5}, buf1Size, dptr, 1.0));
-    assert(checkBlockHasValue({0, 2, 0}, {5, 3, 5}, buf1Size, dptr, 1.0));
+    assert(CheckBlockHasValue({0, 0, 0}, {2, 2, 2}, buf1Size, dptr, 3.0));
+    assert(CheckBlockHasValue({0, 0, 2}, {5, 5, 3}, buf1Size, dptr, 1.0));
+    assert(CheckBlockHasValue({2, 0, 0}, {3, 5, 5}, buf1Size, dptr, 1.0));
+    assert(CheckBlockHasValue({0, 2, 0}, {5, 3, 5}, buf1Size, dptr, 1.0));
 
     std::vector<double, hlslib::ocl::AlignedAllocator<double, 4096>> tmpHost(buf1Elems);
 
@@ -143,8 +147,8 @@ int main(int argc, char **argv) {
     memDevice1.CopyBlockFromHost({0, 0, 0}, {0, 0, 0}, {4, 4, 4}, buf1Size, buf1Size, tmpHost.begin());
     memDevice1.CopyToHost(memHostBuf1.begin());
     dptr = memHostBuf1.data();
-    assert(checkBlockHasValue({0, 0, 0}, {4, 4, 4}, buf1Size, dptr, 6.0));
-    assert(checkBlockHasValue({0, 0, 4}, {5, 5, 1}, buf1Size, dptr, 1.0));
+    assert(CheckBlockHasValue({0, 0, 0}, {4, 4, 4}, buf1Size, dptr, 6.0));
+    assert(CheckBlockHasValue({0, 0, 4}, {5, 5, 1}, buf1Size, dptr, 1.0));
     
     std::fill(memHostBuf1.begin(), memHostBuf1.end(), 1.0);
     std::fill(tmpHost.begin(), tmpHost.end(), 6.0);
@@ -154,7 +158,7 @@ int main(int argc, char **argv) {
     memDevice1.CopyToHost(memHostBuf1.begin());
     dptr = memHostBuf1.data();
     assert(memHostBuf1[0] == 8.0);
-    assert(checkBlockHasValue({1, 0, 0}, {1, 2, 2}, buf1Size, dptr, 6.0));
+    assert(CheckBlockHasValue({1, 0, 0}, {1, 2, 2}, buf1Size, dptr, 6.0));
 
     //Check CopyBlockToDevice
     std::fill(memHostBuf1.begin(), memHostBuf1.end(), 1.0);
@@ -164,8 +168,8 @@ int main(int argc, char **argv) {
     memDevice2.CopyBlockToDevice({0, 1, 1}, {0, 1, 1}, {3, 2, 2}, buf2Size, buf1Size, memDevice1);
     memDevice1.CopyToHost(memHostBuf1.begin());
     dptr = memHostBuf1.data();
-    assert(checkBlockHasValue({0, 1, 1}, {3, 2, 2}, buf1Size, dptr, 3.0));
-    assert(checkBlockHasValue({0, 0, 3}, {5, 5, 2}, buf1Size, dptr, 1.0));
+    assert(CheckBlockHasValue({0, 1, 1}, {3, 2, 2}, buf1Size, dptr, 3.0));
+    assert(CheckBlockHasValue({0, 0, 3}, {5, 5, 2}, buf1Size, dptr, 1.0));
 
     //Check CopyBlockToHost
     std::fill(memHostBuf1.begin(), memHostBuf1.end(), 11.0);
@@ -173,9 +177,9 @@ int main(int argc, char **argv) {
     memDevice1.CopyBlockToHost({0, 0, 0}, {0, 1, 1}, {3, 2, 2}, buf1Size, buf1Size, memHostBuf1.begin());
     memDevice1.CopyBlockToHost({3, 3, 3}, {0, 0, 3}, {2, 2, 2}, buf1Size, buf1Size, memHostBuf1.begin());
     dptr = memHostBuf1.data();
-    assert(checkBlockHasValue({0, 0, 0}, {3, 2, 2}, buf1Size, dptr, 3.0));
-    assert(checkBlockHasValue({3, 3, 3}, {2, 2, 2}, buf1Size, dptr, 1.0));
-    assert(checkBlockHasValue({0, 0, 3}, {2, 2, 2}, buf1Size, dptr, 11.0));
+    assert(CheckBlockHasValue({0, 0, 0}, {3, 2, 2}, buf1Size, dptr, 3.0));
+    assert(CheckBlockHasValue({3, 3, 3}, {2, 2, 2}, buf1Size, dptr, 1.0));
+    assert(CheckBlockHasValue({0, 0, 3}, {2, 2, 2}, buf1Size, dptr, 11.0));
 
     std::cout << "Done. " << std::endl << std::flush;
     std::cout << "Executing HBMKernel (HBM and DDR test)" << std::endl << std::flush;
@@ -199,18 +203,36 @@ int main(int argc, char **argv) {
 
     auto hbm0device = context.MakeBuffer<int, hlslib::ocl::Access::read>(
         hlslib::ocl::StorageType::HBM, 0, hbm0mem.begin(), hbm0mem.end());
-    auto ddr1device = context.MakeBuffer<int, hlslib::ocl::Access::read>(
-        hlslib::ocl::StorageType::DDR, 1, ddr1mem.begin(), ddr1mem.end());
+    //For the moment this goes to DDR0
+    auto ddr1device = context.MakeBuffer<int, hlslib::ocl::Access::read>(hlslib::ocl::StorageType::HBM, 17, ddr1mem.begin(), ddr1mem.end());
     auto hbm13device = context.MakeBuffer<int, hlslib::ocl::Access::read>(
         hlslib::ocl::StorageType::HBM, 13, hbm13mem.begin(), hbm13mem.end());
     auto hbm20device = context.MakeBuffer<int, hlslib::ocl::Access::read>(
         hlslib::ocl::StorageType::HBM, 20, hbm20mem.begin(), hbm20mem.end());
     auto hbm31device = context.MakeBuffer<int, hlslib::ocl::Access::read>(hlslib::ocl::StorageType::HBM, 31, (size_t)DATA_SIZE);
-    auto ddr0device = context.MakeBuffer<int, hlslib::ocl::Access::write>(hlslib::ocl::StorageType::DDR, 0, (size_t)DATA_SIZE);
-        
+    auto ddr0device = context.MakeBuffer<int, hlslib::ocl::Access::write>(hlslib::ocl::StorageType::HBM, 1, (size_t)DATA_SIZE);
+
+    /*
+    Found a "half" bug - when instantiating Buffer with T = int,
+    then the constructors which do not copy actual memory cannot be called anymore with just a number
+    probably because the compiler fails in checking the overload 
+    message : 
+    In instantiation of ‘constexpr bool hlslib::ocl::{anonymous}::IsIteratorOfType() [with IteratorType = int; T = int]’
+    required by substitution of ‘template<class IteratorType, class> hlslib::ocl::Buffer<int, hlslib::ocl::Access::read>::Buffer(hlslib::ocl::Context&, hlslib::ocl::MemoryBank, IteratorType, IteratorType) [with IteratorType = int; <template-parameter-1-2> = <missing>]’
+    error: no type named ‘value_type’ in ‘struct std::iterator_traits<int>’
+
+    The call still works if one casts the number to size_t explicitely.
+    */
+
+    //TODO: Explicitly choosing DDR does work (im assuming on the u280 only) wheter with the old nor with the new code. 
+    //There are many listed ways that are said to work, e.g.
+    //https://xilinx.github.io/Vitis-Tutorials/2020-1/docs/bloom/6_using-multiple-ddr.html -> This uses HBM, not DDR on u280
+    //https://www.xilinx.com/html_docs/xilinx2017_2/sdaccel_doc/topics/kernel-optimization/concept-assigning-ddr-bank-in-host-code.html -> Old Way
+    //https://github.com/Xilinx/SDAccel_Examples/blob/master/getting_started/kernel_to_gmem/gmem_2banks_c/src/host.cpp -> Implicit, by binding kernel arguments first
+
     hbm31device.CopyFromHost(hbm31mem.begin());
     
-    auto kernel = program.MakeKernel("HBMKernel", hbm0device, ddr1device, hbm13device, hbm20device,
+    auto kernel = program.MakeKernel("HBMandBlockCopy", hbm0device, ddr1device, hbm13device, hbm20device,
                                    hbm31device, ddr0device);
     kernel.ExecuteTask();
     ddr0device.CopyToHost(ddr0mem.begin());

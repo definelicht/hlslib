@@ -1,7 +1,7 @@
 #define DATA_SIZE 1024
 
 extern "C" {
-    void HBMKernel(
+    void HBMandBlockCopy(
         int *hbm0,
         int *ddr1,
         int *hbm13,

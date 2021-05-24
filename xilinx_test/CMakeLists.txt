@@ -23,6 +23,9 @@ add_test(TestReduce TestReduce)
 add_executable(TestFlatten test/TestFlatten.cpp)
 target_link_libraries(TestFlatten catch)
 add_test(TestFlatten TestFlatten)
+add_executable(TestHBMandBlockCopySimulation test/TestHBMandBlockCopySimulation.cpp)
+target_link_libraries(TestHBMandBlockCopySimulation ${Vitis_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} catch)
+add_test(TestHBMandBlockCopySimulation TestHBMandBlockCopySimulation)
 
 # Test kernels in software
 find_package(Threads)
@@ -133,5 +136,6 @@ synthesis_target("ShiftRegister" "")
 sdaccel_target("ShiftRegister" "" "")
 synthesis_target("StreamAPI" "")
 synthesis_target("Subflow" "")
-synthesis_target("HBMKernel" "") 
-sdaccel_target("HBMKernel" "" "--config ${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg") #adds \ between whitespace
+#synthesis_target("HBMandBlockCopy" "") 
+#adds \ before whitespace
+sdaccel_target("HBMandBlockCopy" "" "--config ${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg") 

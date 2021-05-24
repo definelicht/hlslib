@@ -84,6 +84,22 @@ constexpr bool IsIteratorOfType() {
                       T>::value;
 }
 
+template <typename IntCollection, 
+  typename ICIt = decltype(*begin(std::declval<IntCollection>())),
+  typename ICIty =std::decay_t<ICIt>>
+constexpr bool IsIntCollection() {
+  return std::is_convertible<ICIty, int>();
+}
+
+/*
+template <typename IntCollection, 
+        typename ICIt = decltype(*begin(std::declval<IntCollection>())),
+        typename ICIty =std::decay_t<ICIt>>
+constexpr bool IsIntRandomAccessCollection() {
+  return std::is_convertible<ICIty, int>() && IsRandomAccess<ICIt>();;
+}
+*/
+
 void ThrowConfigurationError(std::string const &message) {
 #ifndef HLSLIB_DISABLE_EXCEPTIONS
   throw ConfigurationError(message);
@@ -376,18 +392,6 @@ class Context {
 // Buffer
 //#############################################################################
 
-
-/*
-Found a "half" bug - when instantiating this with T = int,
-then the constructors which do not copy actual memory cannot be called anymore with just a number
-probably because the compiler fails in checking the overload 
-message : 
-In instantiation of ‘constexpr bool hlslib::ocl::{anonymous}::IsIteratorOfType() [with IteratorType = int; T = int]’
-required by substitution of ‘template<class IteratorType, class> hlslib::ocl::Buffer<int, hlslib::ocl::Access::read>::Buffer(hlslib::ocl::Context&, hlslib::ocl::MemoryBank, IteratorType, IteratorType) [with IteratorType = int; <template-parameter-1-2> = <missing>]’
- error: no type named ‘value_type’ in ‘struct std::iterator_traits<int>’
-
- The call still works if one casts the number to size_t explicitely.
-*/
 template <typename T, Access access>
 class Buffer {
  public:
@@ -520,25 +524,11 @@ class Buffer {
       : context_(&context), nElements_(nElements) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 
-    cl_mem_flags flags;
-    switch (access) {
-      case Access::read:
-        flags = CL_MEM_READ_ONLY;
-        break;
-      case Access::write:
-        flags = CL_MEM_WRITE_ONLY;
-        break;
-      case Access::readWrite:
-        flags = CL_MEM_READ_WRITE;
-        break;
-    }
-
-    void *hostPtr = nullptr;
     ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
       nullptr, storageType, bankIndex
     );
-    hostPtr = &extendedHostPointer;
-    flags |= kXilinxMemPointer;
+    void *hostPtr = &extendedHostPointer;
+    cl_mem_flags flags = CreateAllocFlags(CL_MEM_ALLOC_HOST_PTR);
 
     cl_int errorCode;
     {
@@ -565,29 +555,12 @@ class Buffer {
       : context_(&context), nElements_(std::distance(begin, end)) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 
-    void *hostPtr = nullptr;
-    cl_mem_flags flags;
-
-    switch (access) {
-      case Access::read:
-        flags = CL_MEM_READ_ONLY;
-        break;
-      case Access::write:
-        flags = CL_MEM_WRITE_ONLY;
-        break;
-      case Access::readWrite:
-        flags = CL_MEM_READ_WRITE;
-        break;
-    }
-
-    hostPtr = const_cast<T *>(&(*begin));
-    flags |= CL_MEM_USE_HOST_PTR;
-    // Allow specifying memory bank
+    void* hostPtr = const_cast<T *>(&(*begin));
     ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
       hostPtr, storageType, bankIndex
     );
     hostPtr = &extendedHostPointer;
-    flags |= kXilinxMemPointer;
+    cl_mem_flags flags = CreateAllocFlags(CL_MEM_USE_HOST_PTR);
 
     cl_int errorCode;
     devicePtr_ = cl::Buffer(context.context(), flags, sizeof(T) * nElements_,
@@ -741,12 +714,14 @@ For hostBlockSize/deviceBlockSize/sourceBlockSize/destBlockSize it should hold t
 smaller or equal to the size of the array they reference. Not explicitely checked, because openCL will
 throw an error if violated.
 */
-template <typename IteratorType, typename = typename std::enable_if<
+
+template <typename IntCollection, typename IteratorType, typename = typename std::enable_if<
                                       IsIteratorOfType<IteratorType, T>() &&
-                                      IsRandomAccess<IteratorType>()>::type>
-  void CopyBlockFromHost(const std::array<size_t, 3> hostBlockOffset, const std::array<size_t, 3> deviceBlockOffset,
-                        const std::array<size_t, 3> copyBlockSize, const std::array<size_t, 3> hostBlockSize,
-                        const std::array<size_t, 3> deviceBlockSize, IteratorType source) {
+                                      IsRandomAccess<IteratorType>()>::type,
+                                      typename = typename std::enable_if<IsIntCollection<IntCollection>()>::type>
+  void CopyBlockFromHost(const IntCollection &hostBlockOffset, const IntCollection &deviceBlockOffset,
+                        const IntCollection &copyBlockSize, const IntCollection &hostBlockSize,
+                        const IntCollection &deviceBlockSize, IteratorType source) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
     std::array<size_t, 3> copyBlockSizePrepared, hostBlockOffsetsPrepared, deviceBlockOffsetsPrepared;
@@ -771,12 +746,13 @@ template <typename IteratorType, typename = typename std::enable_if<
 #endif
   }
 
-  template <typename IteratorType, typename = typename std::enable_if<
+  template <typename IteratorType, typename IntCollection, typename = typename std::enable_if<
                                       IsIteratorOfType<IteratorType, T>() &&
-                                      IsRandomAccess<IteratorType>()>::type>
-  void CopyBlockToHost(const std::array<size_t, 3> hostBlockOffset, const std::array<size_t, 3> deviceBlockOffset,
-                        const std::array<size_t, 3> copyBlockSize, const std::array<size_t, 3> hostBlockSize,
-                        const std::array<size_t, 3> deviceBlockSize, IteratorType target) {
+                                      IsRandomAccess<IteratorType>()>::type,
+                                      typename = typename std::enable_if<IsIntCollection<IntCollection>()>::type>
+  void CopyBlockToHost(const IntCollection &hostBlockOffset, const IntCollection &deviceBlockOffset,
+                        const IntCollection &copyBlockSize, const IntCollection &hostBlockSize,
+                        const IntCollection &deviceBlockSize, IteratorType target) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
     std::array<size_t, 3> copyBlockSizePrepared, hostBlockOffsetsPrepared, deviceBlockOffsetsPrepared;
@@ -802,10 +778,11 @@ template <typename IteratorType, typename = typename std::enable_if<
 #endif
   }
 
-    template <Access accessType>
-  void CopyBlockToDevice(const std::array<size_t, 3> &sourceBlockOffset, const std::array<size_t, 3> &destBlockOffset,
-                        const std::array<size_t, 3> &copyBlockSize, const std::array<size_t, 3> &sourceBlockSize,
-                        const std::array<size_t, 3> &destBlockSize, Buffer<T, accessType> &other) {
+    template <Access accessType, typename IntCollection, 
+      typename = typename std::enable_if<IsIntCollection<IntCollection>()>::type>
+  void CopyBlockToDevice(const IntCollection &sourceBlockOffset, const IntCollection &destBlockOffset,
+                        const IntCollection &copyBlockSize, const IntCollection &sourceBlockSize,
+                        const IntCollection &destBlockSize, Buffer<T, accessType> &other) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
     std::array<size_t, 3> copyBlockSizePrepared, sourceBlockOffsetsPrepared, destBlockOffsetsPrepared;
@@ -847,6 +824,7 @@ template <typename IteratorType, typename = typename std::enable_if<
 
  private:
 #ifdef HLSLIB_XILINX
+#ifndef HLSLIB_SIMULATE_OPENCL
   ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
                                               MemoryBank memoryBank) {
     ExtendedMemoryPointer extendedPointer;
@@ -858,18 +836,21 @@ template <typename IteratorType, typename = typename std::enable_if<
 
   ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
                                               StorageType storageType,
-                                              uint8_t bankIndex) {
+                                              int bankIndex) {
     ExtendedMemoryPointer extendedPointer;
     extendedPointer.obj = hostPtr;
     extendedPointer.param = 0;
 
     switch(storageType) {
       case StorageType::HBM:
-        if(bankIndex >= 32)
+        if(bankIndex >= 32 || bankIndex < 0)
           ThrowRuntimeError("HBM bank index out of range. The bank index must be below 32.");
         extendedPointer.flags = bankIndex | hbmStorageMagicNumber;
         break;
       case StorageType::DDR:
+        if(bankIndex >= 4 || bankIndex < 0) {
+          ThrowRuntimeError("HBM bank index out of range. The bank index must be below 32.");
+        }
         switch(bankIndex) {
           case 0:
             extendedPointer.flags = kMemoryBank0;
@@ -889,9 +870,32 @@ template <typename IteratorType, typename = typename std::enable_if<
     }
     return extendedPointer;
   }
-#endif
+
+  cl_mem_flags CreateAllocFlags(cl_mem_flags initialflags) {
+  switch (access) {
+      case Access::read:
+        initialflags |= CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        initialflags |= CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        initialflags |= CL_MEM_READ_WRITE;
+        break;
+    }
+
+  initialflags |= kXilinxMemPointer;
+  return initialflags;
+}
+#endif //HLSLIB_SIMULATE_OPENCL
+#endif  //HLSLIB_XILINX
 
 #ifndef HLSLIB_SIMULATE_OPENCL
+  /*
+  Transform the inputs of the CopyBlockXXX functions to arguments for the clXXXRect functions. 
+  The conversion is done because the clXXXRect functions have some somewhat unintuitive interface
+  (it does make sense if one thinks about how they are probably implemented - still very inconvienient to use)
+  */
   inline void BlockOffsetsPreprocess(const std::array<size_t, 3> &blockSize, const std::array<size_t, 3> &hostBlockSizes,
                         const std::array<size_t, 3> &deviceBlockSizes, const std::array<size_t, 3> &hostBlockOffsets, 
                         const std::array<size_t, 3> &deviceBlockOffsets, std::array<size_t, 3> &copyBlockSizePrepared, 
@@ -906,7 +910,6 @@ template <typename IteratorType, typename = typename std::enable_if<
   }
 
 #else
-  //Is this syntax correct? (for the Iterators)
   template <typename IteratorType1, typename IteratorType2, 
   typename = typename std::enable_if<IsIteratorOfType<IteratorType1, T>() && IsRandomAccess<IteratorType1>()>::type,
   typename = typename std::enable_if<IsIteratorOfType<IteratorType2, T>() && IsRandomAccess<IteratorType2>()>::type>
