@@ -911,7 +911,7 @@ class Buffer {
      case StorageType::DDR:
        if (bankIndex >= 4 || bankIndex < 0) {
          ThrowRuntimeError(
-             "HBM bank index out of range. The bank index must be below 32.");
+             "DDR bank index out of range. The bank index must be below 32.");
        }
        switch (bankIndex) {
        case 0:

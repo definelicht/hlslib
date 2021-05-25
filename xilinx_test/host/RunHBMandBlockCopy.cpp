@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
     The call still works if one casts the number to size_t explicitely.
     */
 
-    //TODO: Explicitly choosing DDR does work (im assuming on the u280 only) wheter with the old nor with the new code. 
+    //TODO: Explicitly choosing DDR does not work (im assuming on the u280 only) wheter with the old nor with the new code. 
     //There are many listed ways that are said to work, e.g.
     //https://xilinx.github.io/Vitis-Tutorials/2020-1/docs/bloom/6_using-multiple-ddr.html -> This uses HBM, not DDR on u280
     //https://www.xilinx.com/html_docs/xilinx2017_2/sdaccel_doc/topics/kernel-optimization/concept-assigning-ddr-bank-in-host-code.html -> Old Way
