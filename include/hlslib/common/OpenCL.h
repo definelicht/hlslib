@@ -245,23 +245,43 @@ cl::CommandQueue CreateCommandQueue(cl::Context const &context,
   return commandQueue;
 }
 
+#ifdef HLSLIB_XILINX
 cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified) {
   switch (memoryBank) {
-    case MemoryBank::bank0:
-      return kMemoryBank0;
-    case MemoryBank::bank1:
-      return kMemoryBank1;
-    case MemoryBank::bank2:
-      return kMemoryBank2;
-    case MemoryBank::bank3:
-      return kMemoryBank3;
-    case MemoryBank::unspecified:
-      if (failIfUnspecified) {
-        ThrowRuntimeError("Memory bank must be specified.");
-      }
+  case MemoryBank::bank0:
+    return XilinxMemoryBanks::kMemoryBank0();
+  case MemoryBank::bank1:
+    return XilinxMemoryBanks::kMemoryBank1();
+  case MemoryBank::bank2:
+    return XilinxMemoryBanks::kMemoryBank2();
+  case MemoryBank::bank3:
+    return XilinxMemoryBanks::kMemoryBank3();
+  case MemoryBank::unspecified:
+    if (failIfUnspecified) {
+      ThrowRuntimeError("Memory bank must be specified.");
+    }
   }
   return 0;
 }
+#else
+cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified) {
+  switch (memoryBank) {
+  case MemoryBank::bank0:
+    return kMemoryBank0;
+  case MemoryBank::bank1:
+    return kMemoryBank1;
+  case MemoryBank::bank2:
+    return kMemoryBank2;
+  case MemoryBank::bank3:
+    return kMemoryBank3;
+  case MemoryBank::unspecified:
+    if (failIfUnspecified) {
+      ThrowRuntimeError("Memory bank must be specified.");
+    }
+  }
+  return 0;
+}
+#endif
 
 }  // End anonymous namespace
 
@@ -289,6 +309,10 @@ class Context {
     // Find requested compute device
     device_ = FindDeviceByName(platformId_, deviceName);
 
+#ifdef HLSLIB_XILINX
+    XilinxMemoryBanks::init(deviceName);
+#endif
+
     context_ = CreateComputeContext(device_);
 
     commandQueue_ = CreateCommandQueue(context_, device_);
@@ -311,6 +335,11 @@ class Context {
       return;
     }
     device_ = devices[index];
+
+#ifdef HLSLIB_XILINX
+    std::string deviceName = DeviceName();
+    XilinxMemoryBanks::init(deviceName);
+#endif
 
     context_ = CreateComputeContext(device_);
 
@@ -385,7 +414,6 @@ class Context {
   std::mutex memcopyMutex_;
   std::mutex enqueueMutex_;
   std::mutex reprogramMutex_;
-
 };  // End class Context
 
 //#############################################################################
@@ -402,7 +430,10 @@ class Buffer {
   Buffer(Buffer<T, access> &&other) : Buffer() { swap(*this, other); }
 
   /// Allocate and copy to device.
+  //First check is used to go on if this might be a call to the HBM constructor
   template <typename IteratorType, typename = typename std::enable_if<
+                                    !std::is_convertible<IteratorType, int>()>::type,
+                                      typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   Buffer(Context &context, MemoryBank memoryBank, IteratorType begin,
@@ -520,8 +551,7 @@ class Buffer {
 
 #ifdef HLSLIB_XILINX
   /// Allocate DDR or HBM but don't perform any transfers.
-  Buffer(Context &context, StorageType storageType, uint8_t bankIndex,
-         size_t nElements)
+  Buffer(Context &context, StorageType storageType, int bankIndex, size_t nElements)
       : context_(&context), nElements_(nElements) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 
@@ -547,10 +577,11 @@ class Buffer {
   }
 
   /// Allocate on HBM or DDR and copy to device
-  template <typename IteratorType, typename = typename std::enable_if<
+  template <typename IteratorType, 
+                                    typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  Buffer(Context &context, StorageType storageType, uint8_t bankIndex,
+  Buffer(Context &context, StorageType storageType, int bankIndex,
          IteratorType begin, IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
 #ifndef HLSLIB_SIMULATE_OPENCL
@@ -884,16 +915,16 @@ class Buffer {
        }
        switch (bankIndex) {
        case 0:
-         extendedPointer.flags = kMemoryBank0;
+         extendedPointer.flags = XilinxMemoryBanks::kMemoryBank0();
          break;
        case 1:
-         extendedPointer.flags = kMemoryBank1;
+         extendedPointer.flags = XilinxMemoryBanks::kMemoryBank1();
          break;
        case 2:
-         extendedPointer.flags = kMemoryBank2;
+         extendedPointer.flags = XilinxMemoryBanks::kMemoryBank2();
          break;
        case 3:
-         extendedPointer.flags = kMemoryBank3;
+         extendedPointer.flags = XilinxMemoryBanks::kMemoryBank3();
          break;
        default:
          ThrowRuntimeError(

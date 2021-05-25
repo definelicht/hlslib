@@ -104,7 +104,6 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_HLS_FLAGS ADDITIONAL_VPP_FLAGS)
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -t hw_emu -g
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw_emu.xclbin) 
   else()
-    message(STATUS ${ADDITIONAL_VPP_FLAGS})
     add_custom_target(compile_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -c -t hw
       ${XOCC_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/kernels/${KERNEL_NAME}.cpp -o ${KERNEL_NAME}_hw.xo) 
@@ -138,4 +137,7 @@ synthesis_target("StreamAPI" "")
 synthesis_target("Subflow" "")
 #synthesis_target("HBMandBlockCopy" "") 
 #adds \ before whitespace
-sdaccel_target("HBMandBlockCopy" "" "--config ${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg") 
+set(hbmcfgargs "--config;${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg")
+set(ddrcfgargs "--config;${CMAKE_CURRENT_SOURCE_DIR}/configs/ddrkernel.cfg")
+sdaccel_target("HBMandBlockCopy" "" "${hbmcfgargs}")
+sdaccel_target("DDRExplicit" "" "${ddrcfgargs}") 
