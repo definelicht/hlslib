@@ -1,4 +1,4 @@
-#define DATA_SIZE 1024
+constexpr int kDataSize = 1024;
 
 extern "C" {
 void HBMandBlockCopy(int *hbm0, int *ddr1, int *hbm13, int *hbm20, int *hbm31,
