@@ -22,11 +22,6 @@ namespace hlslib {
 
 namespace ocl {
 
-#ifndef HLSLIB_LEGACY_SDX
-#define HLSLIB_LEGACY_SDX 0
-#endif
-
-#if HLSLIB_LEGACY_SDX == 0
 constexpr auto kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
 
 /*
@@ -73,20 +68,6 @@ private:
 
 constexpr auto kHBMStorageMagicNumber = XCL_MEM_TOPOLOGY;
 using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
-#else
-// Before 2017.4, these values were only available numerically, and the
-// extended memory pointer had to be constructed manually.
-constexpr cl_mem_flags kXilinxMemPointer = 1 << 31;
-constexpr unsigned kMemoryBank0 = 1 << 8;
-constexpr unsigned kMemoryBank1 = 1 << 9;
-constexpr unsigned kMemoryBank2 = 1 << 10;
-constexpr unsigned kMemoryBank3 = 1 << 11;
-struct ExtendedMemoryPointer {
-  unsigned flags;
-  void *obj;
-  void *param;
-};
-#endif
 
 constexpr cl_command_queue_properties kCommandQueueFlags =
     CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
