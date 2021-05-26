@@ -91,15 +91,6 @@ constexpr bool IsIntCollection() {
   return std::is_convertible<ICIty, int>();
 }
 
-/*
-template <typename IntCollection, 
-        typename ICIt = decltype(*begin(std::declval<IntCollection>())),
-        typename ICIty =std::decay_t<ICIt>>
-constexpr bool IsIntRandomAccessCollection() {
-  return std::is_convertible<ICIty, int>() && IsRandomAccess<ICIt>();;
-}
-*/
-
 void ThrowConfigurationError(std::string const &message) {
 #ifndef HLSLIB_DISABLE_EXCEPTIONS
   throw ConfigurationError(message);
