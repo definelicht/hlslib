@@ -25,9 +25,9 @@ namespace ocl {
 constexpr auto kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
 
 /*
-The Xilinx Alveo U280 FPGA expects different flags for DRAM banks than previous 
-DSAs. Therefore for Xilinx these flags are now initialized and stored as part of the
-Context class
+The Xilinx Alveo U280 FPGA expects different flags for DRAM banks than previous
+DSAs. Therefore for Xilinx these flags are now initialized and stored as part of
+the Context class
 */
 class DDRBankFlags {
 public:
@@ -72,8 +72,8 @@ using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
 constexpr cl_command_queue_properties kCommandQueueFlags =
     CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
 
-}  // End namespace ocl
+} // End namespace ocl
 
-}  // End namespace hlslib
+} // End namespace hlslib
 
 #include "../common/OpenCL.h"

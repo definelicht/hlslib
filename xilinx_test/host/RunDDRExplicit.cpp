@@ -34,8 +34,7 @@ int main(int argc, char **argv) {
   std::cout << std::endl << "Loading Kernel" << std::endl;
   auto program = context.MakeProgram(kernel_path);
 
-  std::cout << "Done" << std::endl
-            << "Initializing memory..." << std::endl;
+  std::cout << "Done" << std::endl << "Initializing memory..." << std::endl;
   std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr0mem(kDataSize);
   std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr1mem(kDataSize);
   std::fill(ddr1mem.begin(), ddr1mem.end(), 15);
@@ -45,11 +44,13 @@ int main(int argc, char **argv) {
   auto memDevice2 = context.MakeBuffer<int, hlslib::ocl::Access::readWrite>(
       hlslib::ocl::StorageType::DDR, 1, ddr1mem.begin(), ddr1mem.end());
 
+  // Those calls are the equivalent calls to the ones above with the old
+  // interface
   // auto memDevice1 = context.MakeBuffer<int,
   // hlslib::ocl::Access::readWrite>(hlslib::ocl::MemoryBank::bank0, kDataSize);
   // auto memDevice2 = context.MakeBuffer<int,
-  // hlslib::ocl::Access::readWrite>(hlslib::ocl::MemoryBank::bank1,
-  // ddr1mem.begin(), ddr1mem.end());
+  // hlslib::ocl::Access::readWrite>(hlslib::ocl::MemoryBank::bank1,ddr1mem.begin(),
+  // ddr1mem.end());
 
   std::cout << "Done" << std::endl;
   std::cout << "Running Kernel" << std::endl;

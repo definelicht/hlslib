@@ -389,8 +389,7 @@ class Context {
 // Buffer
 //#############################################################################
 
-template <typename T, Access access>
-class Buffer {
+template <typename T, Access access> class Buffer {
  public:
   Buffer() : context_(nullptr), nElements_(0) {}
 
@@ -399,12 +398,13 @@ class Buffer {
   Buffer(Buffer<T, access> &&other) : Buffer() { swap(*this, other); }
 
   /// Allocate and copy to device.
-  //First check is used to go on if this might be a call to the HBM constructor
-  template <typename IteratorType, typename = typename std::enable_if<
-                                    !std::is_convertible<IteratorType, int>()>::type,
-                                      typename = typename std::enable_if<
-                                       IsIteratorOfType<IteratorType, T>() &&
-                                       IsRandomAccess<IteratorType>()>::type>
+  // First check is used to go on if this might be a call to the HBM constructor
+  template <
+      typename IteratorType,
+      typename = typename std::enable_if<
+          !std::is_convertible<IteratorType, int>()>::type,
+      typename = typename std::enable_if<IsIteratorOfType<IteratorType, T>() &&
+                                         IsRandomAccess<IteratorType>()>::type>
   Buffer(Context &context, MemoryBank memoryBank, IteratorType begin,
          IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
@@ -415,15 +415,15 @@ class Buffer {
     cl_mem_flags flags;
 
     switch (access) {
-      case Access::read:
-        flags = CL_MEM_READ_ONLY;
-        break;
-      case Access::write:
-        flags = CL_MEM_WRITE_ONLY;
-        break;
-      case Access::readWrite:
-        flags = CL_MEM_READ_WRITE;
-        break;
+    case Access::read:
+      flags = CL_MEM_READ_ONLY;
+      break;
+    case Access::write:
+      flags = CL_MEM_WRITE_ONLY;
+      break;
+    case Access::readWrite:
+      flags = CL_MEM_READ_WRITE;
+      break;
     }
 
 #ifdef HLSLIB_XILINX
@@ -474,15 +474,15 @@ class Buffer {
 
     cl_mem_flags flags;
     switch (access) {
-      case Access::read:
-        flags = CL_MEM_READ_ONLY;
-        break;
-      case Access::write:
-        flags = CL_MEM_WRITE_ONLY;
-        break;
-      case Access::readWrite:
-        flags = CL_MEM_READ_WRITE;
-        break;
+    case Access::read:
+      flags = CL_MEM_READ_ONLY;
+      break;
+    case Access::write:
+      flags = CL_MEM_WRITE_ONLY;
+      break;
+    case Access::readWrite:
+      flags = CL_MEM_READ_WRITE;
+      break;
     }
 
     void *hostPtr = nullptr;
@@ -691,8 +691,7 @@ class Buffer {
     CopyToDevice(offsetSource, numElements, other, 0);
   }
 
-  template <Access accessType>
-  void CopyToDevice(Buffer<T, accessType> &other) {
+  template <Access accessType> void CopyToDevice(Buffer<T, accessType> &other) {
     if (other.nElements() != nElements_) {
       ThrowRuntimeError(
           "Device to device copy issued for buffers of different size.");
@@ -854,158 +853,155 @@ class Buffer {
 
   size_t nElements() const { return nElements_; }
 
- private:
+  private:
 #ifdef HLSLIB_XILINX
-   ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
-                                               MemoryBank memoryBank,
-                                               DDRBankFlags &refBankFlags) {
-     ExtendedMemoryPointer extendedPointer;
-     extendedPointer.flags = BankToFlag(memoryBank, true, refBankFlags);
-     extendedPointer.obj = hostPtr;
-     extendedPointer.param = 0;
-     return extendedPointer;
-   }
+  ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
+                                              MemoryBank memoryBank,
+                                              DDRBankFlags &refBankFlags) {
+    ExtendedMemoryPointer extendedPointer;
+    extendedPointer.flags = BankToFlag(memoryBank, true, refBankFlags);
+    extendedPointer.obj = hostPtr;
+    extendedPointer.param = 0;
+    return extendedPointer;
+  }
 
-   ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
-                                               StorageType storageType,
-                                               int bankIndex,
-                                               DDRBankFlags &refBankFlags) {
-     ExtendedMemoryPointer extendedPointer;
-     extendedPointer.obj = hostPtr;
-     extendedPointer.param = 0;
+  ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
+                                              StorageType storageType,
+                                              int bankIndex,
+                                              DDRBankFlags &refBankFlags) {
+    ExtendedMemoryPointer extendedPointer;
+    extendedPointer.obj = hostPtr;
+    extendedPointer.param = 0;
 
-     switch (storageType) {
-     case StorageType::HBM:
-       if (bankIndex >= 32 || bankIndex < 0)
-         ThrowRuntimeError(
-             "HBM bank index out of range. The bank index must be below 32.");
-       extendedPointer.flags = bankIndex | kHBMStorageMagicNumber;
-       break;
-     case StorageType::DDR:
-       if (bankIndex >= 4 || bankIndex < 0) {
-         ThrowRuntimeError(
-             "DDR bank index out of range. The bank index must be below 32.");
-       }
-       switch (bankIndex) {
-       case 0:
-         extendedPointer.flags = refBankFlags.memory_bank_0();
-         break;
-       case 1:
-         extendedPointer.flags = refBankFlags.memory_bank_1();
-         break;
-       case 2:
-         extendedPointer.flags = refBankFlags.memory_bank_2();
-         break;
-       case 3:
-         extendedPointer.flags = refBankFlags.memory_bank_3();
-         break;
-       default:
-         ThrowRuntimeError(
-             "DDR bank index out of range. The bank index must be below 4.");
-       }
-     }
-     return extendedPointer;
-   }
+    switch (storageType) {
+    case StorageType::HBM:
+      if (bankIndex >= 32 || bankIndex < 0)
+        ThrowRuntimeError(
+            "HBM bank index out of range. The bank index must be below 32.");
+      extendedPointer.flags = bankIndex | kHBMStorageMagicNumber;
+      break;
+    case StorageType::DDR:
+      if (bankIndex >= 4 || bankIndex < 0) {
+        ThrowRuntimeError(
+            "DDR bank index out of range. The bank index must be below 32.");
+      }
+      switch (bankIndex) {
+      case 0:
+        extendedPointer.flags = refBankFlags.memory_bank_0();
+        break;
+      case 1:
+        extendedPointer.flags = refBankFlags.memory_bank_1();
+        break;
+      case 2:
+        extendedPointer.flags = refBankFlags.memory_bank_2();
+        break;
+      case 3:
+        extendedPointer.flags = refBankFlags.memory_bank_3();
+        break;
+      default:
+        ThrowRuntimeError(
+            "DDR bank index out of range. The bank index must be below 4.");
+      }
+    }
+    return extendedPointer;
+  }
 
-   cl_mem_flags CreateAllocFlags(cl_mem_flags initialflags) {
-     switch (access) {
-     case Access::read:
-       initialflags |= CL_MEM_READ_ONLY;
-       break;
-     case Access::write:
-       initialflags |= CL_MEM_WRITE_ONLY;
-       break;
-     case Access::readWrite:
-       initialflags |= CL_MEM_READ_WRITE;
-       break;
-     }
+  cl_mem_flags CreateAllocFlags(cl_mem_flags initialflags) {
+    switch (access) {
+    case Access::read:
+      initialflags |= CL_MEM_READ_ONLY;
+      break;
+    case Access::write:
+      initialflags |= CL_MEM_WRITE_ONLY;
+      break;
+    case Access::readWrite:
+      initialflags |= CL_MEM_READ_WRITE;
+      break;
+    }
 
-     initialflags |= kXilinxMemPointer;
-     return initialflags;
-   }
+    initialflags |= kXilinxMemPointer;
+    return initialflags;
+  }
 #endif // HLSLIB_XILINX
 
 #ifndef HLSLIB_SIMULATE_OPENCL
-   /*
-   Transform the inputs of the CopyBlockXXX functions to arguments for the
-   clXXXRect functions. The conversion is done because the clXXXRect functions
-   have some somewhat unintuitive interface (it does make sense if one thinks
-   about how they are probably implemented - still very inconvienient to use)
-   */
-   inline void
-   BlockOffsetsPreprocess(const std::array<size_t, 3> &blockSize,
-                          const std::array<size_t, 3> &hostBlockSizes,
-                          const std::array<size_t, 3> &deviceBlockSizes,
-                          const std::array<size_t, 3> &hostBlockOffsets,
-                          const std::array<size_t, 3> &deviceBlockOffsets,
-                          std::array<size_t, 3> &copyBlockSizePrepared,
-                          std::array<size_t, 2> &hostBlockSizesBytes,
-                          std::array<size_t, 2> &deviceBlockSizesBytes,
-                          std::array<size_t, 3> &hostBlockOffsetsPrepared,
-                          std::array<size_t, 3> &deviceBlockOffsetsPrepared,
-                          const size_t multiplyBy) {
-     copyBlockSizePrepared = {blockSize[0] * multiplyBy, blockSize[1],
-                              blockSize[2]};
-     hostBlockSizesBytes = {hostBlockSizes[0] * multiplyBy,
-                            hostBlockSizes[0] * hostBlockSizes[1] * multiplyBy};
-     deviceBlockSizesBytes = {deviceBlockSizes[0] * multiplyBy,
-                              deviceBlockSizes[0] * deviceBlockSizes[1] *
-                                  multiplyBy};
-     hostBlockOffsetsPrepared = {hostBlockOffsets[0] * multiplyBy,
-                                 hostBlockOffsets[1], hostBlockOffsets[2]};
-     deviceBlockOffsetsPrepared = {deviceBlockOffsets[0] * multiplyBy,
-                                   deviceBlockOffsets[1],
-                                   deviceBlockOffsets[2]};
-   }
+  /*
+  Transform the inputs of the CopyBlockXXX functions to arguments for the
+  clXXXRect functions. The conversion is done because the clXXXRect functions
+  have some somewhat unintuitive interface (it does make sense if one thinks
+  about how they are probably implemented - still very inconvienient to use)
+  */
+  inline void
+  BlockOffsetsPreprocess(const std::array<size_t, 3> &blockSize,
+                         const std::array<size_t, 3> &hostBlockSizes,
+                         const std::array<size_t, 3> &deviceBlockSizes,
+                         const std::array<size_t, 3> &hostBlockOffsets,
+                         const std::array<size_t, 3> &deviceBlockOffsets,
+                         std::array<size_t, 3> &copyBlockSizePrepared,
+                         std::array<size_t, 2> &hostBlockSizesBytes,
+                         std::array<size_t, 2> &deviceBlockSizesBytes,
+                         std::array<size_t, 3> &hostBlockOffsetsPrepared,
+                         std::array<size_t, 3> &deviceBlockOffsetsPrepared,
+                         const size_t multiplyBy) {
+    copyBlockSizePrepared = {blockSize[0] * multiplyBy, blockSize[1],
+                             blockSize[2]};
+    hostBlockSizesBytes = {hostBlockSizes[0] * multiplyBy,
+                           hostBlockSizes[0] * hostBlockSizes[1] * multiplyBy};
+    deviceBlockSizesBytes = {deviceBlockSizes[0] * multiplyBy,
+                             deviceBlockSizes[0] * deviceBlockSizes[1] *
+                                 multiplyBy};
+    hostBlockOffsetsPrepared = {hostBlockOffsets[0] * multiplyBy,
+                                hostBlockOffsets[1], hostBlockOffsets[2]};
+    deviceBlockOffsetsPrepared = {deviceBlockOffsets[0] * multiplyBy,
+                                  deviceBlockOffsets[1], deviceBlockOffsets[2]};
+  }
 
 #else
-   template <typename IteratorType1, typename IteratorType2,
-             typename =
-                 typename std::enable_if<IsIteratorOfType<IteratorType1, T>() &&
+  template <
+      typename IteratorType1, typename IteratorType2,
+      typename = typename std::enable_if<IsIteratorOfType<IteratorType1, T>() &&
                                          IsRandomAccess<IteratorType1>()>::type,
-             typename =
-                 typename std::enable_if<IsIteratorOfType<IteratorType2, T>() &&
+      typename = typename std::enable_if<IsIteratorOfType<IteratorType2, T>() &&
                                          IsRandomAccess<IteratorType2>()>::type>
-   void CopyMemoryBlockSimulate(const std::array<size_t, 3> blockOffsetSource,
-                                const std::array<size_t, 3> blockOffsetDest,
-                                const std::array<size_t, 3> copyBlockSize,
-                                const std::array<size_t, 3> blockSizeSource,
-                                const std::array<size_t, 3> blockSizeDest,
-                                const IteratorType1 source,
-                                const IteratorType2 dst) {
-     size_t sourceSliceJmp =
-         blockSizeSource[0] - copyBlockSize[0] +
-         (blockSizeSource[1] - copyBlockSize[1]) * blockSizeSource[0];
-     size_t destSliceJmp =
-         blockSizeDest[0] - copyBlockSize[0] +
-         (blockSizeDest[1] - copyBlockSize[1]) * blockSizeDest[0];
-     size_t srcindex =
-         blockOffsetSource[0] + blockOffsetSource[1] * blockSizeSource[0] +
-         blockOffsetSource[2] * blockSizeSource[1] * blockSizeSource[0];
-     size_t dstindex = blockOffsetDest[0] +
-                       blockOffsetDest[1] * blockSizeDest[0] +
-                       blockOffsetDest[2] * blockSizeDest[1] * blockSizeDest[0];
+  void CopyMemoryBlockSimulate(const std::array<size_t, 3> blockOffsetSource,
+                               const std::array<size_t, 3> blockOffsetDest,
+                               const std::array<size_t, 3> copyBlockSize,
+                               const std::array<size_t, 3> blockSizeSource,
+                               const std::array<size_t, 3> blockSizeDest,
+                               const IteratorType1 source,
+                               const IteratorType2 dst) {
+    size_t sourceSliceJmp =
+        blockSizeSource[0] - copyBlockSize[0] +
+        (blockSizeSource[1] - copyBlockSize[1]) * blockSizeSource[0];
+    size_t destSliceJmp =
+        blockSizeDest[0] - copyBlockSize[0] +
+        (blockSizeDest[1] - copyBlockSize[1]) * blockSizeDest[0];
+    size_t srcindex =
+        blockOffsetSource[0] + blockOffsetSource[1] * blockSizeSource[0] +
+        blockOffsetSource[2] * blockSizeSource[1] * blockSizeSource[0];
+    size_t dstindex = blockOffsetDest[0] +
+                      blockOffsetDest[1] * blockSizeDest[0] +
+                      blockOffsetDest[2] * blockSizeDest[1] * blockSizeDest[0];
 
-     for (size_t sliceCounter = 0; sliceCounter < copyBlockSize[2];
-          sliceCounter++) {
-       size_t nextaddsource = 0;
-       size_t nextadddest = 0;
-       for (size_t rowCounter = 0; rowCounter < copyBlockSize[1];
-            rowCounter++) {
-         srcindex += nextaddsource;
-         dstindex += nextadddest;
-         std::copy(source + srcindex, source + srcindex + copyBlockSize[0],
-                   dst + dstindex);
-         nextaddsource = blockSizeSource[0];
-         nextadddest = blockSizeDest[0];
-       }
-       srcindex += sourceSliceJmp + copyBlockSize[0];
-       dstindex += destSliceJmp + copyBlockSize[0];
-     }
-   }
+    for (size_t sliceCounter = 0; sliceCounter < copyBlockSize[2];
+         sliceCounter++) {
+      size_t nextaddsource = 0;
+      size_t nextadddest = 0;
+      for (size_t rowCounter = 0; rowCounter < copyBlockSize[1]; rowCounter++) {
+        srcindex += nextaddsource;
+        dstindex += nextadddest;
+        std::copy(source + srcindex, source + srcindex + copyBlockSize[0],
+                  dst + dstindex);
+        nextaddsource = blockSizeSource[0];
+        nextadddest = blockSizeDest[0];
+      }
+      srcindex += sourceSliceJmp + copyBlockSize[0];
+      dstindex += destSliceJmp + copyBlockSize[0];
+    }
+  }
 #endif
 
-   Context *context_;
+  Context *context_;
 #ifndef HLSLIB_SIMULATE_OPENCL
   cl::Buffer devicePtr_{};
 #else
@@ -1013,7 +1009,7 @@ class Buffer {
 #endif
   size_t nElements_;
 
-};  // End class Buffer
+}; // End class Buffer
 
 //#############################################################################
 // Program
