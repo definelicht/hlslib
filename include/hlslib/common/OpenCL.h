@@ -390,7 +390,7 @@ class Context {
 //#############################################################################
 
 template <typename T, Access access> class Buffer {
- public:
+public:
   Buffer() : context_(nullptr), nElements_(0) {}
 
   Buffer(Buffer<T, access> const &other) = delete;
@@ -853,11 +853,11 @@ template <typename T, Access access> class Buffer {
 
   size_t nElements() const { return nElements_; }
 
-  private:
+private:
 #ifdef HLSLIB_XILINX
-  ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
-                                              MemoryBank memoryBank,
-                                              DDRBankFlags &refBankFlags) {
+  ExtendedMemoryPointer
+  CreateExtendedPointer(void *hostPtr, MemoryBank memoryBank,
+                        DDRBankFlags const &refBankFlags) {
     ExtendedMemoryPointer extendedPointer;
     extendedPointer.flags = BankToFlag(memoryBank, true, refBankFlags);
     extendedPointer.obj = hostPtr;
@@ -865,10 +865,9 @@ template <typename T, Access access> class Buffer {
     return extendedPointer;
   }
 
-  ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
-                                              StorageType storageType,
-                                              int bankIndex,
-                                              DDRBankFlags &refBankFlags) {
+  ExtendedMemoryPointer
+  CreateExtendedPointer(void *hostPtr, StorageType storageType, int bankIndex,
+                        DDRBankFlags const &refBankFlags) {
     ExtendedMemoryPointer extendedPointer;
     extendedPointer.obj = hostPtr;
     extendedPointer.param = 0;
@@ -882,8 +881,8 @@ template <typename T, Access access> class Buffer {
       break;
     case StorageType::DDR:
       if (bankIndex >= 4 || bankIndex < 0) {
-        ThrowRuntimeError(
-            "DDR bank index out of range. The bank index must be below 32.");
+        ThrowRuntimeError("DDR bank index out of range. The bank index must be "
+                          "in the range [0,3].");
       }
       switch (bankIndex) {
       case 0:
