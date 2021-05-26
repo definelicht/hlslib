@@ -869,7 +869,7 @@ class Buffer {
    ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
                                                StorageType storageType,
                                                int bankIndex,
-                                               DDRBankFlags &refBankFlags) {
+                                               DDRBankFlags const &refBankFlags) {
      ExtendedMemoryPointer extendedPointer;
      extendedPointer.obj = hostPtr;
      extendedPointer.param = 0;
