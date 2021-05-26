@@ -39,7 +39,9 @@ bool CheckBlockHasValue(const std::array<size_t, 3> blockOffsetSource,
 
 int main(int argc, char **argv) {
   std::cout << "Initializing OpenCL context..." << std::endl;
-  hlslib::ocl::Context context("xilinx_u280_xdma_201920_3");  //Assuming beeing on the u280 makes sense here
+  hlslib::ocl::Context context(
+      "xilinx_u280_xdma_201920_3"); // Assuming beeing on the u280 makes sense
+                                    // here
   std::cout << "Done." << std::endl << std::flush;
 
   // Handle input arguments
@@ -93,10 +95,8 @@ int main(int argc, char **argv) {
 
   // Some checks for the simulation. The check function is not used here,
   // because it's based on the function tested here; In other words the
-  // assertions here are more to test the check function than the Copy operations
-  // memDevice1.CopyBlockFromHost<std::array<size_t, 3>(std::array<size_t,
-  // 3>({0, 0, 0}), std::array<size_t, 3>({0, 0, 0}), std::array<size_t, 3>({5,
-  // 5, 5}), buf1Size, buf1Size, memHostBuf1.begin());
+  // assertions here are more to test the check function than the Copy
+  // operations
   std::array<size_t, 3> at1 = {0, 0, 0};
   std::array<size_t, 3> at2 = {0, 0, 0};
   std::array<size_t, 3> at3 = {5, 5, 5};

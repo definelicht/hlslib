@@ -284,7 +284,7 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified) {
 }
 #endif
 
-}  // End anonymous namespace
+} // End anonymous namespace
 
 // Forward declarations for use in MakeProgram and MakeKernel signatures
 
@@ -467,7 +467,8 @@ class Buffer {
     // Allow specifying memory bank
     ExtendedMemoryPointer extendedHostPointer;
     if (memoryBank != MemoryBank::unspecified) {
-      extendedHostPointer = CreateExtendedPointer(hostPtr, memoryBank, context.xilinxDDRFlags_);
+      extendedHostPointer =
+          CreateExtendedPointer(hostPtr, memoryBank, context.xilinxDDRFlags_);
       // Replace hostPtr with Xilinx extended pointer
       hostPtr = &extendedHostPointer;
       flags |= kXilinxMemPointer;
@@ -523,7 +524,8 @@ class Buffer {
 #ifdef HLSLIB_XILINX
     ExtendedMemoryPointer extendedHostPointer;
     if (memoryBank != MemoryBank::unspecified) {
-      extendedHostPointer = CreateExtendedPointer(nullptr, memoryBank, context.xilinxDDRFlags_);
+      extendedHostPointer =
+          CreateExtendedPointer(nullptr, memoryBank, context.xilinxDDRFlags_);
       // Becomes a pointer to the Xilinx extended memory pointer if a memory
       // bank is specified
       hostPtr = &extendedHostPointer;
@@ -559,8 +561,8 @@ class Buffer {
       : context_(&context), nElements_(nElements) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 
-    ExtendedMemoryPointer extendedHostPointer =
-        CreateExtendedPointer(nullptr, storageType, bankIndex, context.xilinxDDRFlags_);
+    ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
+        nullptr, storageType, bankIndex, context.xilinxDDRFlags_);
     void *hostPtr = &extendedHostPointer;
     cl_mem_flags flags = CreateAllocFlags(CL_MEM_ALLOC_HOST_PTR);
 
@@ -591,8 +593,8 @@ class Buffer {
 #ifndef HLSLIB_SIMULATE_OPENCL
 
     void *hostPtr = const_cast<T *>(&(*begin));
-    ExtendedMemoryPointer extendedHostPointer =
-        CreateExtendedPointer(hostPtr, storageType, bankIndex, context.xilinxDDRFlags_);
+    ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
+        hostPtr, storageType, bankIndex, context.xilinxDDRFlags_);
     hostPtr = &extendedHostPointer;
     cl_mem_flags flags = CreateAllocFlags(CL_MEM_USE_HOST_PTR);
 

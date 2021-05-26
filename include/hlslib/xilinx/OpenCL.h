@@ -35,36 +35,25 @@ constexpr auto kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
 class XilinxDDRBankFlags {
 public:
   XilinxDDRBankFlags(const std::string &device_name) {
-    if(device_name == "xilinx_u280_xdma_201920_3") {
+    if (device_name == "xilinx_u280_xdma_201920_3") {
       _kMemoryBank0 = XCL_MEM_TOPOLOGY | 32;
       _kMemoryBank1 = XCL_MEM_TOPOLOGY | 33;
       _kMemoryBank2 = -1;
       _kMemoryBank3 = -1;
-    }
-    else {
+    } else {
       defaultAssignment();
     }
   }
 
-  XilinxDDRBankFlags() {
-    defaultAssignment();
-  }
+  XilinxDDRBankFlags() { defaultAssignment(); }
 
-  inline int kMemoryBank0() {
-    return _kMemoryBank0;
-  }
+  inline int kMemoryBank0() { return _kMemoryBank0; }
 
-  inline int kMemoryBank1() {
-    return _kMemoryBank1;
-  }
+  inline int kMemoryBank1() { return _kMemoryBank1; }
 
-  inline int kMemoryBank2() {
-    return _kMemoryBank2;
-  }
+  inline int kMemoryBank2() { return _kMemoryBank2; }
 
-  inline int kMemoryBank3() {
-    return _kMemoryBank3;
-  }
+  inline int kMemoryBank3() { return _kMemoryBank3; }
 
 private:
   void defaultAssignment() {
