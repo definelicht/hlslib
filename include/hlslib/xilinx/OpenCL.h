@@ -67,7 +67,7 @@ private:
 };
 
 //See: Documentation: https://www.xilinx.com/support/documentation/sw_manuals/xilinx2020_2/ug1393-vitis-application-acceleration.pdf
-//Examples: https://github.com/Xilinx/Vitis_Accel_Examples/tree/master/host
+//HBM Examples: https://github.com/Xilinx/Vitis_Accel_Examples/tree/master/host
 constexpr auto kHBMStorageMagicNumber = XCL_MEM_TOPOLOGY;
 using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
 
