@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <iostream>
 
-#define DATA_SIZE 1024
+constexpr int kDataSize = 1024;
 
 int main(int argc, char **argv) {
   std::cout << "Initializing OpenCL context..." << std::endl;
@@ -34,17 +34,17 @@ int main(int argc, char **argv) {
   std::cout << "Done" << std::endl
             << "Initializing memory..." << std::endl
             << std::flush;
-  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr0mem(DATA_SIZE);
-  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr1mem(DATA_SIZE);
+  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr0mem(kDataSize);
+  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr1mem(kDataSize);
   std::fill(ddr1mem.begin(), ddr1mem.end(), 15);
 
   auto memDevice1 = context.MakeBuffer<int, hlslib::ocl::Access::readWrite>(
-      hlslib::ocl::StorageType::DDR, 0, DATA_SIZE);
+      hlslib::ocl::StorageType::DDR, 0, kDataSize);
   auto memDevice2 = context.MakeBuffer<int, hlslib::ocl::Access::readWrite>(
       hlslib::ocl::StorageType::DDR, 1, ddr1mem.begin(), ddr1mem.end());
 
   // auto memDevice1 = context.MakeBuffer<int,
-  // hlslib::ocl::Access::readWrite>(hlslib::ocl::MemoryBank::bank0, DATA_SIZE);
+  // hlslib::ocl::Access::readWrite>(hlslib::ocl::MemoryBank::bank0, kDataSize);
   // auto memDevice2 = context.MakeBuffer<int,
   // hlslib::ocl::Access::readWrite>(hlslib::ocl::MemoryBank::bank1,
   // ddr1mem.begin(), ddr1mem.end());
@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
   kernel.ExecuteTask();
   memDevice1.CopyToHost(ddr0mem.begin());
 
-  for (int i = 0; i < DATA_SIZE; i++) {
+  for (int i = 0; i < kDataSize; i++) {
     assert(ddr0mem[i] == ddr1mem[i]);
   }
 

@@ -29,30 +29,17 @@ This was modified to be compatible with the Xilinx OpenCL version.
 */
 class DDRBankFlags {
 public:
-  DDRBankFlags(const std::string &device_name) { DefaultAssignment(); }
+  DDRBankFlags(const std::string &device_name) { }
 
-  DDRBankFlags() { DefaultAssignment(); }
+  DDRBankFlags() { }
 
-  inline int kMemoryBank0() const { return memory_bank_0; }
+  inline int memory_bank_0() const { return CL_CHANNEL_1_INTELFPGA; }
 
-  inline int kMemoryBank1() const { return memory_bank_1; }
+  inline int memory_bank_1() const { return CL_CHANNEL_2_INTELFPGA; }
 
-  inline int kMemoryBank2() const { return memory_bank_2; }
+  inline int memory_bank_2() const { return CL_CHANNEL_3_INTELFPGA; }
 
-  inline int kMemoryBank3() const { return memory_bank_3; }
-
-private:
-  void DefaultAssignment() {
-    memory_bank_0 = CL_CHANNEL_1_INTELFPGA;
-    memory_bank_1 = CL_CHANNEL_2_INTELFPGA;
-    memory_bank_2 = CL_CHANNEL_3_INTELFPGA;
-    memory_bank_3 = CL_CHANNEL_4_INTELFPGA;
-  }
-
-  int memory_bank_0;
-  int memory_bank_1;
-  int memory_bank_2;
-  int memory_bank_3;
+  inline int memory_bank_3() const { return CL_CHANNEL_4_INTELFPGA; }
 };
 
 constexpr cl_command_queue_properties kCommandQueueFlags =

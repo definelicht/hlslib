@@ -5,8 +5,6 @@
 #include <algorithm>
 #include "catch.hpp"
 
-#define DATA_SIZE 1024
-
 template<typename T>
 bool CheckBlockHasValue(const std::array<size_t, 3> blockOffsetSource, const std::array<size_t, 3> copyBlockSize, 
                         const std::array<size_t, 3> blockSizeSource, const T* source, T checkValue) {

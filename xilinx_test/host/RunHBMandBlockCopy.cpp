@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <iostream>
 
-#define DATA_SIZE 1024
+constexpr int kDataSize = 1024;
 
 template <typename T>
 bool CheckBlockHasValue(const std::array<size_t, 3> blockOffsetSource,
@@ -42,12 +42,12 @@ int main(int argc, char **argv) {
   hlslib::ocl::Context context(
       "xilinx_u280_xdma_201920_3"); // Assuming beeing on the u280 makes sense
                                     // here
-  std::cout << "Done." << std::endl << std::flush;
+  std::cout << "Done." << std::endl;
 
   // Handle input arguments
   std::string kUsage = "./RunHBMKernel [emulation|hardware]";
   if (argc != 2) {
-    std::cout << kUsage << std::flush;
+    std::cout << kUsage << std::endl;
     return 1;
   }
   std::string mode_str(argv[1]);
@@ -57,16 +57,16 @@ int main(int argc, char **argv) {
   } else if (mode_str == "hardware") {
     kernel_path = "HBMandBlockCopy_hw.xclbin";
   } else {
-    std::cout << kUsage << std::flush;
+    std::cout << kUsage << std::endl;
     return 2;
   }
 
-  std::cout << std::endl << "Loading Kernel" << std::endl << std::flush;
+  std::cout << std::endl << "Loading Kernel" << std::endl;
   auto program = context.MakeProgram(kernel_path);
 
   std::cout << "Done" << std::endl
-            << "Initializing memory..." << std::endl
-            << std::flush;
+            << "Initializing memory..." << std::endl;
+
   std::array<size_t, 3> buf1Size = {5, 5, 5};
   std::array<size_t, 3> buf2Size = {3, 3, 3};
   size_t buf1Elems = buf1Size[0] * buf1Size[1] * buf1Size[2];
@@ -88,66 +88,20 @@ int main(int argc, char **argv) {
   auto memDevice2 = context.MakeBuffer<double, hlslib::ocl::Access::readWrite>(
       hlslib::ocl::StorageType::HBM, 0, memDeviceBuf2.begin(),
       memDeviceBuf2.end());
-  std::cout << " Done" << std::endl << std::flush;
+  std::cout << " Done" << std::endl;
 
-  std::cout << "Copy data around (Block copy test)" << std::endl << std::flush;
+  std::cout << "Copy data around (Block copy test)" << std::endl;
   double *dptr = nullptr;
 
-  // Some checks for the simulation. The check function is not used here,
-  // because it's based on the function tested here; In other words the
-  // assertions here are more to test the check function than the Copy
-  // operations
   std::array<size_t, 3> at1 = {0, 0, 0};
   std::array<size_t, 3> at2 = {0, 0, 0};
   std::array<size_t, 3> at3 = {5, 5, 5};
   memDevice1.CopyBlockFromHost(at1, at2, at3, buf1Size, buf1Size,
                                memHostBuf1.begin());
-#ifdef HLSLIB_SIMULATE_OPENCL
-  dptr = memDevice1.devicePtr();
-  for (int i = 0; i < 125; i++) {
-    if (dptr[i] != 1) {
-      return 1;
-    }
-  }
-  assert(checkBlockHasValue({0, 0, 0}, {5, 5, 5}, buf1Size, dptr, 1.0));
-#endif
   memDevice2.CopyBlockToDevice({1, 1, 1}, {1, 1, 1}, {2, 2, 2}, buf2Size,
                                buf1Size, memDevice1);
-#ifdef HLSLIB_SIMULATE_OPENCL
-  dptr = memDevice1.devicePtr();
-  for (int i = 0; i < 25; i++) {
-    if (dptr[i] != 1) {
-      return 1;
-    }
-  }
-  for (int i = 25 + 5 + 1; i < 25 + 5 + 1 + 2; i++) {
-    if (dptr[i] != 3) {
-      return 1;
-    }
-  }
-  assert(checkBlockHasValue({1, 1, 1}, {2, 2, 2}, buf1Size, dptr, 3.0));
-  assert(checkBlockHasValue({0, 0, 3}, {5, 5, 2}, buf1Size, dptr, 1.0));
-#endif
   memDevice1.CopyBlockToHost({0, 0, 0}, {1, 1, 1}, {4, 4, 4}, buf1Size,
                              buf1Size, memHostBuf1.begin());
-#ifdef HLSLIB_SIMULATE_OPENCL
-  dptr = memHostBuf1.data();
-  for (int i = 0; i < 2; i++) {
-    if (dptr[i] != 3) {
-      return 1;
-    }
-  }
-  for (int i = 25; i < 27; i++) {
-    if (dptr[i] != 3) {
-      return 1;
-    }
-  }
-  for (int i = 50; i < 75; i++) {
-    if (dptr[i] != 1) {
-      return 1;
-    }
-  }
-#endif
 
   dptr = memHostBuf1.data();
   assert(CheckBlockHasValue({0, 0, 0}, {2, 2, 2}, buf1Size, dptr, 3.0));
@@ -204,19 +158,18 @@ int main(int argc, char **argv) {
   assert(CheckBlockHasValue({3, 3, 3}, {2, 2, 2}, buf1Size, dptr, 1.0));
   assert(CheckBlockHasValue({0, 0, 3}, {2, 2, 2}, buf1Size, dptr, 11.0));
 
-  std::cout << "Done. " << std::endl << std::flush;
-  std::cout << "Executing HBMKernel (HBM and DDR test)" << std::endl
-            << std::flush;
+  std::cout << "Done. " << std::endl;
+  std::cout << "Executing HBMKernel (HBM and DDR test)" << std::endl;
 
-  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> hbm0mem(DATA_SIZE);
-  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr1mem(DATA_SIZE);
+  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> hbm0mem(kDataSize);
+  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr1mem(kDataSize);
   std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> hbm13mem(
-      DATA_SIZE);
+      kDataSize);
   std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> hbm20mem(
-      DATA_SIZE);
+      kDataSize);
   std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> hbm31mem(
-      DATA_SIZE);
-  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr0mem(DATA_SIZE);
+      kDataSize);
+  std::vector<int, hlslib::ocl::AlignedAllocator<int, 4096>> ddr0mem(kDataSize);
   std::srand(0);
   auto genfun = []() { return std::rand() / (RAND_MAX / 1000); };
   std::generate(hbm0mem.begin(), hbm0mem.end(), genfun);
@@ -235,9 +188,9 @@ int main(int argc, char **argv) {
   auto hbm20device = context.MakeBuffer<int, hlslib::ocl::Access::read>(
       hlslib::ocl::StorageType::HBM, 20, hbm20mem.begin(), hbm20mem.end());
   auto hbm31device = context.MakeBuffer<int, hlslib::ocl::Access::read>(
-      hlslib::ocl::StorageType::HBM, 31, (size_t)DATA_SIZE);
+      hlslib::ocl::StorageType::HBM, 31, (size_t)kDataSize);
   auto ddr0device = context.MakeBuffer<int, hlslib::ocl::Access::write>(
-      hlslib::ocl::StorageType::HBM, 1, (size_t)DATA_SIZE);
+      hlslib::ocl::StorageType::HBM, 1, (size_t)kDataSize);
 
   hbm31device.CopyFromHost(hbm31mem.begin());
 
@@ -247,12 +200,12 @@ int main(int argc, char **argv) {
   kernel.ExecuteTask();
   ddr0device.CopyToHost(ddr0mem.begin());
 
-  for (int i = 0; i < DATA_SIZE; i++) {
+  for (int i = 0; i < kDataSize; i++) {
     assert(ddr0mem[i] ==
            hbm0mem[i] + ddr1mem[i] + hbm13mem[i] + hbm20mem[i] + hbm31mem[i]);
   }
 
-  std::cout << "Done" << std::endl << std::flush;
+  std::cout << "Done" << std::endl;
 
   return 0;
 }

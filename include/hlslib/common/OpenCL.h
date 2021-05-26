@@ -249,13 +249,13 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified,
                         DDRBankFlags const &refBankFlags) {
   switch (memoryBank) {
   case MemoryBank::bank0:
-    return refBankFlags.kMemoryBank0();
+    return refBankFlags.memory_bank_0();
   case MemoryBank::bank1:
-    return refBankFlags.kMemoryBank1();
+    return refBankFlags.memory_bank_1();
   case MemoryBank::bank2:
-    return refBankFlags.kMemoryBank2();
+    return refBankFlags.memory_bank_2();
   case MemoryBank::bank3:
-    return refBankFlags.kMemoryBank3();
+    return refBankFlags.memory_bank_3();
   case MemoryBank::unspecified:
     if (failIfUnspecified) {
       ThrowRuntimeError("Memory bank must be specified.");
@@ -888,7 +888,7 @@ class Buffer {
        if (bankIndex >= 32 || bankIndex < 0)
          ThrowRuntimeError(
              "HBM bank index out of range. The bank index must be below 32.");
-       extendedPointer.flags = bankIndex | hbmStorageMagicNumber;
+       extendedPointer.flags = bankIndex | kHBMStorageMagicNumber;
        break;
      case StorageType::DDR:
        if (bankIndex >= 4 || bankIndex < 0) {
@@ -897,16 +897,16 @@ class Buffer {
        }
        switch (bankIndex) {
        case 0:
-         extendedPointer.flags = refBankFlags.kMemoryBank0();
+         extendedPointer.flags = refBankFlags.memory_bank_0();
          break;
        case 1:
-         extendedPointer.flags = refBankFlags.kMemoryBank1();
+         extendedPointer.flags = refBankFlags.memory_bank_1();
          break;
        case 2:
-         extendedPointer.flags = refBankFlags.kMemoryBank2();
+         extendedPointer.flags = refBankFlags.memory_bank_2();
          break;
        case 3:
-         extendedPointer.flags = refBankFlags.kMemoryBank3();
+         extendedPointer.flags = refBankFlags.memory_bank_3();
          break;
        default:
          ThrowRuntimeError(
