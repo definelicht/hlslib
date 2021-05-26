@@ -29,44 +29,46 @@ namespace ocl {
 #if HLSLIB_LEGACY_SDX == 0
 constexpr auto kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
 
-//constexpr auto kMemoryBank0 = 32 | XCL_MEM_TOPOLOGY;
-//constexpr auto kMemoryBank1 = 33 | XCL_MEM_TOPOLOGY;
-
-class XilinxDDRBankFlags {
+/*
+The xilinx alveo u280 fpga has different flags for the DRAM banks, then the existing 
+fpga's. Therefore for Xilinx the DDR-flags are now initialized and stored as part of the
+Contex-class.
+*/
+class DDRBankFlags {
 public:
-  XilinxDDRBankFlags(const std::string &device_name) {
-    if (device_name == "xilinx_u280_xdma_201920_3") {
-      _kMemoryBank0 = XCL_MEM_TOPOLOGY | 32;
-      _kMemoryBank1 = XCL_MEM_TOPOLOGY | 33;
-      _kMemoryBank2 = -1;
-      _kMemoryBank3 = -1;
+  DDRBankFlags(const std::string &device_name) {
+    if (device_name.find("xilinx_u280") != std::string::npos) {
+      memory_bank_0 = XCL_MEM_TOPOLOGY | 32;
+      memory_bank_1 = XCL_MEM_TOPOLOGY | 33;
+      memory_bank_2 = -1;
+      memory_bank_3 = -1;
     } else {
-      defaultAssignment();
+      DefaultAssignment();
     }
   }
 
-  XilinxDDRBankFlags() { defaultAssignment(); }
+  DDRBankFlags() { DefaultAssignment(); }
 
-  inline int kMemoryBank0() { return _kMemoryBank0; }
+  inline int kMemoryBank0() const { return memory_bank_0; }
 
-  inline int kMemoryBank1() { return _kMemoryBank1; }
+  inline int kMemoryBank1() const { return memory_bank_1; }
 
-  inline int kMemoryBank2() { return _kMemoryBank2; }
+  inline int kMemoryBank2() const { return memory_bank_2; }
 
-  inline int kMemoryBank3() { return _kMemoryBank3; }
+  inline int kMemoryBank3() const { return memory_bank_3; }
 
 private:
-  void defaultAssignment() {
-    _kMemoryBank0 = XCL_MEM_DDR_BANK0;
-    _kMemoryBank1 = XCL_MEM_DDR_BANK1;
-    _kMemoryBank2 = XCL_MEM_DDR_BANK2;
-    _kMemoryBank3 = XCL_MEM_DDR_BANK3;
+  void DefaultAssignment() {
+    memory_bank_0 = XCL_MEM_DDR_BANK0;
+    memory_bank_1 = XCL_MEM_DDR_BANK1;
+    memory_bank_2 = XCL_MEM_DDR_BANK2;
+    memory_bank_3 = XCL_MEM_DDR_BANK3;
   }
 
-  int _kMemoryBank0;
-  int _kMemoryBank1;
-  int _kMemoryBank2;
-  int _kMemoryBank3;
+  int memory_bank_0;
+  int memory_bank_1;
+  int memory_bank_2;
+  int memory_bank_3;
 };
 
 constexpr auto hbmStorageMagicNumber = XCL_MEM_TOPOLOGY;

@@ -43,3 +43,4 @@ function(opencl_target KERNEL_NAME)
 endfunction()
 
 opencl_target("Jacobi2D")
+opencl_target("DDRExplicitTest")

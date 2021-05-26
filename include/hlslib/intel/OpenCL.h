@@ -24,10 +24,36 @@ namespace hlslib {
 
 namespace ocl {
 
-constexpr auto kMemoryBank0 = CL_CHANNEL_1_INTELFPGA;
-constexpr auto kMemoryBank1 = CL_CHANNEL_2_INTELFPGA;
-constexpr auto kMemoryBank2 = CL_CHANNEL_3_INTELFPGA;
-constexpr auto kMemoryBank3 = CL_CHANNEL_4_INTELFPGA;
+/*
+This was modified to be compatible with the Xilinx OpenCL version.
+*/
+class DDRBankFlags {
+public:
+  DDRBankFlags(const std::string &device_name) { DefaultAssignment(); }
+
+  DDRBankFlags() { DefaultAssignment(); }
+
+  inline int kMemoryBank0() const { return memory_bank_0; }
+
+  inline int kMemoryBank1() const { return memory_bank_1; }
+
+  inline int kMemoryBank2() const { return memory_bank_2; }
+
+  inline int kMemoryBank3() const { return memory_bank_3; }
+
+private:
+  void DefaultAssignment() {
+    memory_bank_0 = CL_CHANNEL_1_INTELFPGA;
+    memory_bank_1 = CL_CHANNEL_2_INTELFPGA;
+    memory_bank_2 = CL_CHANNEL_3_INTELFPGA;
+    memory_bank_3 = CL_CHANNEL_4_INTELFPGA;
+  }
+
+  int memory_bank_0;
+  int memory_bank_1;
+  int memory_bank_2;
+  int memory_bank_3;
+};
 
 constexpr cl_command_queue_properties kCommandQueueFlags =
     CL_QUEUE_PROFILING_ENABLE;

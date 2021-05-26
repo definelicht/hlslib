@@ -245,9 +245,8 @@ cl::CommandQueue CreateCommandQueue(cl::Context const &context,
   return commandQueue;
 }
 
-#ifdef HLSLIB_XILINX
 cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified,
-                        XilinxDDRBankFlags &refBankFlags) {
+                        DDRBankFlags const &refBankFlags) {
   switch (memoryBank) {
   case MemoryBank::bank0:
     return refBankFlags.kMemoryBank0();
@@ -264,25 +263,6 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified,
   }
   return 0;
 }
-#else
-cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified) {
-  switch (memoryBank) {
-  case MemoryBank::bank0:
-    return kMemoryBank0;
-  case MemoryBank::bank1:
-    return kMemoryBank1;
-  case MemoryBank::bank2:
-    return kMemoryBank2;
-  case MemoryBank::bank3:
-    return kMemoryBank3;
-  case MemoryBank::unspecified:
-    if (failIfUnspecified) {
-      ThrowRuntimeError("Memory bank must be specified.");
-    }
-  }
-  return 0;
-}
-#endif
 
 } // End anonymous namespace
 
@@ -310,9 +290,7 @@ class Context {
     // Find requested compute device
     device_ = FindDeviceByName(platformId_, deviceName);
 
-#ifdef HLSLIB_XILINX
-    xilinxDDRFlags_ = XilinxDDRBankFlags(deviceName);
-#endif
+    DDRFlags_ = DDRBankFlags(deviceName);
 
     context_ = CreateComputeContext(device_);
 
@@ -337,10 +315,8 @@ class Context {
     }
     device_ = devices[index];
 
-#ifdef HLSLIB_XILINX
     std::string deviceName = DeviceName();
-    xilinxDDRFlags_ = XilinxDDRBankFlags(deviceName);
-#endif
+    DDRFlags_ = DDRBankFlags(deviceName);
 
     context_ = CreateComputeContext(device_);
 
@@ -415,9 +391,7 @@ class Context {
   std::mutex memcopyMutex_;
   std::mutex enqueueMutex_;
   std::mutex reprogramMutex_;
-#ifdef HLSLIB_XILINX
-  XilinxDDRBankFlags xilinxDDRFlags_;
-#endif
+  DDRBankFlags DDRFlags_;
 };  // End class Context
 
 //#############################################################################
@@ -468,7 +442,7 @@ class Buffer {
     ExtendedMemoryPointer extendedHostPointer;
     if (memoryBank != MemoryBank::unspecified) {
       extendedHostPointer =
-          CreateExtendedPointer(hostPtr, memoryBank, context.xilinxDDRFlags_);
+          CreateExtendedPointer(hostPtr, memoryBank, context.DDRFlags_);
       // Replace hostPtr with Xilinx extended pointer
       hostPtr = &extendedHostPointer;
       flags |= kXilinxMemPointer;
@@ -476,7 +450,7 @@ class Buffer {
 #endif
 
 #ifdef HLSLIB_INTEL
-    flags |= BankToFlag(memoryBank, false);
+    flags |= BankToFlag(memoryBank, false, context.DDRFlags_);
 #endif
 
     cl_int errorCode;
@@ -525,7 +499,7 @@ class Buffer {
     ExtendedMemoryPointer extendedHostPointer;
     if (memoryBank != MemoryBank::unspecified) {
       extendedHostPointer =
-          CreateExtendedPointer(nullptr, memoryBank, context.xilinxDDRFlags_);
+          CreateExtendedPointer(nullptr, memoryBank, context.DDRFlags_);
       // Becomes a pointer to the Xilinx extended memory pointer if a memory
       // bank is specified
       hostPtr = &extendedHostPointer;
@@ -533,7 +507,7 @@ class Buffer {
     }
 #endif
 #ifdef HLSLIB_INTEL
-    flags |= BankToFlag(memoryBank, false);
+    flags |= BankToFlag(memoryBank, false, context.DDRFlags_);
 #endif
 
     cl_int errorCode;
@@ -557,12 +531,13 @@ class Buffer {
 
 #ifdef HLSLIB_XILINX
   /// Allocate DDR or HBM but don't perform any transfers.
-  Buffer(Context &context, StorageType storageType, int bankIndex, size_t nElements)
+  Buffer(Context &context, StorageType storageType, int bankIndex,
+         size_t nElements)
       : context_(&context), nElements_(nElements) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 
     ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
-        nullptr, storageType, bankIndex, context.xilinxDDRFlags_);
+        nullptr, storageType, bankIndex, context.DDRFlags_);
     void *hostPtr = &extendedHostPointer;
     cl_mem_flags flags = CreateAllocFlags(CL_MEM_ALLOC_HOST_PTR);
 
@@ -583,8 +558,7 @@ class Buffer {
   }
 
   /// Allocate on HBM or DDR and copy to device
-  template <typename IteratorType, 
-                                    typename = typename std::enable_if<
+  template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   Buffer(Context &context, StorageType storageType, int bankIndex,
@@ -594,7 +568,7 @@ class Buffer {
 
     void *hostPtr = const_cast<T *>(&(*begin));
     ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
-        hostPtr, storageType, bankIndex, context.xilinxDDRFlags_);
+        hostPtr, storageType, bankIndex, context.DDRFlags_);
     hostPtr = &extendedHostPointer;
     cl_mem_flags flags = CreateAllocFlags(CL_MEM_USE_HOST_PTR);
 
@@ -893,7 +867,7 @@ class Buffer {
 #ifdef HLSLIB_XILINX
    ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
                                                MemoryBank memoryBank,
-                                               XilinxDDRBankFlags &refBankFlags) {
+                                               DDRBankFlags &refBankFlags) {
      ExtendedMemoryPointer extendedPointer;
      extendedPointer.flags = BankToFlag(memoryBank, true, refBankFlags);
      extendedPointer.obj = hostPtr;
@@ -904,7 +878,7 @@ class Buffer {
    ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
                                                StorageType storageType,
                                                int bankIndex,
-                                               XilinxDDRBankFlags &refBankFlags) {
+                                               DDRBankFlags &refBankFlags) {
      ExtendedMemoryPointer extendedPointer;
      extendedPointer.obj = hostPtr;
      extendedPointer.param = 0;

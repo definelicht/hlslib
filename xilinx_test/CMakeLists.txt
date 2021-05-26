@@ -135,8 +135,6 @@ synthesis_target("ShiftRegister" "")
 sdaccel_target("ShiftRegister" "" "")
 synthesis_target("StreamAPI" "")
 synthesis_target("Subflow" "")
-#synthesis_target("HBMandBlockCopy" "") 
-#adds \ before whitespace
 set(hbmcfgargs "--config;${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg")
 set(ddrcfgargs "--config;${CMAKE_CURRENT_SOURCE_DIR}/configs/ddrkernel.cfg")
 sdaccel_target("HBMandBlockCopy" "" "${hbmcfgargs}")
