@@ -42,18 +42,12 @@ public:
       _kMemoryBank3 = -1;
     }
     else {
-      _kMemoryBank0 = XCL_MEM_DDR_BANK0;
-      _kMemoryBank1 = XCL_MEM_DDR_BANK1;
-      _kMemoryBank2 = XCL_MEM_DDR_BANK2;
-      _kMemoryBank3 = XCL_MEM_DDR_BANK3;
+      defaultAssignment();
     }
   }
 
   XilinxDDRBankFlags() {
-    _kMemoryBank0 = XCL_MEM_DDR_BANK0;
-    _kMemoryBank1 = XCL_MEM_DDR_BANK1;
-    _kMemoryBank2 = XCL_MEM_DDR_BANK2;
-    _kMemoryBank3 = XCL_MEM_DDR_BANK3;
+    defaultAssignment();
   }
 
   inline int kMemoryBank0() {
@@ -73,6 +67,13 @@ public:
   }
 
 private:
+  void defaultAssignment() {
+    _kMemoryBank0 = XCL_MEM_DDR_BANK0;
+    _kMemoryBank1 = XCL_MEM_DDR_BANK1;
+    _kMemoryBank2 = XCL_MEM_DDR_BANK2;
+    _kMemoryBank3 = XCL_MEM_DDR_BANK3;
+  }
+
   int _kMemoryBank0;
   int _kMemoryBank1;
   int _kMemoryBank2;
