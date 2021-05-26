@@ -1,3 +1,6 @@
+/// @author    Jannis Widmer (widmerja@ethz.ch)
+/// @copyright This software is copyrighted under the BSD 3-Clause License.
+
 #include "../../include/hlslib/xilinx/OpenCL.h"
 #include <algorithm>
 #include <assert.h>
