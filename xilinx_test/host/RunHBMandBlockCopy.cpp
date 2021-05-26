@@ -39,7 +39,7 @@ bool CheckBlockHasValue(const std::array<size_t, 3> blockOffsetSource,
 
 int main(int argc, char **argv) {
   std::cout << "Initializing OpenCL context..." << std::endl;
-  hlslib::ocl::Context context("xilinx_u280_xdma_201920_3");
+  hlslib::ocl::Context context("xilinx_u280_xdma_201920_3");  //Assuming beeing on the u280 makes sense here
   std::cout << "Done." << std::endl << std::flush;
 
   // Handle input arguments

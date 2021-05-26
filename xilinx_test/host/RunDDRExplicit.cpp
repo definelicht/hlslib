@@ -7,7 +7,8 @@
 
 int main(int argc, char **argv) {
   std::cout << "Initializing OpenCL context..." << std::endl;
-  hlslib::ocl::Context context("xilinx_u280_xdma_201920_3");
+  //"xilinx_u280_xdma_201920_3"
+  hlslib::ocl::Context context;
   std::cout << "Done." << std::endl << std::flush;
 
   // Handle input arguments

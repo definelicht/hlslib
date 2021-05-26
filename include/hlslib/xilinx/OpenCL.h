@@ -32,44 +32,52 @@ constexpr auto kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
 //constexpr auto kMemoryBank0 = 32 | XCL_MEM_TOPOLOGY;
 //constexpr auto kMemoryBank1 = 33 | XCL_MEM_TOPOLOGY;
 
-class XilinxMemoryBanks {
+class XilinxDDRBankFlags {
 public:
-  static void init(const std::string &device_name) {
+  XilinxDDRBankFlags(const std::string &device_name) {
     if(device_name == "xilinx_u280_xdma_201920_3") {
       _kMemoryBank0 = XCL_MEM_TOPOLOGY | 32;
       _kMemoryBank1 = XCL_MEM_TOPOLOGY | 33;
+      _kMemoryBank2 = -1;
+      _kMemoryBank3 = -1;
     }
     else {
       _kMemoryBank0 = XCL_MEM_DDR_BANK0;
       _kMemoryBank1 = XCL_MEM_DDR_BANK1;
+      _kMemoryBank2 = XCL_MEM_DDR_BANK2;
+      _kMemoryBank3 = XCL_MEM_DDR_BANK3;
     }
   }
 
-  static inline int kMemoryBank0() {
+  XilinxDDRBankFlags() {
+    _kMemoryBank0 = XCL_MEM_DDR_BANK0;
+    _kMemoryBank1 = XCL_MEM_DDR_BANK1;
+    _kMemoryBank2 = XCL_MEM_DDR_BANK2;
+    _kMemoryBank3 = XCL_MEM_DDR_BANK3;
+  }
+
+  inline int kMemoryBank0() {
     return _kMemoryBank0;
   }
 
-  static inline int kMemoryBank1() {
+  inline int kMemoryBank1() {
     return _kMemoryBank1;
   }
 
-  static inline int kMemoryBank2() {
+  inline int kMemoryBank2() {
     return _kMemoryBank2;
   }
 
-  static inline int kMemoryBank3() {
+  inline int kMemoryBank3() {
     return _kMemoryBank3;
   }
 
 private:
-  static int _kMemoryBank0;
-  static int _kMemoryBank1;
-  static constexpr auto _kMemoryBank2 = XCL_MEM_DDR_BANK2;
-  static constexpr auto _kMemoryBank3 = XCL_MEM_DDR_BANK3;
+  int _kMemoryBank0;
+  int _kMemoryBank1;
+  int _kMemoryBank2;
+  int _kMemoryBank3;
 };
-
-int XilinxMemoryBanks::_kMemoryBank0 = XCL_MEM_DDR_BANK0;
-int XilinxMemoryBanks::_kMemoryBank1 = XCL_MEM_DDR_BANK1;
 
 constexpr auto hbmStorageMagicNumber = XCL_MEM_TOPOLOGY;
 using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
