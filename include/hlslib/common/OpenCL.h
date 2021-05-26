@@ -858,7 +858,7 @@ class Buffer {
 #ifdef HLSLIB_XILINX
    ExtendedMemoryPointer CreateExtendedPointer(void *hostPtr,
                                                MemoryBank memoryBank,
-                                               DDRBankFlags &refBankFlags) {
+                                               DDRBankFlags const &refBankFlags) {
      ExtendedMemoryPointer extendedPointer;
      extendedPointer.flags = BankToFlag(memoryBank, true, refBankFlags);
      extendedPointer.obj = hostPtr;
