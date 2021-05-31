@@ -22,37 +22,60 @@ namespace hlslib {
 
 namespace ocl {
 
-#ifndef HLSLIB_LEGACY_SDX
-#define HLSLIB_LEGACY_SDX 0
-#endif
-
-#if HLSLIB_LEGACY_SDX == 0
 constexpr auto kXilinxMemPointer = CL_MEM_EXT_PTR_XILINX;
-constexpr auto kMemoryBank0 = XCL_MEM_DDR_BANK0;
-constexpr auto kMemoryBank1 = XCL_MEM_DDR_BANK1;
-constexpr auto kMemoryBank2 = XCL_MEM_DDR_BANK2;
-constexpr auto kMemoryBank3 = XCL_MEM_DDR_BANK3;
-using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
-#else
-// Before 2017.4, these values were only available numerically, and the
-// extended memory pointer had to be constructed manually.
-constexpr cl_mem_flags kXilinxMemPointer = 1 << 31;
-constexpr unsigned kMemoryBank0 = 1 << 8;
-constexpr unsigned kMemoryBank1 = 1 << 9;
-constexpr unsigned kMemoryBank2 = 1 << 10;
-constexpr unsigned kMemoryBank3 = 1 << 11;
-struct ExtendedMemoryPointer {
-  unsigned flags;
-  void *obj;
-  void *param;
+
+/*
+The Xilinx Alveo U280 FPGA expects different flags for DRAM banks than previous
+DSAs. Therefore for Xilinx these flags are now initialized and stored as part of
+the Context class
+*/
+class DDRBankFlags {
+public:
+  DDRBankFlags(const std::string &device_name) {
+    if (device_name.find("xilinx_u280") != std::string::npos) {
+      memory_bank_0_ = XCL_MEM_TOPOLOGY | 32;
+      memory_bank_1_ = XCL_MEM_TOPOLOGY | 33;
+      memory_bank_2_ = -1;
+      memory_bank_3_ = -1;
+    } else {
+      DefaultAssignment();
+    }
+  }
+
+  DDRBankFlags() { DefaultAssignment(); }
+
+  inline int memory_bank_0() const { return memory_bank_0_; }
+
+  inline int memory_bank_1() const { return memory_bank_1_; }
+
+  inline int memory_bank_2() const { return memory_bank_2_; }
+
+  inline int memory_bank_3() const { return memory_bank_3_; }
+
+private:
+  void DefaultAssignment() {
+    memory_bank_0_ = XCL_MEM_DDR_BANK0;
+    memory_bank_1_ = XCL_MEM_DDR_BANK1;
+    memory_bank_2_ = XCL_MEM_DDR_BANK2;
+    memory_bank_3_ = XCL_MEM_DDR_BANK3;
+  }
+
+  int memory_bank_0_;
+  int memory_bank_1_;
+  int memory_bank_2_;
+  int memory_bank_3_;
 };
-#endif
+
+//See: Documentation: https://www.xilinx.com/support/documentation/sw_manuals/xilinx2020_2/ug1393-vitis-application-acceleration.pdf
+//HBM Examples: https://github.com/Xilinx/Vitis_Accel_Examples/tree/master/host
+constexpr auto kHBMStorageMagicNumber = XCL_MEM_TOPOLOGY;
+using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
 
 constexpr cl_command_queue_properties kCommandQueueFlags =
     CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
 
-}  // End namespace ocl
+} // End namespace ocl
 
-}  // End namespace hlslib
+} // End namespace hlslib
 
 #include "../common/OpenCL.h"
