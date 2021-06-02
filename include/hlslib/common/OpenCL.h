@@ -1227,8 +1227,10 @@ class Kernel {
   /// Returns a future to the result of a kernel launch, returning immediately
   /// and allows the caller to wait on execution to finish as needed. Useful for
   /// executing multiple concurrent kernels.
-  std::future<std::pair<double, double>> ExecuteTaskAsync() {
-    return std::async(std::launch::async, [this]() { return ExecuteTask(); });
+  std::future<std::pair<double, double>>
+  ExecuteTaskAsync() {
+    return std::async(std::launch::async,
+                      [this]() { return ExecuteTask(); });
   }
 
  private:
