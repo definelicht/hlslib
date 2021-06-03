@@ -597,7 +597,8 @@ public:
   template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
-  void CopyFromHost(int deviceOffset, int numElements, IteratorType source) {
+  void CopyFromHost(int deviceOffset, int numElements, IteratorType source, 
+                        const std::vector<cl::Event> *events = nullptr) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
     cl_int errorCode;
@@ -605,7 +606,7 @@ public:
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
       errorCode = context_->commandQueue().enqueueWriteBuffer(
           devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
-          sizeof(T) * numElements, const_cast<T *>(&(*source)), nullptr,
+          sizeof(T) * numElements, const_cast<T *>(&(*source)), events,
           &event);
     }
     // Don't need to wait for event because of blocking call (CL_TRUE)
@@ -628,7 +629,8 @@ public:
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   void CopyToHost(size_t deviceOffset, size_t numElements,
-                  IteratorType target) {
+                  IteratorType target, 
+                  const std::vector<cl::Event> *events = nullptr) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
     cl_int errorCode;
@@ -636,7 +638,7 @@ public:
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
       errorCode = context_->commandQueue().enqueueReadBuffer(
           devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
-          sizeof(T) * numElements, &(*target), nullptr, &event);
+          sizeof(T) * numElements, &(*target), events, &event);
     }
     // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
@@ -658,7 +660,8 @@ public:
 
   template <Access accessType>
   void CopyToDevice(size_t offsetSource, size_t numElements,
-                    Buffer<T, accessType> &other, size_t offsetDestination) {
+                    Buffer<T, accessType> &other, size_t offsetDestination, 
+                    const std::vector<cl::Event> *events = nullptr) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     if (offsetSource + numElements > nElements_ ||
         offsetDestination + numElements > other.nElements()) {
@@ -670,7 +673,7 @@ public:
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
       errorCode = context_->commandQueue().enqueueCopyBuffer(
           devicePtr_, other.devicePtr(), sizeof(T) * offsetSource,
-          sizeof(T) * offsetDestination, numElements * sizeof(T), nullptr,
+          sizeof(T) * offsetDestination, numElements * sizeof(T), events,
           &event);
     }
     event.wait();
@@ -727,7 +730,8 @@ public:
                          const IntCollection &copyBlockSize,
                          const IntCollection &hostBlockSize,
                          const IntCollection &deviceBlockSize,
-                         IteratorType source) {
+                         IteratorType source,
+                         const std::vector<cl::Event> *events = nullptr) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
     std::array<size_t, 3> copyBlockSizePrepared, hostBlockOffsetsPrepared,
@@ -746,7 +750,7 @@ public:
           hostBlockOffsetsPrepared, copyBlockSizePrepared,
           deviceBlockSizesBytes[0], deviceBlockSizesBytes[1],
           hostBlockSizesBytes[0], hostBlockSizesBytes[1],
-          const_cast<T *>(&(*source)), nullptr, &event);
+          const_cast<T *>(&(*source)), events, &event);
     }
     if (errorCode != CL_SUCCESS) {
       throw std::runtime_error("Failed to copy data to device.");
@@ -769,7 +773,8 @@ public:
                        const IntCollection &copyBlockSize,
                        const IntCollection &hostBlockSize,
                        const IntCollection &deviceBlockSize,
-                       IteratorType target) {
+                       IteratorType target, 
+                       const std::vector<cl::Event> *events = nullptr) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
     std::array<size_t, 3> copyBlockSizePrepared, hostBlockOffsetsPrepared,
@@ -788,7 +793,7 @@ public:
           hostBlockOffsetsPrepared, copyBlockSizePrepared,
           deviceBlockSizesBytes[0], deviceBlockSizesBytes[1],
           hostBlockSizesBytes[0], hostBlockSizesBytes[1],
-          const_cast<T *>(&(*target)), nullptr, &event);
+          const_cast<T *>(&(*target)), events, &event);
     }
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy back memory from device.");
@@ -809,7 +814,8 @@ public:
                          const IntCollection &copyBlockSize,
                          const IntCollection &sourceBlockSize,
                          const IntCollection &destBlockSize,
-                         Buffer<T, accessType> &other) {
+                         Buffer<T, accessType> &other,
+                         const std::vector<cl::Event> *events = nullptr) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl::Event event;
     std::array<size_t, 3> copyBlockSizePrepared, sourceBlockOffsetsPrepared,
@@ -827,7 +833,7 @@ public:
           devicePtr_, other.devicePtr(), sourceBlockOffsetsPrepared,
           destBlockOffsetsPrepared, copyBlockSizePrepared,
           sourceBlockSizesBytes[0], sourceBlockSizesBytes[1],
-          destBlockSizesBytes[0], destBlockSizesBytes[1], nullptr, &event);
+          destBlockSizesBytes[0], destBlockSizesBytes[1], events, &event);
     }
     event.wait();
     if (errorCode != CL_SUCCESS) {
@@ -1179,9 +1185,12 @@ class Kernel {
   /// Execute the kernel as an OpenCL task, wait for it to finish, then return
   /// the time elapsed as reported by OpenCL (first) and as measured with
   /// chrono (second).
-  inline std::pair<double, double> ExecuteTask() {
+  /// Optionally, the user can specify a set of events that need to complete
+  /// before this particular kernel can be executed.
+  inline std::pair<double, double> 
+  ExecuteTask(const std::vector<cl::Event> *events = nullptr) {
     const auto start = std::chrono::high_resolution_clock::now();
-    auto event = ExecuteTaskFork();
+    auto event = ExecuteTaskFork(events);
     event.wait();
     const auto end = std::chrono::high_resolution_clock::now();
     const double elapsedChrono =
@@ -1201,7 +1210,10 @@ class Kernel {
   /// Launch the kernel and return immediately, without requiring the caller to
   /// wait on the kernel to finish. This is useful for kernels that are never
   /// expected to terminate.
-  inline cl::Event ExecuteTaskFork() {
+  /// Optionally, the user can specify a set of events that need to complete
+  /// before this particular kernel can be executed.
+  inline cl::Event
+  ExecuteTaskFork(const std::vector<cl::Event> *events = nullptr) {
     cl::Event event;
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_int errorCode;
@@ -1209,10 +1221,10 @@ class Kernel {
     {
       std::lock_guard<std::mutex> lock(program_.context().enqueueMutex());
       errorCode = program_.context().commandQueue().enqueueTask(
-          kernel_, nullptr, &event);
+          kernel_, events, &event);
     }
 #else
-    errorCode = commandQueue_.enqueueTask(kernel_, nullptr, &event);
+    errorCode = commandQueue_.enqueueTask(kernel_, events, &event);
 #endif
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to execute kernel.");
