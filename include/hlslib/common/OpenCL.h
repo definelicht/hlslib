@@ -255,8 +255,8 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified,
   return 0;
 }
 
-template <typename EventIterator>
-cl_uint NumEvents(EventIterator eventsBegin, EventIterator eventsEnd) {
+cl_uint NumEvents(cl::Event const *const eventsBegin,
+                  cl::Event const *const eventsEnd) {
   if (eventsBegin != nullptr) {
     if (eventsEnd != nullptr) {
       return std::distance(eventsBegin, eventsEnd);
@@ -265,6 +265,11 @@ cl_uint NumEvents(EventIterator eventsBegin, EventIterator eventsEnd) {
     return 1;
   }
   return 0;
+}
+
+template <typename EventIterator>
+cl_uint NumEvents(EventIterator eventsBegin, EventIterator eventsEnd) {
+  return std::distance(eventsBegin, eventsEnd);
 }
 
 }  // End anonymous namespace
@@ -615,8 +620,7 @@ class Buffer {
           IsIteratorOfType<EventIterator, cl::Event>() &&
           IsRandomAccess<EventIterator>()>::type>
   void CopyFromHost(int deviceOffset, int numElements, DataIterator source,
-                    EventIterator eventsBegin = nullptr,
-                    EventIterator eventsEnd = nullptr) {
+                    EventIterator eventsBegin, EventIterator eventsEnd) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_event event;
     cl_int errorCode;
@@ -640,6 +644,14 @@ class Buffer {
 #endif
   }
 
+  template <typename DataIterator, typename = typename std::enable_if<
+                                       IsIteratorOfType<DataIterator, T>() &&
+                                       IsRandomAccess<DataIterator>()>::type>
+  void CopyFromHost(int deviceOffset, int numElements, DataIterator source) {
+    return CopyFromHost<DataIterator, cl::Event *>(deviceOffset, numElements,
+                                                   source, nullptr, nullptr);
+  }
+
   template <
       typename DataIterator, typename EventIterator = cl::Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
@@ -647,9 +659,17 @@ class Buffer {
       typename = typename std::enable_if<
           IsIteratorOfType<EventIterator, cl::Event>() &&
           IsRandomAccess<EventIterator>()>::type>
-  void CopyFromHost(DataIterator source, EventIterator eventBegin = nullptr,
-                    EventIterator eventEnd = nullptr) {
+  void CopyFromHost(DataIterator source, EventIterator eventBegin,
+                    EventIterator eventEnd) {
     return CopyFromHost(0, nElements_, source, eventBegin, eventEnd);
+  }
+
+  template <typename DataIterator, typename = typename std::enable_if<
+                                       IsIteratorOfType<DataIterator, T>() &&
+                                       IsRandomAccess<DataIterator>()>::type>
+  void CopyFromHost(DataIterator source) {
+    return CopyFromHost<DataIterator, cl::Event *>(0, nElements_, source,
+                                                   nullptr, nullptr);
   }
 
   template <
@@ -660,8 +680,7 @@ class Buffer {
           IsIteratorOfType<EventIterator, cl::Event>() &&
           IsRandomAccess<EventIterator>()>::type>
   void CopyToHost(size_t deviceOffset, size_t numElements, DataIterator target,
-                  EventIterator eventsBegin = nullptr,
-                  EventIterator eventsEnd = nullptr) {
+                  EventIterator eventsBegin, EventIterator eventsEnd) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_event event;
     cl_int errorCode;
@@ -687,6 +706,15 @@ class Buffer {
 #endif
   }
 
+  template <typename DataIterator, typename = typename std::enable_if<
+                                       IsIteratorOfType<DataIterator, T>() &&
+                                       IsRandomAccess<DataIterator>()>::type>
+  void CopyToHost(size_t deviceOffset, size_t numElements,
+                  DataIterator target) {
+    return CopyToHost<DataIterator, cl::Event *>(deviceOffset, numElements,
+                                                 target, nullptr, nullptr);
+  }
+
   template <
       typename DataIterator, typename EventIterator = cl::Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
@@ -694,9 +722,17 @@ class Buffer {
       typename = typename std::enable_if<
           IsIteratorOfType<EventIterator, cl::Event>() &&
           IsRandomAccess<EventIterator>()>::type>
-  void CopyToHost(DataIterator target, EventIterator eventsBegin = nullptr,
-                  EventIterator eventsEnd = nullptr) {
+  void CopyToHost(DataIterator target, EventIterator eventsBegin,
+                  EventIterator eventsEnd) {
     return CopyToHost(0, nElements_, target, eventsBegin, eventsEnd);
+  }
+
+  template <typename DataIterator, typename = typename std::enable_if<
+                                       IsIteratorOfType<DataIterator, T>() &&
+                                       IsRandomAccess<DataIterator>()>::type>
+  void CopyToHost(DataIterator target) {
+    return CopyToHost<DataIterator, cl::Event *>(0, nElements_, target, nullptr,
+                                                 nullptr);
   }
 
   template <Access accessType, typename EventIterator = cl::Event *,
@@ -705,8 +741,7 @@ class Buffer {
                 IsRandomAccess<EventIterator>()>::type>
   void CopyToDevice(size_t offsetSource, size_t numElements,
                     Buffer<T, accessType> &other, size_t offsetDestination,
-                    EventIterator eventsBegin = nullptr,
-                    EventIterator eventsEnd = nullptr) {
+                    EventIterator eventsBegin, EventIterator eventsEnd) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     if (offsetSource + numElements > nElements_ ||
         offsetDestination + numElements > other.nElements()) {
@@ -739,6 +774,13 @@ class Buffer {
 
   template <Access accessType>
   void CopyToDevice(size_t offsetSource, size_t numElements,
+                    Buffer<T, accessType> &other, size_t offsetDestination) {
+    return CopyToDevice<accessType, cl::Event *>(
+        offsetSource, numElements, other, offsetDestination, nullptr, nullptr);
+  }
+
+  template <Access accessType>
+  void CopyToDevice(size_t offsetSource, size_t numElements,
                     Buffer<T, accessType> &other) {
     CopyToDevice(offsetSource, numElements, other, 0);
   }
@@ -753,18 +795,19 @@ class Buffer {
   }
 
   /*
-  The following functions copy 3D blocks of memory between host and device or on
-  the device. xxxOffset -> the offset of destination or target in (elements,
-  rows, slices). For 2d arrays xxxOffset[2] should be 0. copyBlockSize -> The
-  size of the block that is actually copied in (elements, rows, slices).
-  hostBlockSize/deviceBlockSize/sourceBlockSize/destBlockSize: The size of the
-  whole host/device/ source/destination Array in (elements, rows, slices)
+  The following functions copy 3D blocks of memory between host and device or
+  on the device. xxxOffset -> the offset of destination or target in
+  (elements, rows, slices). For 2d arrays xxxOffset[2] should be 0.
+  copyBlockSize -> The size of the block that is actually copied in (elements,
+  rows, slices). hostBlockSize/deviceBlockSize/sourceBlockSize/destBlockSize:
+  The size of the whole host/device/ source/destination Array in (elements,
+  rows, slices)
 
   Note: (elements, rows, slices) means just "default"-indices, like one would
   index a default c++ multidimensional array.
 
-  For hostBlockSize/deviceBlockSize/sourceBlockSize/destBlockSize it should hold
-  that their product is smaller or equal to the size of the array they
+  For hostBlockSize/deviceBlockSize/sourceBlockSize/destBlockSize it should
+  hold that their product is smaller or equal to the size of the array they
   reference. Not explicitely checked, because openCL will throw an error if
   violated.
   */
@@ -928,7 +971,8 @@ class Buffer {
       case StorageType::HBM:
         if (bankIndex >= 32 || bankIndex < 0)
           ThrowRuntimeError(
-              "HBM bank index out of range. The bank index must be below 32.");
+              "HBM bank index out of range. The bank index must be below "
+              "32.");
         extendedPointer.flags = bankIndex | kHBMStorageMagicNumber;
         break;
       case StorageType::DDR:
@@ -952,7 +996,8 @@ class Buffer {
             break;
           default:
             ThrowRuntimeError(
-                "DDR bank index out of range. The bank index must be below 4.");
+                "DDR bank index out of range. The bank index must be below "
+                "4.");
         }
     }
     return extendedPointer;
@@ -1098,8 +1143,8 @@ class Program {
   template <typename... Ts>
   Kernel MakeKernel(std::string const &kernelName, Ts &&... args);
 
-  /// Additionally allows passing a function pointer to a host implementation of
-  /// the kernel function for simulation and verification purposes.
+  /// Additionally allows passing a function pointer to a host implementation
+  /// of the kernel function for simulation and verification purposes.
   template <class F, typename... Ts>
   Kernel MakeKernel(F &&hostFunction, std::string const &kernelName,
                     Ts &&... args);
@@ -1179,8 +1224,8 @@ class Kernel {
   }
 
  public:
-  /// Also pass the kernel function as a host function signature. This helps to
-  /// verify that the arguments are correct, and allows calling the host
+  /// Also pass the kernel function as a host function signature. This helps
+  /// to verify that the arguments are correct, and allows calling the host
   /// function in simulation mode.
   template <typename F, typename... Ts>
   Kernel(Program &program, F &&hostFunction, std::string const &kernelName,
@@ -1236,8 +1281,8 @@ class Kernel {
             typename = typename std::enable_if<
                 IsIteratorOfType<EventIterator, cl::Event>() &&
                 IsRandomAccess<EventIterator>()>::type>
-  std::pair<double, double> ExecuteTask(EventIterator eventsBegin = nullptr,
-                                        EventIterator eventsEnd = nullptr) {
+  std::pair<double, double> ExecuteTask(EventIterator eventsBegin,
+                                        EventIterator eventsEnd) {
     const auto start = std::chrono::high_resolution_clock::now();
     auto event = ExecuteTaskFork(eventsBegin, eventsEnd);
     event.wait();
@@ -1256,15 +1301,19 @@ class Kernel {
 #endif
   }
 
-  /// Launch the kernel and return immediately, without requiring the caller to
-  /// wait on the kernel to finish. This is useful for kernels that are never
-  /// expected to terminate.
+  std::pair<double, double> ExecuteTask() {
+    return ExecuteTask<cl::Event *>(nullptr, nullptr);
+  }
+
+  /// Launch the kernel and return immediately, without requiring the caller
+  /// to wait on the kernel to finish. This is useful for kernels that are
+  /// never expected to terminate.
   template <typename EventIterator = cl::Event *,
             typename = typename std::enable_if<
                 IsIteratorOfType<EventIterator, cl::Event>() &&
                 IsRandomAccess<EventIterator>()>::type>
-  cl::Event ExecuteTaskFork(EventIterator eventsBegin = nullptr,
-                            EventIterator eventsEnd = nullptr) {
+  cl::Event ExecuteTaskFork(EventIterator eventsBegin,
+                            EventIterator eventsEnd) {
     cl_event event;
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_int errorCode;
@@ -1293,9 +1342,13 @@ class Kernel {
     return cl::Event(event);
   }
 
+  cl::Event ExecuteTaskFork() {
+    return ExecuteTaskFork<cl::Event *>(nullptr, nullptr);
+  }
+
   /// Returns a future to the result of a kernel launch, returning immediately
-  /// and allows the caller to wait on execution to finish as needed. Useful for
-  /// executing multiple concurrent kernels.
+  /// and allows the caller to wait on execution to finish as needed. Useful
+  /// for executing multiple concurrent kernels.
   std::future<std::pair<double, double>> ExecuteTaskAsync() {
     return std::async(std::launch::async, [this]() { return ExecuteTask(); });
   }
@@ -1583,4 +1636,4 @@ inline void detail::deallocate_aligned_memory(void *ptr) noexcept {
 
 }  // End namespace ocl
 
-}  // End namespace hlslib
+}  // namespace hlslib
