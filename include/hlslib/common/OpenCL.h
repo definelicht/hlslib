@@ -44,7 +44,7 @@ enum class Access { read, write, readWrite };
 /// Mapping to specific memory banks on the FPGA
 enum class MemoryBank { unspecified, bank0, bank1, bank2, bank3 };
 
-///Enum for storage types on the FPGA
+/// Enum for storage types on the FPGA
 enum class StorageType { DDR, HBM };
 
 //#############################################################################
@@ -239,23 +239,35 @@ cl::CommandQueue CreateCommandQueue(cl::Context const &context,
 cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified,
                         DDRBankFlags const &refBankFlags) {
   switch (memoryBank) {
-  case MemoryBank::bank0:
-    return refBankFlags.memory_bank_0();
-  case MemoryBank::bank1:
-    return refBankFlags.memory_bank_1();
-  case MemoryBank::bank2:
-    return refBankFlags.memory_bank_2();
-  case MemoryBank::bank3:
-    return refBankFlags.memory_bank_3();
-  case MemoryBank::unspecified:
-    if (failIfUnspecified) {
-      ThrowRuntimeError("Memory bank must be specified.");
-    }
+    case MemoryBank::bank0:
+      return refBankFlags.memory_bank_0();
+    case MemoryBank::bank1:
+      return refBankFlags.memory_bank_1();
+    case MemoryBank::bank2:
+      return refBankFlags.memory_bank_2();
+    case MemoryBank::bank3:
+      return refBankFlags.memory_bank_3();
+    case MemoryBank::unspecified:
+      if (failIfUnspecified) {
+        ThrowRuntimeError("Memory bank must be specified.");
+      }
   }
   return 0;
 }
 
-} // End anonymous namespace
+template <typename EventIterator>
+cl_uint NumEvents(EventIterator eventsBegin, EventIterator eventsEnd) {
+  if (eventsBegin != nullptr) {
+    if (eventsEnd != nullptr) {
+      return std::distance(eventsBegin, eventsEnd);
+    }
+    // Assume that the address of a single element was passed
+    return 1;
+  }
+  return 0;
+}
+
+}  // End anonymous namespace
 
 // Forward declarations for use in MakeProgram and MakeKernel signatures
 
@@ -389,8 +401,9 @@ class Context {
 // Buffer
 //#############################################################################
 
-template <typename T, Access access> class Buffer {
-public:
+template <typename T, Access access>
+class Buffer {
+ public:
   Buffer() : context_(nullptr), nElements_(0) {}
 
   Buffer(Buffer<T, access> const &other) = delete;
@@ -415,15 +428,15 @@ public:
     cl_mem_flags flags;
 
     switch (access) {
-    case Access::read:
-      flags = CL_MEM_READ_ONLY;
-      break;
-    case Access::write:
-      flags = CL_MEM_WRITE_ONLY;
-      break;
-    case Access::readWrite:
-      flags = CL_MEM_READ_WRITE;
-      break;
+      case Access::read:
+        flags = CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        flags = CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        flags = CL_MEM_READ_WRITE;
+        break;
     }
 
 #ifdef HLSLIB_XILINX
@@ -474,15 +487,15 @@ public:
 
     cl_mem_flags flags;
     switch (access) {
-    case Access::read:
-      flags = CL_MEM_READ_ONLY;
-      break;
-    case Access::write:
-      flags = CL_MEM_WRITE_ONLY;
-      break;
-    case Access::readWrite:
-      flags = CL_MEM_READ_WRITE;
-      break;
+      case Access::read:
+        flags = CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        flags = CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        flags = CL_MEM_READ_WRITE;
+        break;
     }
 
     void *hostPtr = nullptr;
@@ -577,7 +590,7 @@ public:
 #endif
   }
 
-#endif // HLSLIB_XILINX
+#endif  // HLSLIB_XILINX
 
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
     std::swap(first.context_, second.context_);
@@ -594,19 +607,29 @@ public:
 
   ~Buffer() = default;
 
-  template <typename IteratorType, typename = typename std::enable_if<
-                                       IsIteratorOfType<IteratorType, T>() &&
-                                       IsRandomAccess<IteratorType>()>::type>
-  void CopyFromHost(int deviceOffset, int numElements, IteratorType source) {
+  template <
+      typename DataIterator, typename EventIterator = cl::Event *,
+      typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
+                                         IsRandomAccess<DataIterator>()>::type,
+      typename = typename std::enable_if<
+          IsIteratorOfType<EventIterator, cl::Event>() &&
+          IsRandomAccess<EventIterator>()>::type>
+  void CopyFromHost(int deviceOffset, int numElements, DataIterator source,
+                    EventIterator eventsBegin = nullptr,
+                    EventIterator eventsEnd = nullptr) {
 #ifndef HLSLIB_SIMULATE_OPENCL
-    cl::Event event;
+    cl_event event;
     cl_int errorCode;
+    const auto numEvents = NumEvents(eventsBegin, eventsEnd);
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
-      errorCode = context_->commandQueue().enqueueWriteBuffer(
-          devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
-          sizeof(T) * numElements, const_cast<T *>(&(*source)), nullptr,
-          &event);
+      static_assert(sizeof(cl_event) == sizeof(cl::Event),
+                    "Reinterpret cast is not safe.");
+      errorCode = clEnqueueWriteBuffer(
+          context_->commandQueue().get(), devicePtr_.get(), CL_TRUE,
+          sizeof(T) * deviceOffset, sizeof(T) * numElements,
+          const_cast<T *>(&(*source)), numEvents,
+          reinterpret_cast<cl_event const *>(&(*eventsBegin)), &event);
     }
     // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
@@ -617,26 +640,41 @@ public:
 #endif
   }
 
-  template <typename IteratorType, typename = typename std::enable_if<
-                                       IsIteratorOfType<IteratorType, T>() &&
-                                       IsRandomAccess<IteratorType>()>::type>
-  void CopyFromHost(IteratorType source) {
-    return CopyFromHost(0, nElements_, source);
+  template <
+      typename DataIterator, typename EventIterator = cl::Event *,
+      typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
+                                         IsRandomAccess<DataIterator>()>::type,
+      typename = typename std::enable_if<
+          IsIteratorOfType<EventIterator, cl::Event>() &&
+          IsRandomAccess<EventIterator>()>::type>
+  void CopyFromHost(DataIterator source, EventIterator eventBegin = nullptr,
+                    EventIterator eventEnd = nullptr) {
+    return CopyFromHost(0, nElements_, source, eventBegin, eventEnd);
   }
 
-  template <typename IteratorType, typename = typename std::enable_if<
-                                       IsIteratorOfType<IteratorType, T>() &&
-                                       IsRandomAccess<IteratorType>()>::type>
-  void CopyToHost(size_t deviceOffset, size_t numElements,
-                  IteratorType target) {
+  template <
+      typename DataIterator, typename EventIterator = cl::Event *,
+      typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
+                                         IsRandomAccess<DataIterator>()>::type,
+      typename = typename std::enable_if<
+          IsIteratorOfType<EventIterator, cl::Event>() &&
+          IsRandomAccess<EventIterator>()>::type>
+  void CopyToHost(size_t deviceOffset, size_t numElements, DataIterator target,
+                  EventIterator eventsBegin = nullptr,
+                  EventIterator eventsEnd = nullptr) {
 #ifndef HLSLIB_SIMULATE_OPENCL
-    cl::Event event;
+    cl_event event;
     cl_int errorCode;
+    const auto numEvents = NumEvents(eventsBegin, eventsEnd);
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
-      errorCode = context_->commandQueue().enqueueReadBuffer(
-          devicePtr_, CL_TRUE, sizeof(T) * deviceOffset,
-          sizeof(T) * numElements, &(*target), nullptr, &event);
+      static_assert(sizeof(cl_event) == sizeof(cl::Event),
+                    "Reinterpret cast is not safe.");
+      errorCode = clEnqueueReadBuffer(
+          context_->commandQueue().get(), devicePtr_.get(), CL_TRUE,
+          sizeof(T) * deviceOffset, sizeof(T) * numElements, &(*target),
+          numEvents, reinterpret_cast<cl_event const *>(&(*eventsBegin)),
+          &event);
     }
     // Don't need to wait for event because of blocking call (CL_TRUE)
     if (errorCode != CL_SUCCESS) {
@@ -649,31 +687,45 @@ public:
 #endif
   }
 
-  template <typename IteratorType, typename = typename std::enable_if<
-                                       IsIteratorOfType<IteratorType, T>() &&
-                                       IsRandomAccess<IteratorType>()>::type>
-  void CopyToHost(IteratorType target) {
-    return CopyToHost(0, nElements_, target);
+  template <
+      typename DataIterator, typename EventIterator = cl::Event *,
+      typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
+                                         IsRandomAccess<DataIterator>()>::type,
+      typename = typename std::enable_if<
+          IsIteratorOfType<EventIterator, cl::Event>() &&
+          IsRandomAccess<EventIterator>()>::type>
+  void CopyToHost(DataIterator target, EventIterator eventsBegin = nullptr,
+                  EventIterator eventsEnd = nullptr) {
+    return CopyToHost(0, nElements_, target, eventsBegin, eventsEnd);
   }
 
-  template <Access accessType>
+  template <Access accessType, typename EventIterator = cl::Event *,
+            typename = typename std::enable_if<
+                IsIteratorOfType<EventIterator, cl::Event>() &&
+                IsRandomAccess<EventIterator>()>::type>
   void CopyToDevice(size_t offsetSource, size_t numElements,
-                    Buffer<T, accessType> &other, size_t offsetDestination) {
+                    Buffer<T, accessType> &other, size_t offsetDestination,
+                    EventIterator eventsBegin = nullptr,
+                    EventIterator eventsEnd = nullptr) {
 #ifndef HLSLIB_SIMULATE_OPENCL
     if (offsetSource + numElements > nElements_ ||
         offsetDestination + numElements > other.nElements()) {
       ThrowRuntimeError("Device to device copy interval out of range.");
     }
-    cl::Event event;
+    cl_event event;
     cl_int errorCode;
+    static_assert(sizeof(cl_event) == sizeof(cl::Event),
+                  "Reinterpret cast is not safe.");
+    const auto numEvents = NumEvents(eventsBegin, eventsEnd);
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
-      errorCode = context_->commandQueue().enqueueCopyBuffer(
-          devicePtr_, other.devicePtr(), sizeof(T) * offsetSource,
-          sizeof(T) * offsetDestination, numElements * sizeof(T), nullptr,
-          &event);
+      errorCode = clEnqueueCopyBuffer(
+          context_->commandQueue().get(), devicePtr_.get(),
+          other.devicePtr().get(), sizeof(T) * offsetSource,
+          sizeof(T) * offsetDestination, numElements * sizeof(T), numEvents,
+          reinterpret_cast<cl_event const *>(&(*eventsBegin)), &event);
     }
-    event.wait();
+    clWaitForEvents(1, &event);
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to copy from device to device.");
       return;
@@ -691,7 +743,8 @@ public:
     CopyToDevice(offsetSource, numElements, other, 0);
   }
 
-  template <Access accessType> void CopyToDevice(Buffer<T, accessType> &other) {
+  template <Access accessType>
+  void CopyToDevice(Buffer<T, accessType> &other) {
     if (other.nElements() != nElements_) {
       ThrowRuntimeError(
           "Device to device copy issued for buffers of different size.");
@@ -853,11 +906,10 @@ public:
 
   size_t nElements() const { return nElements_; }
 
-private:
+ private:
 #ifdef HLSLIB_XILINX
-  ExtendedMemoryPointer
-  CreateExtendedPointer(void *hostPtr, MemoryBank memoryBank,
-                        DDRBankFlags const &refBankFlags) {
+  ExtendedMemoryPointer CreateExtendedPointer(
+      void *hostPtr, MemoryBank memoryBank, DDRBankFlags const &refBankFlags) {
     ExtendedMemoryPointer extendedPointer;
     extendedPointer.flags = BankToFlag(memoryBank, true, refBankFlags);
     extendedPointer.obj = hostPtr;
@@ -865,63 +917,64 @@ private:
     return extendedPointer;
   }
 
-  ExtendedMemoryPointer
-  CreateExtendedPointer(void *hostPtr, StorageType storageType, int bankIndex,
-                        DDRBankFlags const &refBankFlags) {
+  ExtendedMemoryPointer CreateExtendedPointer(
+      void *hostPtr, StorageType storageType, int bankIndex,
+      DDRBankFlags const &refBankFlags) {
     ExtendedMemoryPointer extendedPointer;
     extendedPointer.obj = hostPtr;
     extendedPointer.param = 0;
 
     switch (storageType) {
-    case StorageType::HBM:
-      if (bankIndex >= 32 || bankIndex < 0)
-        ThrowRuntimeError(
-            "HBM bank index out of range. The bank index must be below 32.");
-      extendedPointer.flags = bankIndex | kHBMStorageMagicNumber;
-      break;
-    case StorageType::DDR:
-      if (bankIndex >= 4 || bankIndex < 0) {
-        ThrowRuntimeError("DDR bank index out of range. The bank index must be "
-                          "in the range [0,3].");
-      }
-      switch (bankIndex) {
-      case 0:
-        extendedPointer.flags = refBankFlags.memory_bank_0();
+      case StorageType::HBM:
+        if (bankIndex >= 32 || bankIndex < 0)
+          ThrowRuntimeError(
+              "HBM bank index out of range. The bank index must be below 32.");
+        extendedPointer.flags = bankIndex | kHBMStorageMagicNumber;
         break;
-      case 1:
-        extendedPointer.flags = refBankFlags.memory_bank_1();
-        break;
-      case 2:
-        extendedPointer.flags = refBankFlags.memory_bank_2();
-        break;
-      case 3:
-        extendedPointer.flags = refBankFlags.memory_bank_3();
-        break;
-      default:
-        ThrowRuntimeError(
-            "DDR bank index out of range. The bank index must be below 4.");
-      }
+      case StorageType::DDR:
+        if (bankIndex >= 4 || bankIndex < 0) {
+          ThrowRuntimeError(
+              "DDR bank index out of range. The bank index must be "
+              "in the range [0,3].");
+        }
+        switch (bankIndex) {
+          case 0:
+            extendedPointer.flags = refBankFlags.memory_bank_0();
+            break;
+          case 1:
+            extendedPointer.flags = refBankFlags.memory_bank_1();
+            break;
+          case 2:
+            extendedPointer.flags = refBankFlags.memory_bank_2();
+            break;
+          case 3:
+            extendedPointer.flags = refBankFlags.memory_bank_3();
+            break;
+          default:
+            ThrowRuntimeError(
+                "DDR bank index out of range. The bank index must be below 4.");
+        }
     }
     return extendedPointer;
   }
 
   cl_mem_flags CreateAllocFlags(cl_mem_flags initialflags) {
     switch (access) {
-    case Access::read:
-      initialflags |= CL_MEM_READ_ONLY;
-      break;
-    case Access::write:
-      initialflags |= CL_MEM_WRITE_ONLY;
-      break;
-    case Access::readWrite:
-      initialflags |= CL_MEM_READ_WRITE;
-      break;
+      case Access::read:
+        initialflags |= CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        initialflags |= CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        initialflags |= CL_MEM_READ_WRITE;
+        break;
     }
 
     initialflags |= kXilinxMemPointer;
     return initialflags;
   }
-#endif // HLSLIB_XILINX
+#endif  // HLSLIB_XILINX
 
 #ifndef HLSLIB_SIMULATE_OPENCL
   /*
@@ -930,25 +983,25 @@ private:
   have some somewhat unintuitive interface (it does make sense if one thinks
   about how they are probably implemented - still very inconvienient to use)
   */
-  inline void
-  BlockOffsetsPreprocess(const std::array<size_t, 3> &blockSize,
-                         const std::array<size_t, 3> &hostBlockSizes,
-                         const std::array<size_t, 3> &deviceBlockSizes,
-                         const std::array<size_t, 3> &hostBlockOffsets,
-                         const std::array<size_t, 3> &deviceBlockOffsets,
-                         std::array<size_t, 3> &copyBlockSizePrepared,
-                         std::array<size_t, 2> &hostBlockSizesBytes,
-                         std::array<size_t, 2> &deviceBlockSizesBytes,
-                         std::array<size_t, 3> &hostBlockOffsetsPrepared,
-                         std::array<size_t, 3> &deviceBlockOffsetsPrepared,
-                         const size_t multiplyBy) {
+  inline void BlockOffsetsPreprocess(
+      const std::array<size_t, 3> &blockSize,
+      const std::array<size_t, 3> &hostBlockSizes,
+      const std::array<size_t, 3> &deviceBlockSizes,
+      const std::array<size_t, 3> &hostBlockOffsets,
+      const std::array<size_t, 3> &deviceBlockOffsets,
+      std::array<size_t, 3> &copyBlockSizePrepared,
+      std::array<size_t, 2> &hostBlockSizesBytes,
+      std::array<size_t, 2> &deviceBlockSizesBytes,
+      std::array<size_t, 3> &hostBlockOffsetsPrepared,
+      std::array<size_t, 3> &deviceBlockOffsetsPrepared,
+      const size_t multiplyBy) {
     copyBlockSizePrepared = {blockSize[0] * multiplyBy, blockSize[1],
                              blockSize[2]};
     hostBlockSizesBytes = {hostBlockSizes[0] * multiplyBy,
                            hostBlockSizes[0] * hostBlockSizes[1] * multiplyBy};
-    deviceBlockSizesBytes = {deviceBlockSizes[0] * multiplyBy,
-                             deviceBlockSizes[0] * deviceBlockSizes[1] *
-                                 multiplyBy};
+    deviceBlockSizesBytes = {
+        deviceBlockSizes[0] * multiplyBy,
+        deviceBlockSizes[0] * deviceBlockSizes[1] * multiplyBy};
     hostBlockOffsetsPrepared = {hostBlockOffsets[0] * multiplyBy,
                                 hostBlockOffsets[1], hostBlockOffsets[2]};
     deviceBlockOffsetsPrepared = {deviceBlockOffsets[0] * multiplyBy,
@@ -1008,7 +1061,7 @@ private:
 #endif
   size_t nElements_;
 
-}; // End class Buffer
+};  // End class Buffer
 
 //#############################################################################
 // Program
@@ -1179,9 +1232,14 @@ class Kernel {
   /// Execute the kernel as an OpenCL task, wait for it to finish, then return
   /// the time elapsed as reported by OpenCL (first) and as measured with
   /// chrono (second).
-  inline std::pair<double, double> ExecuteTask() {
+  template <typename EventIterator = cl::Event *,
+            typename = typename std::enable_if<
+                IsIteratorOfType<EventIterator, cl::Event>() &&
+                IsRandomAccess<EventIterator>()>::type>
+  std::pair<double, double> ExecuteTask(EventIterator eventsBegin = nullptr,
+                                        EventIterator eventsEnd = nullptr) {
     const auto start = std::chrono::high_resolution_clock::now();
-    auto event = ExecuteTaskFork();
+    auto event = ExecuteTaskFork(eventsBegin, eventsEnd);
     event.wait();
     const auto end = std::chrono::high_resolution_clock::now();
     const double elapsedChrono =
@@ -1201,18 +1259,29 @@ class Kernel {
   /// Launch the kernel and return immediately, without requiring the caller to
   /// wait on the kernel to finish. This is useful for kernels that are never
   /// expected to terminate.
-  inline cl::Event ExecuteTaskFork() {
-    cl::Event event;
+  template <typename EventIterator = cl::Event *,
+            typename = typename std::enable_if<
+                IsIteratorOfType<EventIterator, cl::Event>() &&
+                IsRandomAccess<EventIterator>()>::type>
+  cl::Event ExecuteTaskFork(EventIterator eventsBegin = nullptr,
+                            EventIterator eventsEnd = nullptr) {
+    cl_event event;
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_int errorCode;
+    const auto numEvents = NumEvents(eventsBegin, eventsEnd);
 #ifndef HLSLIB_INTEL
     {
       std::lock_guard<std::mutex> lock(program_.context().enqueueMutex());
-      errorCode = program_.context().commandQueue().enqueueTask(
-          kernel_, nullptr, &event);
+      static_assert(sizeof(cl_event) == sizeof(cl::Event),
+                    "Reinterpret cast is not safe.");
+      errorCode = clEnqueueTask(
+          program_.context().commandQueue().get(), kernel_.get(), numEvents,
+          reinterpret_cast<cl_event const *>(&(*eventsBegin)), &event);
     }
 #else
-    errorCode = commandQueue_.enqueueTask(kernel_, nullptr, &event);
+    errorCode = clEnqueueTask(
+        commandQueue_.get(), kernel_.get(), numEvents,
+        reinterpret_cast<cl_event const *>(&(*eventsBegin)), &event);
 #endif
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to execute kernel.");
@@ -1221,7 +1290,7 @@ class Kernel {
 #else
     hostFunction_();  // Simulate by calling host function
 #endif
-    return event;
+    return cl::Event(event);
   }
 
   /// Returns a future to the result of a kernel launch, returning immediately
@@ -1274,14 +1343,7 @@ Program Context::MakeProgram(std::string const &path) {
   binaryContent.emplace_back(fileSize);
   // Since this is just binary data the reinterpret_cast *should* be safe
   input.read(reinterpret_cast<char *>(&binaryContent[0][0]), fileSize);
-#ifndef HLSLIB_LEGACY_OPENCL
   const auto binary = binaryContent;
-#else
-  // In the legacy API, each binary is a void* to the data and an integer
-  // containing its size in bytes
-  typename cl::Program::Binaries binary;
-  binary.emplace_back(&binaryContent[0][0], fileSize);
-#endif
 
   if (fileSize == 0 || binaryContent[0].size() != fileSize) {
     std::stringstream ss;
