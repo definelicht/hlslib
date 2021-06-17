@@ -351,9 +351,11 @@ class Stream<T, 0, Storage::Unspecified> {
   std::string const &name() const { return name_; }
 #endif
 
-  void set_name(char const *const name) {
 #ifndef HLSLIB_SYNTHESIS
+  void set_name(char const *const name) {
     name_ = name;
+#else
+  void set_name(char const *const) {
 #endif
   }
 
