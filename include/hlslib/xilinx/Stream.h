@@ -496,14 +496,14 @@ public:
 
   Stream(char const *const name) : Stream<T, 0, storage>(name, depth, storage) {
     #pragma HLS INLINE
-#if !defined(__VIVADO_HLS__) || defined(__VITIS_HLS__) 
+#if !defined(__VIVADO_HLS__) || defined(__VITIS_HLS__)
     #pragma HLS STREAM variable=this->stream_ depth=depth
     if (storage == Storage::BRAM) {
-      #pragma HLS RESOURCE variable=this->stream_ core=FIFO_BRAM
+      #pragma HLS bind_storage variable=this->stream_ type=FIFO impl=BRAM
     } else if (storage == Storage::LUTRAM) {
-      #pragma HLS RESOURCE variable=this->stream_ core=FIFO_LUTRAM
+      #pragma HLS bind_storage variable=this->stream_ type=FIFO impl=LUTRAM
     } else if (storage == Storage::SRL) {
-      #pragma HLS RESOURCE variable=this->stream_ core=FIFO_SRL
+      #pragma HLS bind_storage variable=this->stream_ type=FIFO impl=SRL
     }
 #endif
   }
