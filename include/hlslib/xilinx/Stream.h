@@ -107,7 +107,7 @@ class Stream<T, 0, Storage::Unspecified> {
       #pragma HLS RESOURCE variable=stream_ core=FIFO_SRL
     }
   }
-#else  // Assume we're using vitis_hls 
+#else  // Assume we're using vitis_hls
   // The name constructor is broken in Vitis 2020.1
   Stream(char const *const, size_t, Storage) : stream_() {
     // Setting depth and storage are doned from the derived class
@@ -426,7 +426,7 @@ class Stream<T, 0, Storage::Unspecified> {
     }
     if (kStreamVerbose && slept) {
       std::stringstream ss;
-      ss << name_ << " full [" << queue_.size() << "/" << depth 
+      ss << name_ << " full [" << queue_.size() << "/" << depth
          << " elements, woke up].\n";
       std::cout << ss.str();
     }
