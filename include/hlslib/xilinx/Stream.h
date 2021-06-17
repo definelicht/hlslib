@@ -107,7 +107,7 @@ class Stream<T, 0, Storage::Unspecified> {
       #pragma HLS RESOURCE variable=stream_ core=FIFO_SRL
     }
   }
-#else  // Assume we're using vitis_hls 
+#else  // Assume we're using vitis_hls
   // The name constructor is broken in Vitis 2020.1
   Stream(char const *const, size_t, Storage) : stream_() {
     // Setting depth and storage are doned from the derived class
@@ -351,9 +351,11 @@ class Stream<T, 0, Storage::Unspecified> {
   std::string const &name() const { return name_; }
 #endif
 
-  void set_name(char const *const name) {
 #ifndef HLSLIB_SYNTHESIS
+  void set_name(char const *const name) {
     name_ = name;
+#else
+  void set_name(char const *const) {
 #endif
   }
 
@@ -426,7 +428,7 @@ class Stream<T, 0, Storage::Unspecified> {
     }
     if (kStreamVerbose && slept) {
       std::stringstream ss;
-      ss << name_ << " full [" << queue_.size() << "/" << depth 
+      ss << name_ << " full [" << queue_.size() << "/" << depth
          << " elements, woke up].\n";
       std::cout << ss.str();
     }
@@ -494,14 +496,14 @@ public:
 
   Stream(char const *const name) : Stream<T, 0, storage>(name, depth, storage) {
     #pragma HLS INLINE
-#if !defined(__VIVADO_HLS__) || defined(__VITIS_HLS__) 
+#if !defined(__VIVADO_HLS__) || defined(__VITIS_HLS__)
     #pragma HLS STREAM variable=this->stream_ depth=depth
     if (storage == Storage::BRAM) {
-      #pragma HLS RESOURCE variable=this->stream_ core=FIFO_BRAM
+      #pragma HLS bind_storage variable=this->stream_ type=FIFO impl=BRAM
     } else if (storage == Storage::LUTRAM) {
-      #pragma HLS RESOURCE variable=this->stream_ core=FIFO_LUTRAM
+      #pragma HLS bind_storage variable=this->stream_ type=FIFO impl=LUTRAM
     } else if (storage == Storage::SRL) {
-      #pragma HLS RESOURCE variable=this->stream_ core=FIFO_SRL
+      #pragma HLS bind_storage variable=this->stream_ type=FIFO impl=SRL
     }
 #endif
   }
