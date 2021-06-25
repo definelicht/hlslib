@@ -5,14 +5,15 @@
 
 #define HLSLIB_INTEL_OPENCL_H
 
-#include "CL/cl.hpp"
+#define CL_HPP_CL_1_2_DEFAULT_BUILD
+#define CL_HPP_TARGET_OPENCL_VERSION 120
+#define CL_HPP_MINIMUM_OPENCL_VERSION 120
+#include "CL/cl2.hpp"
 
 #if !defined(CL_CHANNEL_1_INTELFPGA)
 // include this header if channel macros are not defined in cl.hpp (versions >=19.0)
 #include "CL/cl_ext_intelfpga.h"
 #endif
-
-#define HLSLIB_LEGACY_OPENCL
 
 #ifndef HLSLIB_INTEL
 #define HLSLIB_INTEL
