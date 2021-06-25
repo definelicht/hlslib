@@ -440,11 +440,8 @@ public:
       AllocateDDRNoTransfer(memoryBank);
   }
 
-    template <typename IteratorType, typename = typename std::enable_if<
-                                       IsIteratorOfType<IteratorType, T>() &&
-                                       IsRandomAccess<IteratorType>()>::type>
-  Buffer(Context &context, IteratorType begin, IteratorType end)
-      : Buffer(context, MemoryBank::unspecified, begin, end) {}
+  Buffer(Context &context, size_t nElements)
+      : Buffer(context, MemoryBank::unspecified, nElements) {}
 
   /// Allocate DDR or HBM but don't perform any transfers.
   Buffer(Context &context, StorageType storageType, int bankIndex,
