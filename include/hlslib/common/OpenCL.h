@@ -433,7 +433,7 @@ public:
 #ifndef HLSLIB_SIMULATE_OPENCL
 #ifdef HLSLIB_INTEL
     if(storageType != StorageType::DDR) {
-      ThrowRuntimeError("HLSLIB only supports DDR for Intel")
+      ThrowRuntimeError("HLSLIB only supports DDR for Intel");
     }
     AllocateDDRNoTransfer(StorageTypeToMemoryBank(storageType, bankIndex));
 #endif
@@ -857,6 +857,7 @@ MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
     case 3:
       return MemoryBank::bank3;
   }
+  throw "unreachable"; //Suppress Warnings
 }
 
 /// Allocate and copy to device.
@@ -890,7 +891,7 @@ template <typename IteratorType, typename = typename std::enable_if<
     ExtendedMemoryPointer extendedHostPointer;
     if (memoryBank != MemoryBank::unspecified) {
       extendedHostPointer =
-          CreateExtendedPointer(hostPtr, memoryBank, context.DDRFlags_);
+          CreateExtendedPointer(hostPtr, memoryBank, context_->DDRFlags_);
       // Replace hostPtr with Xilinx extended pointer
       hostPtr = &extendedHostPointer;
       flags |= kXilinxMemPointer;
@@ -898,11 +899,11 @@ template <typename IteratorType, typename = typename std::enable_if<
 #endif
 
 #ifdef HLSLIB_INTEL
-    flags |= BankToFlag(memoryBank, false, context.DDRFlags_);
+    flags |= BankToFlag(memoryBank, false, context_->DDRFlags_);
 #endif
 
     cl_int errorCode;
-    devicePtr_ = cl::Buffer(context.context(), flags, sizeof(T) * nElements_,
+    devicePtr_ = cl::Buffer(context_->context(), flags, sizeof(T) * nElements_,
                             hostPtr, &errorCode);
 #ifdef HLSLIB_INTEL
     CopyFromHost(begin);
@@ -940,7 +941,7 @@ template <typename IteratorType, typename = typename std::enable_if<
     ExtendedMemoryPointer extendedHostPointer;
     if (memoryBank != MemoryBank::unspecified) {
       extendedHostPointer =
-          CreateExtendedPointer(nullptr, memoryBank, context.DDRFlags_);
+          CreateExtendedPointer(nullptr, memoryBank, context_->DDRFlags_);
       // Becomes a pointer to the Xilinx extended memory pointer if a memory
       // bank is specified
       hostPtr = &extendedHostPointer;
@@ -948,7 +949,7 @@ template <typename IteratorType, typename = typename std::enable_if<
     }
 #endif
 #ifdef HLSLIB_INTEL
-    flags |= BankToFlag(memoryBank, false, context.DDRFlags_);
+    flags |= BankToFlag(memoryBank, false, context_->DDRFlags_);
 #endif
 
     cl_int errorCode;
