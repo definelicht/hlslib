@@ -255,6 +255,26 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified,
   return 0;
 }
 
+MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
+  if (storage != StorageType::DDR) {
+    ThrowRuntimeError("Only DDR can be converted to Memorybank");
+  }
+  if (bank < 0 || bank > 3) {
+    ThrowRuntimeError("To large bank to convert to Memorybank");
+  }
+  switch (bank) {
+  case 0:
+    return MemoryBank::bank0;
+  case 1:
+    return MemoryBank::bank1;
+  case 2:
+    return MemoryBank::bank2;
+  case 3:
+    return MemoryBank::bank3;
+  }
+  throw "unreachable"; // Suppress Warnings
+}
+
 cl_uint NumEvents(cl::Event const *const eventsBegin,
                   cl::Event const *const eventsEnd) {
   if (eventsBegin != nullptr) {
@@ -425,7 +445,7 @@ public:
   Buffer(Context &context, MemoryBank memoryBank, IteratorType begin,
          IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
-      AllocateDDR(memoryBank, begin, end);
+    AllocateDDR(memoryBank, begin, end);
   }
 
   template <typename IteratorType, typename = typename std::enable_if<
@@ -434,10 +454,10 @@ public:
   Buffer(Context &context, IteratorType begin, IteratorType end)
       : Buffer(context, MemoryBank::unspecified, begin, end) {}
 
-  /// Allocate but don't perform any transfers  
+  /// Allocate but don't perform any transfers
   Buffer(Context &context, MemoryBank memoryBank, size_t nElements)
       : context_(&context), nElements_(nElements) {
-      AllocateDDRNoTransfer(memoryBank);
+    AllocateDDRNoTransfer(memoryBank);
   }
 
   Buffer(Context &context, size_t nElements)
@@ -449,7 +469,7 @@ public:
       : context_(&context), nElements_(nElements) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 #ifdef HLSLIB_INTEL
-    if(storageType != StorageType::DDR) {
+    if (storageType != StorageType::DDR) {
       ThrowRuntimeError("HLSLIB only supports DDR for Intel");
     }
     AllocateDDRNoTransfer(StorageTypeToMemoryBank(storageType, bankIndex));
@@ -486,10 +506,10 @@ public:
       : context_(&context), nElements_(std::distance(begin, end)) {
 #ifndef HLSLIB_SIMULATE_OPENCL
 #ifdef HLSLIB_INTEL
-  if(storageType != StorageType::DDR) {
-    ThrowRuntimeError("HLSLIB only supports DDR for Intel");
-  }
-  AllocateDDR(StorageTypeToMemoryBank(storageType, bankIndex), begin, end);
+    if (storageType != StorageType::DDR) {
+      ThrowRuntimeError("HLSLIB only supports DDR for Intel");
+    }
+    AllocateDDR(StorageTypeToMemoryBank(storageType, bankIndex), begin, end);
 #endif
 #ifdef HLSLIB_XILINX
     void *hostPtr = const_cast<T *>(&(*begin));
@@ -866,8 +886,9 @@ public:
 
 private:
 #ifdef HLSLIB_XILINX
-  ExtendedMemoryPointer CreateExtendedPointer(
-      void *hostPtr, MemoryBank memoryBank, DDRBankFlags const &refBankFlags) {
+  ExtendedMemoryPointer
+  CreateExtendedPointer(void *hostPtr, MemoryBank memoryBank,
+                        DDRBankFlags const &refBankFlags) {
     ExtendedMemoryPointer extendedPointer;
     extendedPointer.flags = BankToFlag(memoryBank, true, refBankFlags);
     extendedPointer.obj = hostPtr;
@@ -875,60 +896,59 @@ private:
     return extendedPointer;
   }
 
-  ExtendedMemoryPointer CreateExtendedPointer(
-      void *hostPtr, StorageType storageType, int bankIndex,
-      DDRBankFlags const &refBankFlags) {
+  ExtendedMemoryPointer
+  CreateExtendedPointer(void *hostPtr, StorageType storageType, int bankIndex,
+                        DDRBankFlags const &refBankFlags) {
     ExtendedMemoryPointer extendedPointer;
     extendedPointer.obj = hostPtr;
     extendedPointer.param = 0;
 
     switch (storageType) {
-      case StorageType::HBM:
-        if (bankIndex >= 32 || bankIndex < 0)
-          ThrowRuntimeError(
-              "HBM bank index out of range. The bank index must be below "
-              "32.");
-        extendedPointer.flags = bankIndex | kHBMStorageMagicNumber;
+    case StorageType::HBM:
+      if (bankIndex >= 32 || bankIndex < 0)
+        ThrowRuntimeError(
+            "HBM bank index out of range. The bank index must be below "
+            "32.");
+      extendedPointer.flags = bankIndex | kHBMStorageMagicNumber;
+      break;
+    case StorageType::DDR:
+      if (bankIndex >= 4 || bankIndex < 0) {
+        ThrowRuntimeError("DDR bank index out of range. The bank index must be "
+                          "in the range [0,3].");
+      }
+      switch (bankIndex) {
+      case 0:
+        extendedPointer.flags = refBankFlags.memory_bank_0();
         break;
-      case StorageType::DDR:
-        if (bankIndex >= 4 || bankIndex < 0) {
-          ThrowRuntimeError(
-              "DDR bank index out of range. The bank index must be "
-              "in the range [0,3].");
-        }
-        switch (bankIndex) {
-          case 0:
-            extendedPointer.flags = refBankFlags.memory_bank_0();
-            break;
-          case 1:
-            extendedPointer.flags = refBankFlags.memory_bank_1();
-            break;
-          case 2:
-            extendedPointer.flags = refBankFlags.memory_bank_2();
-            break;
-          case 3:
-            extendedPointer.flags = refBankFlags.memory_bank_3();
-            break;
-          default:
-            ThrowRuntimeError(
-                "DDR bank index out of range. The bank index must be below "
-                "4.");
-        }
+      case 1:
+        extendedPointer.flags = refBankFlags.memory_bank_1();
+        break;
+      case 2:
+        extendedPointer.flags = refBankFlags.memory_bank_2();
+        break;
+      case 3:
+        extendedPointer.flags = refBankFlags.memory_bank_3();
+        break;
+      default:
+        ThrowRuntimeError(
+            "DDR bank index out of range. The bank index must be below "
+            "4.");
+      }
     }
     return extendedPointer;
   }
 
   cl_mem_flags CreateAllocFlags(cl_mem_flags initialflags) {
     switch (access) {
-      case Access::read:
-        initialflags |= CL_MEM_READ_ONLY;
-        break;
-      case Access::write:
-        initialflags |= CL_MEM_WRITE_ONLY;
-        break;
-      case Access::readWrite:
-        initialflags |= CL_MEM_READ_WRITE;
-        break;
+    case Access::read:
+      initialflags |= CL_MEM_READ_ONLY;
+      break;
+    case Access::write:
+      initialflags |= CL_MEM_WRITE_ONLY;
+      break;
+    case Access::readWrite:
+      initialflags |= CL_MEM_READ_WRITE;
+      break;
     }
 
     initialflags |= kXilinxMemPointer;
@@ -936,33 +956,13 @@ private:
   }
 #endif // HLSLIB_XILINX
 
-MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
-  if(storage != StorageType::DDR) {
-    ThrowRuntimeError("Only DDR can be converted to Memorybank");
-  }
-  if(bank < 0 || bank > 3) {
-    ThrowRuntimeError("To large bank to convert to Memorybank");
-  }
-  switch(bank) {
-    case 0:
-      return MemoryBank::bank0;
-    case 1:
-      return MemoryBank::bank1;
-    case 2:
-      return MemoryBank::bank2;
-    case 3:
-      return MemoryBank::bank3;
-  }
-  throw "unreachable"; //Suppress Warnings
-}
-
-/// Allocate and copy to device.
-template <typename IteratorType, typename = typename std::enable_if<
+  /// Allocate and copy to device.
+  template <typename IteratorType, typename = typename std::enable_if<
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   void AllocateDDR(MemoryBank memoryBank, IteratorType begin,
-         IteratorType end) {
-    #ifndef HLSLIB_SIMULATE_OPENCL
+                   IteratorType end) {
+#ifndef HLSLIB_SIMULATE_OPENCL
 
     void *hostPtr = nullptr;
 
@@ -1017,7 +1017,7 @@ template <typename IteratorType, typename = typename std::enable_if<
 
   /// Allocate device memory but don't perform any transfers.
   void AllocateDDRNoTransfer(MemoryBank memoryBank) {
-    #ifndef HLSLIB_SIMULATE_OPENCL
+#ifndef HLSLIB_SIMULATE_OPENCL
 
     cl_mem_flags flags;
     switch (access) {
@@ -1071,25 +1071,25 @@ template <typename IteratorType, typename = typename std::enable_if<
   have some somewhat unintuitive interface (it does make sense if one thinks
   about how they are probably implemented - still very inconvienient to use)
   */
-  inline void BlockOffsetsPreprocess(
-      const std::array<size_t, 3> &blockSize,
-      const std::array<size_t, 3> &hostBlockSizes,
-      const std::array<size_t, 3> &deviceBlockSizes,
-      const std::array<size_t, 3> &hostBlockOffsets,
-      const std::array<size_t, 3> &deviceBlockOffsets,
-      std::array<size_t, 3> &copyBlockSizePrepared,
-      std::array<size_t, 2> &hostBlockSizesBytes,
-      std::array<size_t, 2> &deviceBlockSizesBytes,
-      std::array<size_t, 3> &hostBlockOffsetsPrepared,
-      std::array<size_t, 3> &deviceBlockOffsetsPrepared,
-      const size_t multiplyBy) {
+  inline void
+  BlockOffsetsPreprocess(const std::array<size_t, 3> &blockSize,
+                         const std::array<size_t, 3> &hostBlockSizes,
+                         const std::array<size_t, 3> &deviceBlockSizes,
+                         const std::array<size_t, 3> &hostBlockOffsets,
+                         const std::array<size_t, 3> &deviceBlockOffsets,
+                         std::array<size_t, 3> &copyBlockSizePrepared,
+                         std::array<size_t, 2> &hostBlockSizesBytes,
+                         std::array<size_t, 2> &deviceBlockSizesBytes,
+                         std::array<size_t, 3> &hostBlockOffsetsPrepared,
+                         std::array<size_t, 3> &deviceBlockOffsetsPrepared,
+                         const size_t multiplyBy) {
     copyBlockSizePrepared = {blockSize[0] * multiplyBy, blockSize[1],
                              blockSize[2]};
     hostBlockSizesBytes = {hostBlockSizes[0] * multiplyBy,
                            hostBlockSizes[0] * hostBlockSizes[1] * multiplyBy};
-    deviceBlockSizesBytes = {
-        deviceBlockSizes[0] * multiplyBy,
-        deviceBlockSizes[0] * deviceBlockSizes[1] * multiplyBy};
+    deviceBlockSizesBytes = {deviceBlockSizes[0] * multiplyBy,
+                             deviceBlockSizes[0] * deviceBlockSizes[1] *
+                                 multiplyBy};
     hostBlockOffsetsPrepared = {hostBlockOffsets[0] * multiplyBy,
                                 hostBlockOffsets[1], hostBlockOffsets[2]};
     deviceBlockOffsetsPrepared = {deviceBlockOffsets[0] * multiplyBy,
