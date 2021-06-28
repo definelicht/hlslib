@@ -8,7 +8,7 @@ using Data_t = DTYPE;
 constexpr int kW = W;
 constexpr int kH = H;
 constexpr int kT = T;
-constexpr auto kUsage = "Usage: ./RunJacobi2D <[emulator/hardware]> <optional:default/oldapi_copy/newapi_copy/newapi_notransfer>\n";
+constexpr auto kUsage = "Usage: ./RunJacobi2D <[emulator/hardware]> [<[default/oldapi_copy/newapi_copy/newapi_notransfer]>]\n";
 
 // Reference implementation for checking correctness
 void Reference(std::vector<Data_t> &domain) {
