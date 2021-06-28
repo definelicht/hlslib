@@ -427,8 +427,9 @@ class Context {
 // Buffer
 //#############################################################################
 
-template <typename T, Access access> class Buffer {
-public:
+template <typename T, Access access>
+class Buffer {
+ public:
   Buffer() : context_(nullptr), nElements_(0) {}
 
   Buffer(Buffer<T, access> const &other) = delete;
