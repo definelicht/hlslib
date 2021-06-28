@@ -508,7 +508,7 @@ public:
 #ifndef HLSLIB_SIMULATE_OPENCL
 #ifdef HLSLIB_INTEL
     if (storageType != StorageType::DDR) {
-      ThrowRuntimeError("HLSLIB only supports DDR for Intel");
+      ThrowRuntimeError("Only DDR memory is supported for Intel FPGA.");
     }
     AllocateDDR(StorageTypeToMemoryBank(storageType, bankIndex), begin, end);
 #endif
