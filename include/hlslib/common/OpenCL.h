@@ -271,8 +271,9 @@ MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
     return MemoryBank::bank2;
   case 3:
     return MemoryBank::bank3;
+  default:
+    ThrowRuntimeError("Unsupported bank identifier.");
   }
-  throw "unreachable"; // Suppress Warnings
 }
 
 cl_uint NumEvents(cl::Event const *const eventsBegin,
