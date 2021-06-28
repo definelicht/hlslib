@@ -723,7 +723,8 @@ class Buffer {
     CopyToDevice(offsetSource, numElements, other, 0);
   }
 
-  template <Access accessType> void CopyToDevice(Buffer<T, accessType> &other) {
+  template <Access accessType>
+  void CopyToDevice(Buffer<T, accessType> &other) {
     if (other.nElements() != nElements_) {
       ThrowRuntimeError(
           "Device to device copy issued for buffers of different size.");
