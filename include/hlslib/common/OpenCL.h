@@ -885,7 +885,7 @@ public:
 
   size_t nElements() const { return nElements_; }
 
-private:
+ private:
 #ifdef HLSLIB_XILINX
   ExtendedMemoryPointer
   CreateExtendedPointer(void *hostPtr, MemoryBank memoryBank,
