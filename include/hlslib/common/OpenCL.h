@@ -257,7 +257,7 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified,
 
 MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
   if (storage != StorageType::DDR) {
-    ThrowRuntimeError("Only DDR can be converted to Memorybank");
+    ThrowRuntimeError("Only DDR bank identifiers can be converted to memory bank flags.");
   }
   if (bank < 0 || bank > 3) {
     ThrowRuntimeError("Bank identifier is out of range (must be [0-3]).");
