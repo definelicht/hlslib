@@ -260,7 +260,7 @@ MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
     ThrowRuntimeError("Only DDR can be converted to Memorybank");
   }
   if (bank < 0 || bank > 3) {
-    ThrowRuntimeError("To large bank to convert to Memorybank");
+    ThrowRuntimeError("Bank identifier is out of range (must be [0-3]).");
   }
   switch (bank) {
   case 0:
