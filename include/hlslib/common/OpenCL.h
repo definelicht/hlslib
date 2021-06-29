@@ -465,7 +465,7 @@ class Buffer {
   Buffer(Context &context, size_t nElements)
       : Buffer(context, MemoryBank::unspecified, nElements) {}
 
-     /// Allocate DDR or HBM but don't perform any transfers.
+  /// Allocate DDR or HBM but don't perform any transfers.
   Buffer(Context &context, StorageType storageType, int bankIndex,
          size_t nElements)
       : context_(&context), nElements_(nElements) {
