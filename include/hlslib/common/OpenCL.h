@@ -255,6 +255,27 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified,
   return 0;
 }
 
+MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
+  if (storage != StorageType::DDR) {
+    ThrowRuntimeError("Only DDR bank identifiers can be converted to memory bank flags.");
+  }
+  if (bank < 0 || bank > 3) {
+    ThrowRuntimeError("Bank identifier is out of range (must be [0-3]).");
+  }
+  switch (bank) {
+  case 0:
+    return MemoryBank::bank0;
+  case 1:
+    return MemoryBank::bank1;
+  case 2:
+    return MemoryBank::bank2;
+  case 3:
+    return MemoryBank::bank3;
+  default:
+    ThrowRuntimeError("Unsupported bank identifier.");
+  }
+}
+
 cl_uint NumEvents(cl::Event const *const eventsBegin,
                   cl::Event const *const eventsEnd) {
   if (eventsBegin != nullptr) {
@@ -426,57 +447,7 @@ class Buffer {
   Buffer(Context &context, MemoryBank memoryBank, IteratorType begin,
          IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
-#ifndef HLSLIB_SIMULATE_OPENCL
-
-    void *hostPtr = nullptr;
-
-    cl_mem_flags flags;
-
-    switch (access) {
-      case Access::read:
-        flags = CL_MEM_READ_ONLY;
-        break;
-      case Access::write:
-        flags = CL_MEM_WRITE_ONLY;
-        break;
-      case Access::readWrite:
-        flags = CL_MEM_READ_WRITE;
-        break;
-    }
-
-#ifdef HLSLIB_XILINX
-    hostPtr = const_cast<T *>(&(*begin));
-    flags |= CL_MEM_USE_HOST_PTR;
-    // Allow specifying memory bank
-    ExtendedMemoryPointer extendedHostPointer;
-    if (memoryBank != MemoryBank::unspecified) {
-      extendedHostPointer =
-          CreateExtendedPointer(hostPtr, memoryBank, context.DDRFlags_);
-      // Replace hostPtr with Xilinx extended pointer
-      hostPtr = &extendedHostPointer;
-      flags |= kXilinxMemPointer;
-    }
-#endif
-
-#ifdef HLSLIB_INTEL
-    flags |= BankToFlag(memoryBank, false, context.DDRFlags_);
-#endif
-
-    cl_int errorCode;
-    devicePtr_ = cl::Buffer(context.context(), flags, sizeof(T) * nElements_,
-                            hostPtr, &errorCode);
-#ifdef HLSLIB_INTEL
-    CopyFromHost(begin);
-#endif
-
-    if (errorCode != CL_SUCCESS) {
-      ThrowRuntimeError("Failed to initialize and copy to device memory.");
-      return;
-    }
-#else
-    devicePtr_ = std::make_unique<T[]>(nElements_);
-    std::copy(begin, end, devicePtr_.get());
-#endif
+    AllocateDDR(memoryBank, begin, end);
   }
 
   template <typename IteratorType, typename = typename std::enable_if<
@@ -485,66 +456,27 @@ class Buffer {
   Buffer(Context &context, IteratorType begin, IteratorType end)
       : Buffer(context, MemoryBank::unspecified, begin, end) {}
 
-  /// Allocate device memory but don't perform any transfers.
+  /// Allocate but don't perform any transfers
   Buffer(Context &context, MemoryBank memoryBank, size_t nElements)
       : context_(&context), nElements_(nElements) {
-#ifndef HLSLIB_SIMULATE_OPENCL
-
-    cl_mem_flags flags;
-    switch (access) {
-      case Access::read:
-        flags = CL_MEM_READ_ONLY;
-        break;
-      case Access::write:
-        flags = CL_MEM_WRITE_ONLY;
-        break;
-      case Access::readWrite:
-        flags = CL_MEM_READ_WRITE;
-        break;
-    }
-
-    void *hostPtr = nullptr;
-#ifdef HLSLIB_XILINX
-    ExtendedMemoryPointer extendedHostPointer;
-    if (memoryBank != MemoryBank::unspecified) {
-      extendedHostPointer =
-          CreateExtendedPointer(nullptr, memoryBank, context.DDRFlags_);
-      // Becomes a pointer to the Xilinx extended memory pointer if a memory
-      // bank is specified
-      hostPtr = &extendedHostPointer;
-      flags |= kXilinxMemPointer;
-    }
-#endif
-#ifdef HLSLIB_INTEL
-    flags |= BankToFlag(memoryBank, false, context.DDRFlags_);
-#endif
-
-    cl_int errorCode;
-    {
-      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
-      devicePtr_ = cl::Buffer(context_->context(), flags,
-                              sizeof(T) * nElements_, hostPtr, &errorCode);
-    }
-
-    if (errorCode != CL_SUCCESS) {
-      ThrowRuntimeError("Failed to initialize device memory.");
-      return;
-    }
-#else
-    devicePtr_ = std::make_unique<T[]>(nElements_);
-#endif
+    AllocateDDRNoTransfer(memoryBank);
   }
 
   Buffer(Context &context, size_t nElements)
       : Buffer(context, MemoryBank::unspecified, nElements) {}
 
-#ifdef HLSLIB_XILINX
   /// Allocate DDR or HBM but don't perform any transfers.
   Buffer(Context &context, StorageType storageType, int bankIndex,
          size_t nElements)
       : context_(&context), nElements_(nElements) {
 #ifndef HLSLIB_SIMULATE_OPENCL
-
+#ifdef HLSLIB_INTEL
+    if (storageType != StorageType::DDR) {
+      ThrowRuntimeError("Only DDR memory is supported for Intel FPGA.");
+    }
+    AllocateDDRNoTransfer(StorageTypeToMemoryBank(storageType, bankIndex));
+#endif
+#ifdef HLSLIB_XILINX
     ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
         nullptr, storageType, bankIndex, context.DDRFlags_);
     void *hostPtr = &extendedHostPointer;
@@ -561,6 +493,7 @@ class Buffer {
       ThrowRuntimeError("Failed to initialize device memory.");
       return;
     }
+#endif
 #else
     devicePtr_ = std::make_unique<T[]>(nElements_);
 #endif
@@ -574,7 +507,13 @@ class Buffer {
          IteratorType begin, IteratorType end)
       : context_(&context), nElements_(std::distance(begin, end)) {
 #ifndef HLSLIB_SIMULATE_OPENCL
-
+#ifdef HLSLIB_INTEL
+    if (storageType != StorageType::DDR) {
+      ThrowRuntimeError("Only DDR memory is supported for Intel FPGA.");
+    }
+    AllocateDDR(StorageTypeToMemoryBank(storageType, bankIndex), begin, end);
+#endif
+#ifdef HLSLIB_XILINX
     void *hostPtr = const_cast<T *>(&(*begin));
     ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
         hostPtr, storageType, bankIndex, context.DDRFlags_);
@@ -589,13 +528,12 @@ class Buffer {
       ThrowRuntimeError("Failed to initialize and copy to device memory.");
       return;
     }
+#endif
 #else
     devicePtr_ = std::make_unique<T[]>(nElements_);
     std::copy(begin, end, devicePtr_.get());
 #endif
   }
-
-#endif  // HLSLIB_XILINX
 
   friend void swap(Buffer<T, access> &first, Buffer<T, access> &second) {
     std::swap(first.context_, second.context_);
@@ -1020,6 +958,114 @@ class Buffer {
     return initialflags;
   }
 #endif  // HLSLIB_XILINX
+
+  /// Allocate and copy to device.
+  template <typename IteratorType, typename = typename std::enable_if<
+                                       IsIteratorOfType<IteratorType, T>() &&
+                                       IsRandomAccess<IteratorType>()>::type>
+  void AllocateDDR(MemoryBank memoryBank, IteratorType begin,
+                   IteratorType end) {
+#ifndef HLSLIB_SIMULATE_OPENCL
+
+    void *hostPtr = nullptr;
+
+    cl_mem_flags flags;
+
+    switch (access) {
+    case Access::read:
+      flags = CL_MEM_READ_ONLY;
+      break;
+    case Access::write:
+      flags = CL_MEM_WRITE_ONLY;
+      break;
+    case Access::readWrite:
+      flags = CL_MEM_READ_WRITE;
+      break;
+    }
+
+#ifdef HLSLIB_XILINX
+    hostPtr = const_cast<T *>(&(*begin));
+    flags |= CL_MEM_USE_HOST_PTR;
+    // Allow specifying memory bank
+    ExtendedMemoryPointer extendedHostPointer;
+    if (memoryBank != MemoryBank::unspecified) {
+      extendedHostPointer =
+          CreateExtendedPointer(hostPtr, memoryBank, context_->DDRFlags_);
+      // Replace hostPtr with Xilinx extended pointer
+      hostPtr = &extendedHostPointer;
+      flags |= kXilinxMemPointer;
+    }
+#endif
+
+#ifdef HLSLIB_INTEL
+    flags |= BankToFlag(memoryBank, false, context_->DDRFlags_);
+#endif
+
+    cl_int errorCode;
+    devicePtr_ = cl::Buffer(context_->context(), flags, sizeof(T) * nElements_,
+                            hostPtr, &errorCode);
+#ifdef HLSLIB_INTEL
+    CopyFromHost(begin);
+#endif
+
+    if (errorCode != CL_SUCCESS) {
+      ThrowRuntimeError("Failed to initialize and copy to device memory.");
+      return;
+    }
+#else
+    devicePtr_ = std::make_unique<T[]>(nElements_);
+    std::copy(begin, end, devicePtr_.get());
+#endif
+  }
+
+  /// Allocate device memory but don't perform any transfers.
+  void AllocateDDRNoTransfer(MemoryBank memoryBank) {
+#ifndef HLSLIB_SIMULATE_OPENCL
+
+    cl_mem_flags flags;
+    switch (access) {
+    case Access::read:
+      flags = CL_MEM_READ_ONLY;
+      break;
+    case Access::write:
+      flags = CL_MEM_WRITE_ONLY;
+      break;
+    case Access::readWrite:
+      flags = CL_MEM_READ_WRITE;
+      break;
+    }
+
+    void *hostPtr = nullptr;
+#ifdef HLSLIB_XILINX
+    ExtendedMemoryPointer extendedHostPointer;
+    if (memoryBank != MemoryBank::unspecified) {
+      extendedHostPointer =
+          CreateExtendedPointer(nullptr, memoryBank, context_->DDRFlags_);
+      // Becomes a pointer to the Xilinx extended memory pointer if a memory
+      // bank is specified
+      hostPtr = &extendedHostPointer;
+      flags |= kXilinxMemPointer;
+    }
+#endif
+#ifdef HLSLIB_INTEL
+    flags |= BankToFlag(memoryBank, false, context_->DDRFlags_);
+#endif
+
+    cl_int errorCode;
+    {
+      std::lock_guard<std::mutex> lock(context_->memcopyMutex());
+      devicePtr_ = cl::Buffer(context_->context(), flags,
+                              sizeof(T) * nElements_, hostPtr, &errorCode);
+    }
+
+    if (errorCode != CL_SUCCESS) {
+      ThrowRuntimeError("Failed to initialize device memory.");
+      return;
+    }
+#else
+    devicePtr_ = std::make_unique<T[]>(nElements_);
+#endif
+  }
 
 #ifndef HLSLIB_SIMULATE_OPENCL
   /*

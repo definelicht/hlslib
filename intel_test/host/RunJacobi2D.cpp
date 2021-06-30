@@ -8,7 +8,7 @@ using Data_t = DTYPE;
 constexpr int kW = W;
 constexpr int kH = H;
 constexpr int kT = T;
-constexpr auto kUsage = "Usage: ./RunJacobi2D <[emulator/hardware]>\n";
+constexpr auto kUsage = "Usage: ./RunJacobi2D <[emulator/hardware]> [<[default/oldapi_copy/newapi_copy/newapi_notransfer]>]\n";
 
 // Reference implementation for checking correctness
 void Reference(std::vector<Data_t> &domain) {
@@ -28,7 +28,17 @@ void Reference(std::vector<Data_t> &domain) {
 int main(int argc, char **argv) {
 
   // Handle input arguments
-  if (argc != 2) {
+  bool printError = argc < 2 && argc > 3;
+  std::string copyMode = "default";
+  if (argc == 3) {
+    copyMode = std::string(argv[2]);
+    if (copyMode != "newapi_copy" && copyMode != "newapi_notransfer" &&
+        copyMode != "oldapi_copy" && copyMode != "default") {
+      printError = true;
+    }
+  }
+
+  if (printError) {
     std::cout << kUsage;
     return 1;
   }
@@ -60,12 +70,41 @@ int main(int argc, char **argv) {
   }
   std::vector<Data_t> reference(host_buffer);
 
-  // Create OpenCL kernels 
+  // Create OpenCL kernels
   std::cout << "Creating OpenCL context...\n" << std::flush;
   hlslib::ocl::Context context;
   std::cout << "Allocating device memory...\n" << std::flush;
-  auto device_buffer =
-      context.MakeBuffer<Data_t, hlslib::ocl::Access::readWrite>(2 * kW * kH);
+  hlslib::ocl::Buffer<Data_t, hlslib::ocl::Access::readWrite> device_buffer;
+  // Copy to both sections of device memory, so that the boundary conditions
+  // are reflected in both
+  if (copyMode == "default") {
+    device_buffer =
+        context.MakeBuffer<Data_t, hlslib::ocl::Access::readWrite>(2 * kW * kH);
+    device_buffer.CopyFromHost(0, kW * kH, host_buffer.cbegin());
+    device_buffer.CopyFromHost(kW * kH, kW * kH, host_buffer.cbegin());
+  } else if (copyMode == "oldapi_copy") {
+    std::vector<Data_t> copy_host_buffer(2 * kW * kH, 0);
+    std::copy(host_buffer.begin(), host_buffer.end(), copy_host_buffer.begin());
+    std::copy(host_buffer.begin(), host_buffer.end(),
+              copy_host_buffer.begin() + kW * kH);
+    device_buffer = context.MakeBuffer<Data_t, hlslib::ocl::Access::readWrite>(
+        hlslib::ocl::MemoryBank::bank0, copy_host_buffer.begin(),
+        copy_host_buffer.end());
+  } else if (copyMode == "newapi_copy") {
+    std::vector<Data_t> copy_host_buffer(2 * kW * kH, 0);
+    std::copy(host_buffer.begin(), host_buffer.end(), copy_host_buffer.begin());
+    std::copy(host_buffer.begin(), host_buffer.end(),
+              copy_host_buffer.begin() + kW * kH);
+    device_buffer = context.MakeBuffer<Data_t, hlslib::ocl::Access::readWrite>(
+        hlslib::ocl::StorageType::DDR, 1, copy_host_buffer.begin(),
+        copy_host_buffer.end());
+  } else if (copyMode == "newapi_notransfer") {
+    device_buffer = context.MakeBuffer<Data_t, hlslib::ocl::Access::readWrite>(
+        hlslib::ocl::StorageType::DDR, 1, 2 * kW * kH);
+    device_buffer.CopyFromHost(0, kW * kH, host_buffer.cbegin());
+    device_buffer.CopyFromHost(kW * kH, kW * kH, host_buffer.cbegin());
+  }
+
   std::cout << "Creating program from binary...\n" << std::flush;
   auto program = context.MakeProgram(kernel_path);
   std::cout << "Creating kernels...\n" << std::flush;
@@ -74,11 +113,6 @@ int main(int argc, char **argv) {
   kernels.emplace_back(program.MakeKernel("Jacobi2D"));
   kernels.emplace_back(program.MakeKernel("Write", device_buffer));
   std::vector<std::future<std::pair<double, double>>> futures;
-  std::cout << "Copying data to device...\n" << std::flush;
-  // Copy to both sections of device memory, so that the boundary conditions
-  // are reflected in both
-  device_buffer.CopyFromHost(0, kW * kH, host_buffer.cbegin());
-  device_buffer.CopyFromHost(kW * kH, kW * kH, host_buffer.cbegin());
 
   // Execute kernel
   std::cout << "Launching kernels...\n" << std::flush;
@@ -103,8 +137,8 @@ int main(int argc, char **argv) {
   // Compare result
   for (int i = 0; i < kH; ++i) {
     for (int j = 0; j < kW; ++j) {
-      auto diff = std::abs(host_buffer[i*kW + j] - reference[i*kW + j]);
-      if (diff > 1e-4 * reference[i*kW + j]) {
+      auto diff = std::abs(host_buffer[i * kW + j] - reference[i * kW + j]);
+      if (diff > 1e-4 * reference[i * kW + j]) {
         std::cerr << "Mismatch found at (" << i << ", " << j
                   << "): " << host_buffer[i * kW + j] << " (should be "
                   << reference[i * kW + j] << ").\n";
