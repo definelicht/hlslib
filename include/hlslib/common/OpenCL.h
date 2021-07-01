@@ -259,10 +259,12 @@ MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
   if (storage != StorageType::DDR) {
     ThrowRuntimeError("Only DDR bank identifiers can be converted to memory bank flags.");
   }
-  if (bank < 0 || bank > 3) {
-    ThrowRuntimeError("Bank identifier is out of range (must be [0-3]).");
+  if (bank < -1 || bank > 3) {
+    ThrowRuntimeError("Bank identifier is out of range (must be [0-3] or -1 for unspecified).");
   }
   switch (bank) {
+  case -1:
+    return MemoryBank::unspecified;
   case 0:
     return MemoryBank::bank0;
   case 1:

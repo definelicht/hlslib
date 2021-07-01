@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
     std::copy(host_buffer.begin(), host_buffer.end(),
               copy_host_buffer.begin() + kW * kH);
     device_buffer = context.MakeBuffer<Data_t, hlslib::ocl::Access::readWrite>(
-        hlslib::ocl::StorageType::DDR, 1, copy_host_buffer.begin(),
+        hlslib::ocl::StorageType::DDR, -1, copy_host_buffer.begin(),
         copy_host_buffer.end());
   } else if (copyMode == "newapi_notransfer") {
     device_buffer = context.MakeBuffer<Data_t, hlslib::ocl::Access::readWrite>(
