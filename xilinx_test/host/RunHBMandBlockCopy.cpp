@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
   std::fill(memHostBuf2.begin(), memHostBuf2.end(), 2.0);
 
   auto memDevice1 = context.MakeBuffer<double, hlslib::ocl::Access::readWrite>(
-      hlslib::ocl::StorageType::HBM, 13, buf1Elems);
+      hlslib::ocl::StorageType::HBM, 20, buf1Elems);
   auto memDevice2 = context.MakeBuffer<double, hlslib::ocl::Access::readWrite>(
       hlslib::ocl::StorageType::HBM, 0, memDeviceBuf2.begin(),
       memDeviceBuf2.end());
