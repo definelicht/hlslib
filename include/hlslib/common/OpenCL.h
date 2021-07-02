@@ -479,10 +479,15 @@ class Buffer {
     AllocateDDRNoTransfer(StorageTypeToMemoryBank(storageType, bankIndex));
 #endif
 #ifdef HLSLIB_XILINX
-    ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
-        nullptr, storageType, bankIndex, context.DDRFlags_);
-    void *hostPtr = &extendedHostPointer;
+    void *hostPtr = nullptr;
+    ExtendedMemoryPointer extendedHostPointer;
     cl_mem_flags flags = CreateAllocFlags(CL_MEM_ALLOC_HOST_PTR);
+    if(storageType != StorageType::DDR || bankIndex != -1) {
+      extendedHostPointer = CreateExtendedPointer(
+        nullptr, storageType, bankIndex, context.DDRFlags_);
+      hostPtr = &extendedHostPointer;
+      flags |= kXilinxMemPointer;
+    }
 
     cl_int errorCode;
     {
@@ -517,10 +522,14 @@ class Buffer {
 #endif
 #ifdef HLSLIB_XILINX
     void *hostPtr = const_cast<T *>(&(*begin));
-    ExtendedMemoryPointer extendedHostPointer = CreateExtendedPointer(
-        hostPtr, storageType, bankIndex, context.DDRFlags_);
-    hostPtr = &extendedHostPointer;
+    ExtendedMemoryPointer extendedHostPointer;
     cl_mem_flags flags = CreateAllocFlags(CL_MEM_USE_HOST_PTR);
+    if(storageType != StorageType::DDR || bankIndex != -1) {
+      extendedHostPointer = CreateExtendedPointer(
+        hostPtr, storageType, bankIndex, context.DDRFlags_);
+      hostPtr = &extendedHostPointer;
+      flags |= kXilinxMemPointer;
+    }
 
     cl_int errorCode;
     devicePtr_ = cl::Buffer(context.context(), flags, sizeof(T) * nElements_,
@@ -956,7 +965,6 @@ class Buffer {
         break;
     }
 
-    initialflags |= kXilinxMemPointer;
     return initialflags;
   }
 #endif  // HLSLIB_XILINX
