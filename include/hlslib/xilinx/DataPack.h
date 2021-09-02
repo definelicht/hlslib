@@ -42,7 +42,7 @@ template <int W, int I>
 class WidthCalculator<ap_fixed<W, I>> {
  public:
   #ifndef HLSLIB_SYNTHESIS
-  static constexpr int value = 8 * sizeof(ap_uint<W, I>);
+  static constexpr int value = 8 * sizeof(ap_fixed<W, I>);
   #else
   static constexpr int value = ap_fixed<W, I>::width;
   #endif
