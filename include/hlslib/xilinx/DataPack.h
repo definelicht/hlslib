@@ -27,25 +27,31 @@ class WidthCalculator {
 };
 
 template<>
-template <int W>
-class WidthCalculator<ap_uint<W>> {
+template <int _AP_W>
+class WidthCalculator<ap_int<_AP_W>> {
  public:
-  #ifndef HLSLIB_SYNTHESIS
-  static constexpr int value = 8 * sizeof(ap_uint<W>);
-  #else
-  static constexpr int value = W;
-  #endif
+  static constexpr int value = _AP_W;
 };
 
 template<>
-template <int W, int I>
-class WidthCalculator<ap_fixed<W, I>> {
+template <int _AP_W>
+class WidthCalculator<ap_uint<_AP_W>> {
  public:
-  #ifndef HLSLIB_SYNTHESIS
-  static constexpr int value = 8 * sizeof(ap_fixed<W, I>);
-  #else
-  static constexpr int value = W;
-  #endif
+  static constexpr int value = _AP_W;
+};
+
+template<>
+template <int _AP_W, int _AP_I, ap_q_mode _AP_Q, ap_o_mode _AP_O, int _AP_N>
+class WidthCalculator<ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
+ public:
+  static constexpr int value = _AP_W;
+};
+
+template<>
+template <int _AP_W, int _AP_I, ap_q_mode _AP_Q, ap_o_mode _AP_O, int _AP_N>
+class WidthCalculator<ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
+ public:
+  static constexpr int value = _AP_W;
 };
 
 
