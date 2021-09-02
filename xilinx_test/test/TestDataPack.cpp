@@ -48,64 +48,64 @@ TEMPLATE_TEST_CASE(
   }
 
   SECTION("Assignment copy operator") {
-    DataPack lhs(0);
+    DataPack lhs((TestType)0);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE((TestType)lhs[i] == 0);
+      REQUIRE(lhs.Get(i) == 0);
     }
     DataPack rhs(kFillVal);
     lhs = rhs;
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE((TestType)lhs[i] == kFillVal);
+      REQUIRE(lhs.Get(i) == kFillVal);
     }
   }
 
   SECTION("Assignment move operator") {
-    DataPack lhs(0);
+    DataPack lhs((TestType)0);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE((TestType)lhs[i] == 0);
+      REQUIRE(lhs.Get(i) == 0);
     }
     DataPack rhs(kFillVal);
     lhs = std::move(rhs);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE((TestType)lhs[i] == kFillVal);
+      REQUIRE(lhs.Get(i) == kFillVal);
     }
   }
 
   SECTION("Index-wise assignment") {
-    DataPack lhs(0);
+    DataPack lhs((TestType)0);
     DataPack rhs(kFillVal);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE((TestType)lhs[i] == 0);
+      REQUIRE(lhs.Get(i) == 0);
     }
     for (int i = 0; i < kWidth; ++i) {
       lhs[i] = rhs[i];
     }
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE((TestType)lhs[i] == kFillVal);
+      REQUIRE(lhs.Get(i) == kFillVal);
     }
   }
 
   SECTION("Shift operation") {
     DataPack first(kFillVal);
-    DataPack second(0);
+    DataPack second((TestType)0);
     first.template ShiftTo<0, kWidth/2, kWidth/2>(second);
     for (int i = 0; i < kWidth/2; ++i) {
-      REQUIRE((TestType)second[i] == 0);
+      REQUIRE(second.Get(i) == 0);
     }
     for (int i = kWidth/2; i < kWidth; ++i) {
-      REQUIRE((TestType)second[i] == kFillVal);
+      REQUIRE(second.Get(i) == kFillVal);
     }
   }
 
   SECTION("Pack and unpack") {
-    DataPack pack(0);
+    DataPack pack((TestType)0);
     TestType arr0[kWidth];
     TestType arr1[kWidth];
     std::fill(arr0, arr0 + kWidth, kFillVal);
     std::fill(arr1, arr1 + kWidth, 0);
     pack.Pack(arr0);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE((TestType)pack[i] == arr0[i]);
+      REQUIRE(pack.Get(i) == arr0[i]);
     }
     pack.Unpack(arr1);
     for (int i = 0; i < kWidth; ++i) {
@@ -115,7 +115,7 @@ TEMPLATE_TEST_CASE(
     std::fill(arr1, arr1 + kWidth, 0);
     pack << arr0;
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE((TestType)pack[i] == arr0[i]);
+      REQUIRE(pack.Get(i) == arr0[i]);
     }
     pack >> arr1;
     for (int i = 0; i < kWidth; ++i) {
