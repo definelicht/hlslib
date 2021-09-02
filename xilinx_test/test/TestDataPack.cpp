@@ -11,7 +11,7 @@ constexpr int kWidth = 4;
 
 TEMPLATE_TEST_CASE(
     "DataPack", "[DataPack][template]",
-    int, ap_int<3>, ap_uint<33>, (ap_fixed<9, 4>), (ap_ufixed<19, 5>)) {
+    int, ap_int<5>, ap_uint<33>, (ap_fixed<9, 4>), (ap_ufixed<19, 5>)) {
   const TestType kFillVal = 5;
   using DataPack = hlslib::DataPack<TestType, kWidth>;
 
