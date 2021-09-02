@@ -5,6 +5,7 @@
 
 #include <cstddef> // ap_int.h will break some compilers if this is not included 
 #include <ostream>
+#include <ap_fixed.h>
 #include <ap_int.h>
 
 namespace hlslib {
@@ -15,6 +16,38 @@ template <typename T, int width>
 class DataPackProxy; // Forward declaration
 
 } // End anonymous namespace
+
+/// Helper class to allow more efficient packing on the FPGA, where memory
+/// access is not restricted to byte-sized chunks.
+/// Specializations of this class for
+template <typename T>
+class WidthCalculator {
+ public:
+  static constexpr int value = 8 * sizeof(T);
+};
+
+template<>
+template <int W>
+class WidthCalculator<ap_uint<W>> {
+ public:
+  #ifndef HLSLIB_SYNTHESIS
+  static constexpr int value = 8 * sizeof(ap_uint<W>);
+  #else
+  static constexpr int value = W;
+  #endif
+};
+
+template<>
+template <int W, int I>
+class WidthCalculator<ap_fixed<W, I>> {
+ public:
+  #ifndef HLSLIB_SYNTHESIS
+  static constexpr int value = 8 * sizeof(ap_uint<W, I>);
+  #else
+  static constexpr int value = ap_fixed<W, I>::width;
+  #endif
+};
+
 
 /// Class to accommodate SIMD-style vectorization of a data path on FPGA using
 /// ap_uint to force wide ports.
@@ -28,7 +61,7 @@ class DataPack {
 
  public:
 
-  static constexpr int kBits = 8 * sizeof(T);
+  static constexpr int kBits = WidthCalculator<T>::value;
   static constexpr int kWidth = width;
   using Pack_t = ap_uint<kBits>;
   using Internal_t = ap_uint<width * kBits>;
