@@ -17,14 +17,15 @@ class DataPackProxy; // Forward declaration
 
 } // End anonymous namespace
 
+namespace detail {
+
 /// Helper class to allow more efficient packing on the FPGA, where memory
 /// access is not restricted to byte-sized chunks.
 /// This class should be specialized for types with bit-widths that are not a
 /// multiple of a bite. For examples, see below specializations for common
 /// Xilinx arbitrary bit-width types.
 template <typename T>
-class TypeHandler {
- public:
+struct TypeHandler {
   static constexpr int width = 8 * sizeof(T);
 
   static T from_range(ap_uint<width> range) {
@@ -36,10 +37,8 @@ class TypeHandler {
   }
 };
 
-template<>
 template <int _AP_W>
-class TypeHandler<ap_int<_AP_W>> {
- public:
+struct TypeHandler<ap_int<_AP_W>> {
   static constexpr int width = _AP_W;
 
   static ap_int<_AP_W> from_range(ap_uint<width> range) {
@@ -51,10 +50,8 @@ class TypeHandler<ap_int<_AP_W>> {
   static ap_uint<width> to_range(ap_int<_AP_W> value) { return value.range(); }
 };
 
-template<>
 template <int _AP_W>
-class TypeHandler<ap_uint<_AP_W>> {
- public:
+struct TypeHandler<ap_uint<_AP_W>> {
   static constexpr int width = _AP_W;
 
   static ap_uint<_AP_W> from_range(ap_uint<width> range) {
@@ -66,10 +63,8 @@ class TypeHandler<ap_uint<_AP_W>> {
   static ap_uint<width> to_range(ap_uint<_AP_W> value) { return value.range(); }
 };
 
-template<>
 template <int _AP_W, int _AP_I, ap_q_mode _AP_Q, ap_o_mode _AP_O, int _AP_N>
-class TypeHandler<ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
- public:
+struct TypeHandler<ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
   static constexpr int width = _AP_W;
 
   static ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> from_range(
@@ -87,10 +82,8 @@ class TypeHandler<ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
   }
 };
 
-template<>
 template <int _AP_W, int _AP_I, ap_q_mode _AP_Q, ap_o_mode _AP_O, int _AP_N>
-class TypeHandler<ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
- public:
+struct TypeHandler<ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
   static constexpr int width = _AP_W;
 
   static ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> from_range(
@@ -108,6 +101,9 @@ class TypeHandler<ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
   }
 };
 
+} // End namespace detail
+
+
 
 /// Class to accommodate SIMD-style vectorization of a data path on FPGA using
 /// ap_uint to force wide ports.
@@ -121,7 +117,7 @@ class DataPack {
 
  public:
 
-  static constexpr int kBits = TypeHandler<T>::width;
+  static constexpr int kBits = detail::TypeHandler<T>::width;
   static constexpr int kWidth = width;
   using Pack_t = ap_uint<kBits>;
   using Internal_t = ap_uint<width * kBits>;
@@ -172,7 +168,7 @@ class DataPack {
     }
 #endif
     Pack_t temp = data_.range((i + 1) * kBits - 1, i * kBits);
-    return TypeHandler<T>::from_range(temp);
+    return detail::TypeHandler<T>::from_range(temp);
   }
 
   void Set(int i, T value) {
@@ -184,7 +180,9 @@ class DataPack {
       throw std::out_of_range(ss.str());
     }
 #endif
-    data_.range((i + 1) * kBits - 1, i * kBits) = TypeHandler<T>::to_range(value);
+    data_.range((i + 1) * kBits - 1, i * kBits) = (
+      detail::TypeHandler<T>::to_range(value)
+    );
   }
 
   void Fill(T const &value) {
