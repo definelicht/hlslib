@@ -48,7 +48,7 @@ TEMPLATE_TEST_CASE(
   }
 
   SECTION("Assignment copy operator") {
-    DataPack lhs((TestType)0);
+    DataPack lhs(TestType(0));
     for (int i = 0; i < kWidth; ++i) {
       REQUIRE(lhs.Get(i) == 0);
     }
@@ -60,7 +60,7 @@ TEMPLATE_TEST_CASE(
   }
 
   SECTION("Assignment move operator") {
-    DataPack lhs((TestType)0);
+    DataPack lhs(TestType(0));
     for (int i = 0; i < kWidth; ++i) {
       REQUIRE(lhs.Get(i) == 0);
     }
@@ -72,7 +72,7 @@ TEMPLATE_TEST_CASE(
   }
 
   SECTION("Index-wise assignment") {
-    DataPack lhs((TestType)0);
+    DataPack lhs(TestType(0));
     DataPack rhs(kFillVal);
     for (int i = 0; i < kWidth; ++i) {
       REQUIRE(lhs.Get(i) == 0);
@@ -87,7 +87,7 @@ TEMPLATE_TEST_CASE(
 
   SECTION("Shift operation") {
     DataPack first(kFillVal);
-    DataPack second((TestType)0);
+    DataPack second(TestType(0));
     first.template ShiftTo<0, kWidth/2, kWidth/2>(second);
     for (int i = 0; i < kWidth/2; ++i) {
       REQUIRE(second.Get(i) == 0);
@@ -98,7 +98,7 @@ TEMPLATE_TEST_CASE(
   }
 
   SECTION("Pack and unpack") {
-    DataPack pack((TestType)0);
+    DataPack pack(TestType(0));
     TestType arr0[kWidth];
     TestType arr1[kWidth];
     std::fill(arr0, arr0 + kWidth, kFillVal);
