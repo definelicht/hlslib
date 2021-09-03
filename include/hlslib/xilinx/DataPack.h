@@ -21,37 +21,89 @@ class DataPackProxy; // Forward declaration
 /// access is not restricted to byte-sized chunks.
 /// Specializations of this class for
 template <typename T>
-class WidthCalculator {
+class TypeHandler {
  public:
-  static constexpr int value = 8 * sizeof(T);
+  static constexpr int width = 8 * sizeof(T);
+
+  static T from_range(ap_uint<width> range) {
+    return *reinterpret_cast<T const *>(&range);
+  }
+
+  static ap_uint<width> to_range(T value) {
+    return *reinterpret_cast<ap_uint<width> const *>(&value);
+  }
 };
 
 template<>
 template <int _AP_W>
-class WidthCalculator<ap_int<_AP_W>> {
+class TypeHandler<ap_int<_AP_W>> {
  public:
-  static constexpr int value = _AP_W;
+  static constexpr int width = _AP_W;
+
+  static ap_int<_AP_W> from_range(ap_uint<width> range) {
+    ap_int<_AP_W> out;
+    out.range() = range;
+    return out;
+  }
+
+  static ap_uint<width> to_range(ap_int<_AP_W> value) { return value.range(); }
 };
 
 template<>
 template <int _AP_W>
-class WidthCalculator<ap_uint<_AP_W>> {
+class TypeHandler<ap_uint<_AP_W>> {
  public:
-  static constexpr int value = _AP_W;
+  static constexpr int width = _AP_W;
+
+  static ap_uint<_AP_W> from_range(ap_uint<width> range) {
+    ap_uint<_AP_W> out;
+    out.range() = range;
+    return out;
+  }
+
+  static ap_uint<width> to_range(ap_uint<_AP_W> value) { return value.range(); }
 };
 
 template<>
 template <int _AP_W, int _AP_I, ap_q_mode _AP_Q, ap_o_mode _AP_O, int _AP_N>
-class WidthCalculator<ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
+class TypeHandler<ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
  public:
-  static constexpr int value = _AP_W;
+  static constexpr int width = _AP_W;
+
+  static ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> from_range(
+    ap_uint<width> range
+  ) {
+    ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> out;
+    out.range() = range;
+    return out;
+  }
+
+  static ap_uint<width> to_range(
+    ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> value
+  ) {
+    return value.range().to_ap_int_base();
+  }
 };
 
 template<>
 template <int _AP_W, int _AP_I, ap_q_mode _AP_Q, ap_o_mode _AP_O, int _AP_N>
-class WidthCalculator<ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
+class TypeHandler<ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
  public:
-  static constexpr int value = _AP_W;
+  static constexpr int width = _AP_W;
+
+  static ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> from_range(
+    ap_uint<width> range
+  ) {
+    ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> out;
+    out.range() = range;
+    return out;
+  }
+
+  static ap_uint<width> to_range(
+    ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> value
+  ) {
+    return value.range().to_ap_int_base();
+  }
 };
 
 
@@ -67,7 +119,7 @@ class DataPack {
 
  public:
 
-  static constexpr int kBits = WidthCalculator<T>::value;
+  static constexpr int kBits = TypeHandler<T>::width;
   static constexpr int kWidth = width;
   using Pack_t = ap_uint<kBits>;
   using Internal_t = ap_uint<width * kBits>;
@@ -118,7 +170,7 @@ class DataPack {
     }
 #endif
     Pack_t temp = data_.range((i + 1) * kBits - 1, i * kBits);
-    return *reinterpret_cast<T const *>(&temp);
+    return TypeHandler<T>::from_range(temp);
   }
 
   void Set(int i, T value) {
@@ -130,8 +182,7 @@ class DataPack {
       throw std::out_of_range(ss.str());
     }
 #endif
-    Pack_t temp = *reinterpret_cast<Pack_t const *>(&value);
-    data_.range((i + 1) * kBits - 1, i * kBits) = temp;
+    data_.range((i + 1) * kBits - 1, i * kBits) = TypeHandler<T>::to_range(value);
   }
 
   void Fill(T const &value) {
