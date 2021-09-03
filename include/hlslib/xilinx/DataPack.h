@@ -19,7 +19,9 @@ class DataPackProxy; // Forward declaration
 
 /// Helper class to allow more efficient packing on the FPGA, where memory
 /// access is not restricted to byte-sized chunks.
-/// Specializations of this class for
+/// This class should be specialized for types with bit-widths that are not a
+/// multiple of a bite. For examples, see below specializations for common
+/// Xilinx arbitrary bit-width types.
 template <typename T>
 class TypeHandler {
  public:
