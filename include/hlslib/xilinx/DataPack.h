@@ -28,11 +28,11 @@ template <typename T>
 struct TypeHandler {
   static constexpr int width = 8 * sizeof(T);
 
-  static T from_range(ap_uint<width> range) {
+  static T from_range(ap_uint<width> const &range) {
     return *reinterpret_cast<T const *>(&range);
   }
 
-  static ap_uint<width> to_range(T value) {
+  static ap_uint<width> to_range(T const &value) {
     return *reinterpret_cast<ap_uint<width> const *>(&value);
   }
 };
@@ -41,26 +41,26 @@ template <int _AP_W>
 struct TypeHandler<ap_int<_AP_W>> {
   static constexpr int width = _AP_W;
 
-  static ap_int<_AP_W> from_range(ap_uint<width> range) {
+  static ap_int<_AP_W> from_range(ap_uint<width> const &range) {
     ap_int<_AP_W> out;
     out.range() = range;
     return out;
   }
 
-  static ap_uint<width> to_range(ap_int<_AP_W> value) { return value.range(); }
+  static ap_uint<width> to_range(ap_int<_AP_W> const &value) { return value.range(); }
 };
 
 template <int _AP_W>
 struct TypeHandler<ap_uint<_AP_W>> {
   static constexpr int width = _AP_W;
 
-  static ap_uint<_AP_W> from_range(ap_uint<width> range) {
+  static ap_uint<_AP_W> from_range(ap_uint<width> const &range) {
     ap_uint<_AP_W> out;
     out.range() = range;
     return out;
   }
 
-  static ap_uint<width> to_range(ap_uint<_AP_W> value) { return value.range(); }
+  static ap_uint<width> to_range(ap_uint<_AP_W> const &value) { return value.range(); }
 };
 
 template <int _AP_W, int _AP_I, ap_q_mode _AP_Q, ap_o_mode _AP_O, int _AP_N>
@@ -68,7 +68,7 @@ struct TypeHandler<ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
   static constexpr int width = _AP_W;
 
   static ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> from_range(
-    ap_uint<width> range
+    ap_uint<width> const &range
   ) {
     ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> out;
     out.range() = range;
@@ -76,7 +76,7 @@ struct TypeHandler<ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
   }
 
   static ap_uint<width> to_range(
-    ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> value
+    ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> const &value
   ) {
     return value.range().to_ap_int_base();
   }
@@ -87,7 +87,7 @@ struct TypeHandler<ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
   static constexpr int width = _AP_W;
 
   static ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> from_range(
-    ap_uint<width> range
+    ap_uint<width> const &range
   ) {
     ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> out;
     out.range() = range;
@@ -95,7 +95,7 @@ struct TypeHandler<ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
   }
 
   static ap_uint<width> to_range(
-    ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> value
+    ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> const &value
   ) {
     return value.range().to_ap_int_base();
   }
