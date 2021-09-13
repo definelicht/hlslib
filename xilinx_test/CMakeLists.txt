@@ -91,11 +91,10 @@ function(sdaccel_target KERNEL_NAME ADDITIONAL_HLS_FLAGS ADDITIONAL_VPP_FLAGS)
     -I${CMAKE_BINARY_DIR}
     --kernel ${KERNEL_NAME} 
     --platform ${HLSLIB_DSA_NAME}
-    --xp prop:kernel.${KERNEL_NAME}.kernel_flags="${HLSLIB_SYNTHESIS_FLAGS}"
+    --advanced.prop kernel.${KERNEL_NAME}.kernel_flags="${HLSLIB_SYNTHESIS_FLAGS}"
     --profile_kernel "data:all:all:all"
     --profile_kernel "stall:all:all"
-    --profile_kernel "exec:all:all"
-    --max_memory_ports all)
+    --profile_kernel "exec:all:all")
   if(((${Vitis_MAJOR_VERSION} LESS 2018) AND (${Vitis_MINOR_VERSION} LESS 3)) OR ${Vitis_MAJOR_VERSION} LESS 2017)
     add_custom_target(build_${KERNEL_NAME}_hardware
       COMMAND XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR} ${Vitis_COMPILER} -t hw

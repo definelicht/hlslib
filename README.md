@@ -2,7 +2,7 @@ _Do you use hlslib? Please consider [citing us](https://arxiv.org/abs/1910.04436
 
 ## Quick introduction
 
-hlslib is a collection of C++ headers, CMake files, and examples, aimed at improving the quality of life of HLS developers. The current repertoire primarily supports Vivado HLS, but some Intel FPGA OpenCL support is being added. An extended abstract describing the project is [available here](https://arxiv.org/abs/1910.04436).
+hlslib is a collection of C++ headers, CMake files, and examples, aimed at improving the quality of life of HLS developers. The current repertoire primarily supports Vitis and Vitis HLS (formerly SDAccel and Vivado HLS), with some support for Intel FPGA OpenCL. An extended abstract describing the project is [available here](https://arxiv.org/abs/1910.04436).
 
 This project is developed at the [Scalable Parallel Computing Lab](https://spcl.inf.ethz.ch/) (SPCL) at ETH Zurich (see our [github](https://github.com/spcl)).
 
@@ -15,13 +15,15 @@ There are a few ways:
 
 #### How do I use it?
 
-Just `#include` the header(s) you are interested in. You can see an example [here](https://github.com/spcl/gemm_hls).
+Just `#include` the header(s) you are interested in. You can see an example [here](https://github.com/spcl/gemm_hls)!
 
-When a Xilinx hlslib header is included, compilation must allow C++11 features, and the macro `HLSLIB_SYNTHESIS` must be set whenever HLS is run. Set `-cflags "-std=c++11 -DHLSLIB_SYNTHESIS"` in your synthesis script, and `--xp prop:kernel.<entry function>.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS"` when building Xilinx kernels. See the included `xilinx_test/CMakeLists.txt` for reference. 
+When a Xilinx hlslib header is included, compilation must allow C++11 features, and the macro `HLSLIB_SYNTHESIS` must be set whenever HLS is run. Set `-cflags "-std=c++11 -DHLSLIB_SYNTHESIS"` in your synthesis script, and `--advanced.prop kernel.<name of your kernel>.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS"` when building Xilinx kernels. See the included `xilinx_test/CMakeLists.txt` for reference. 
+
+Officially supported versions of Vitis currently include 2021.1, 2020.2, 2020.1, and 2019.2. Older versions (including SDx and SDAccel) _might_ work, but should be used at your own discretion.
 
 ## Feature overview
 
-We have Doxygen now! Simply run `make` to generate the docs.
+We have Doxygen! Set the CMake flag `HLSLIB_BUILD_DOCUMENTATION=ON` to generate the docs.
 
 A brief overview of hlslib features is given below.
 
