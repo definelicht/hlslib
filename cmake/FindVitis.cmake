@@ -14,13 +14,11 @@
 #   Vitis_IS_LEGACY - Set if using a pre-Vitis version (i.e., SDx or SDAccel)
 #   Vitis_PLATFORMINFO - Path to the utility for extracting information from installed platforms
 #
-# To specify the location of Vitis or SDAccel, or to force this script to use a
-# specific version, set the variable VITIS_ROOT, SDX_ROOT, or SDACCEL_ROOT to
-# the root directory of the desired Vitis, SDx, or SDAccel installation,
-# respectively. For SDAccel 2018.3 or newer, Vitis/SDAccel relies on a separate
-# Xilinx Runtime (XRT). This script will search in the default installation
-# location, but a path can be specified with the XRT_ROOT variable.
+# To specify the location of Vitis, or to force this script to use a specific version, set the variable VITIS_ROOT to
+# the root directory of the desired Vitis installation. Similarly, XRT_ROOT can be used to specify the XRT installation
+# that should be used.
 
+# Backwards compatibility with SDx and SDAccel (not officially supported)
 if(DEFINED SDACCEL_ROOT_DIR AND NOT DEFINED SDACCEL_ROOT)
   set(SDACCEL_ROOT ${SDACCEL_ROOT_DIR})
 endif()
@@ -117,6 +115,7 @@ find_program(Vitis_VIVADO vivado PATHS
              ${VITIS_ROOT}/Vivado/bin NO_DEFAULT_PATH)
 
 find_path(Vitis_HLS_INCLUDE_DIR hls_stream.h PATHS
+          ${VITIS_ROOT}/../../Vitis_HLS/${Vitis_VERSION}/include
           ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/include
           ${VITIS_ROOT}/include
           ${VITIS_ROOT}/Vivado_HLS/include
@@ -258,6 +257,264 @@ else()
   message(WARNING "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 
 endif()
+
+# Function to convert each path in a list to an absolute path, if it isn't already
+function(hlslib_make_paths_absolute OUTPUT_FILES)
+  set(_OUTPUT_FILES)
+  foreach(KERNEL_FILE_PATH ${ARGN})
+    if(NOT IS_ABSOLUTE ${KERNEL_FILE_PATH})
+      set(_KERNEL_FILE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${KERNEL_FILE_PATH})
+      if(NOT EXISTS ${_KERNEL_FILE_PATH})
+        message(FATAL_ERROR "File ${KERNEL_FILE_PATH} not found.")
+      endif()
+      set(KERNEL_FILE_PATH ${_KERNEL_FILE_PATH})
+    endif()
+    set(_OUTPUT_FILES ${_OUTPUT_FILES} ${KERNEL_FILE_PATH})
+  endforeach()
+  set(${OUTPUT_FILES} ${_OUTPUT_FILES} PARENT_SCOPE)
+endfunction()
+
+# Registers targets to compile and link hardware and hardware emulation kernels
+# for a kernel with the given name, targeting the given platform.
+#
+# For a target "foo", the build targets will be called:
+#  make foo_hw
+#  make foo_hw_emu
+# Or for each step individually:
+#  make compile_foo_hw
+#  make link_foo_hw
+#
+# The name of the kernel is expected to match the target name. If it does not,
+# the kernel name can be passed separately with the KERNEL keyword.
+function(add_vitis_kernel
+         HLSLIB_TARGET_NAME
+         HLSLIB_PLATFORM)
+
+  # Keyword arguments
+  cmake_parse_arguments(
+      HLSLIB
+      ""
+      "CLOCK;KERNEL;CONFIG;SAVE_TEMPS"
+      "FILES;HLS_FLAGS;BUILD_FLAGS;DEPENDS;INCLUDE_DIRS"
+      ${ARGN})
+
+  # Verify that input is sane
+  if(NOT HLSLIB_FILES)
+    message(FATAL_ERROR "Must pass kernel file(s) to add_vitis_kernel using the FILES keyword.")
+  endif()
+
+  # Recover the part name used by the given platform
+  if(NOT "${${HLSLIB_TARGET_NAME}_PLATFORM}" STREQUAL "${HLSLIB_PLATFORM}")
+    set(${HLSLIB_TARGET_NAME}_PLATFORM "" CACHE INTERNAL "")
+    execute_process(COMMAND ${Vitis_PLATFORMINFO} --platform ${HLSLIB_PLATFORM} -jhardwarePlatform.board.part
+                    OUTPUT_VARIABLE HLSLIB_PLATFORM_PART
+                    RESULT_VARIABLE PLATFORM_FOUND)
+    string(STRIP ${HLSLIB_PLATFORM_PART} HLSLIB_PLATFORM_PART)
+    set(HLSLIB_PLATFORM_PART ${HLSLIB_PLATFORM_PART} CACHE INTERNAL "")
+  endif()
+  if(NOT HLSLIB_PLATFORM_PART)
+    message(WARNING "Xilinx platform ${HLSLIB_PLATFORM} was not found. Please consult \"${Vitis_PLATFORMINFO} -l\" for a list of installed platforms.")
+  else()
+    # Cache this so we don't have to rerun platform info if the platform didn't change
+    set(${HLSLIB_TARGET_NAME}_PLATFORM ${HLSLIB_PLATFORM} CACHE INTERNAL "")
+  endif()
+
+  # Augment with the platform specification
+  set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} --platform ${HLSLIB_PLATFORM}")
+
+  # Augment with frequency flag is specified
+  if(HLSLIB_CLOCK)
+    set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} --kernel_frequency ${HLSLIB_CLOCK}")
+  endif()
+
+  # Use the target name as the kernel name if the kernel name hasn't been
+  # explicitly passed
+  if(NOT HLSLIB_KERNEL)
+    set(HLSLIB_KERNEL ${HLSLIB_TARGET_NAME})
+  endif()
+  set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} --kernel ${HLSLIB_KERNEL}")
+
+  # Pass config file if specified
+  if(HLSLIB_CONFIG)
+    set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} --config ${HLSLIB_CONFIG}")
+  endif()
+
+  # Save temporaries if instructed to do so
+  if(HLSLIB_SAVE_TEMPS)
+    if(${HLSLIB_SAVE_TEMPS})
+      set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} --save-temps")
+    endif()
+  endif()
+
+  # Default to -O3 if no other optimization flag is passed
+  string(FIND "${HLSLIB_BUILD_FLAGS}" "-O" FOUND_SHORT)
+  string(FIND "${HLSLIB_BUILD_FLAGS}" "--optimize" FOUND_LONG)
+  if(FOUND_SHORT EQUAL -1_SHORT AND FOUND_LONG EQUAL -1)
+    set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} -O3")
+  endif()
+
+  # Mandatory flags for HLS when building kernels that use hlslib
+  string(FIND "${HLSLIB_HLS_FLAGS}" "-DHLSLIB_SYNTHESIS" FOUND)
+  if(FOUND EQUAL -1)
+    set(HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS} -DHLSLIB_SYNTHESIS")
+  endif()
+  string(FIND "${HLSLIB_HLS_FLAGS}" "-DHLSLIB_XILINX" FOUND)
+  if(FOUND EQUAL -1)
+    set(HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS} -DHLSLIB_XILINX")
+  endif()
+  string(FIND "${HLSLIB_HLS_FLAGS}" "-std=" FOUND)
+  if(FOUND EQUAL -1)
+    set(HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS} -std=c++11")
+  endif()
+
+  # Pass the Vitis version to HLS
+  string(FIND "${HLSLIB_HLS_FLAGS}" "-DVITIS_MAJOR_VERSION=" FOUND)
+  if(FOUND EQUAL -1)
+    set(HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS} -DVITIS_MAJOR_VERSION=${Vitis_MAJOR_VERSION}")
+  endif()
+  string(FIND "${HLSLIB_HLS_FLAGS}" "-DVITIS_MINOR_VERSION=" FOUND)
+  if(FOUND EQUAL -1)
+    set(HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS} -DVITIS_MINOR_VERSION=${Vitis_MINOR_VERSION}")
+  endif()
+  string(FIND "${HLSLIB_HLS_FLAGS}" "-DVITIS_VERSION=" FOUND)
+  if(FOUND EQUAL -1)
+    set(HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS} -DVITIS_VERSION=${Vitis_VERSION}")
+  endif()
+
+  # Tell hlslib if we're using Vitis HLS or Vivado HLS
+  if(NOT Vitis_USE_VITIS_HLS)
+    set(HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS} -D__VIVADO_HLS__")
+  else()
+    set(HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS} -D__VITIS_HLS__")
+  endif()
+
+  # Add additional include directories specified
+  hlslib_make_paths_absolute(HLSLIB_INCLUDE_DIRS ${HLSLIB_INCLUDE_DIRS})
+  foreach(INCLUDE_DIR ${HLSLIB_INCLUDE_DIRS})
+    set(HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS} -I${INCLUDE_DIR}")
+  endforeach()
+
+  # Clean up HLS flags to make sure they use string syntax (not list syntax),
+  # and that there are no superfluous spaces.
+  string(REGEX REPLACE ";|[ \t\r\n][ \t\r\n]+" " " HLSLIB_HLS_FLAGS "${HLSLIB_HLS_FLAGS}")
+  string(STRIP "${HLSLIB_HLS_FLAGS}" HLSLIB_HLS_FLAGS)
+
+  # Pass HLS flags to kernel build
+  set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} --advanced.prop kernel.${HLSLIB_KERNEL}.kernel_flags=\"${HLSLIB_HLS_FLAGS}\"")
+
+  # Clean up build flags by removing superfluous whitespace  and convert from
+  # string syntax to list syntax,
+  string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS}")
+  string(STRIP "${HLSLIB_BUILD_FLAGS}" HLSLIB_BUILD_FLAGS)
+  string(REGEX REPLACE " " ";" HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS}")
+
+  hlslib_make_paths_absolute(HLSLIB_FILES ${HLSLIB_FILES})
+  # Convert list to string
+  string(REPLACE ";" " " HLSLIB_FILES "${HLSLIB_FILES}")
+
+  # Hardware emulation target
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xo
+    COMMENT "Compiling ${HLSLIB_TARGET_NAME} for hardware emulation."
+    COMMAND ${CMAKE_COMMAND} -E env
+            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+            ${Vitis_COMPILER} --compile --target hw_emu
+            ${HLSLIB_BUILD_FLAGS}
+            ${HLSLIB_FILES}
+            --output ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xo
+    DEPENDS ${HLSLIB_FILES} ${HLSLIB_DEPENDS})
+  add_custom_target(compile_${HLSLIB_TARGET_NAME}_hw_emu DEPENDS
+                    ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xo)
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xclbin
+    COMMENT "Linking ${HLSLIB_TARGET_NAME} for hardware emulation."
+    COMMAND ${CMAKE_COMMAND} -E env
+            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+            ${Vitis_COMPILER} --link --target hw_emu
+            ${HLSLIB_BUILD_FLAGS}
+            ${HLSLIB_TARGET_NAME}_hw_emu.xo
+            --output ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xclbin
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xo)
+  add_custom_target(link_${HLSLIB_TARGET_NAME}_hw_emu DEPENDS
+                    ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xclbin)
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/emconfig.json
+    COMMENT "Generating emconfig.json file for hardware emulation."
+    COMMAND ${VITIS_ROOT}/bin/emconfigutil --platform ${HLSLIB_PLATFORM})
+  add_custom_target(${HLSLIB_TARGET_NAME}_hw_emu DEPENDS
+                    ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xclbin
+                    ${CMAKE_CURRENT_BINARY_DIR}/emconfig.json)
+
+  # Hardware target
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw.xo
+    COMMENT "Compiling ${HLSLIB_TARGET_NAME} for hardware."
+    COMMAND ${CMAKE_COMMAND} -E env
+            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+            ${Vitis_COMPILER} --compile --target hw
+            ${HLSLIB_BUILD_FLAGS}
+            ${HLSLIB_FILES}
+            --output ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw.xo
+    DEPENDS ${HLSLIB_FILES} ${HLSLIB_DEPENDS})
+  add_custom_target(compile_${HLSLIB_TARGET_NAME}_hw DEPENDS
+                    ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw.xo)
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw.xclbin
+    COMMENT "Linking ${HLSLIB_TARGET_NAME} for hardware."
+    COMMAND ${CMAKE_COMMAND} -E env
+            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+            ${Vitis_COMPILER} --link --target hw
+            ${HLSLIB_BUILD_FLAGS}
+            ${HLSLIB_TARGET_NAME}_hw.xo
+            --output ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw.xclbin
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw.xo)
+  add_custom_target(link_${HLSLIB_TARGET_NAME}_hw DEPENDS
+                    ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw.xclbin)
+  add_custom_target(${HLSLIB_TARGET_NAME}_hw DEPENDS link_${HLSLIB_TARGET_NAME}_hw)
+
+  # Shorthand to compile kernels, so user can just run "make hw" or "make hw_emu"
+  if(NOT TARGET hw_emu)
+    add_custom_target(hw_emu COMMENT "Building hardware emulation targets."
+                      DEPENDS ${HLSLIB_TARGET_NAME}_hw_emu)
+  else()
+    add_dependencies(hw_emu ${HLSLIB_TARGET_NAME}_hw_emu)
+  endif()
+  if(NOT TARGET hw)
+    add_custom_target(hw COMMENT "Building hardware targets."
+                      DEPENDS ${HLSLIB_TARGET_NAME}_hw)
+  else()
+    add_dependencies(hw ${HLSLIB_TARGET_NAME}_hw)
+  endif()
+
+  if(HLSLIB_PLATFORM_PART)
+    # Make separate synthesis target, which is faster to run than Vitis compile
+    if(HLSLIB_CLOCK)
+      set(HLSLIB_HLS_TCL_CLOCK "create_clock -period ${HLSLIB_CLOCK}MHz -name default\n")
+    endif()
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_synthesis.tcl
+         "\
+open_project ${HLSLIB_TARGET_NAME} \ 
+open_solution ${HLSLIB_PLATFORM_PART} \ 
+set_part ${HLSLIB_PLATFORM_PART} \ 
+add_files -cflags \"${HLSLIB_HLS_FLAGS}\" \"${HLSLIB_FILES}\" \ 
+set_top ${HLSLIB_KERNEL} \ 
+${HLSLIB_HLS_TCL_CLOCK}\
+config_interface -m_axi_addr64 \ 
+config_compile -name_max_length 256 \ 
+csynth_design \ 
+exit")
+    add_custom_command(OUTPUT ${HLSLIB_TARGET_NAME}/${HLSLIB_PLATFORM_PART}/${HLSLIB_PLATFORM_PART}.log
+                       COMMENT "Running high-level synthesis for ${HLSLIB_TARGET_NAME}."
+                       COMMAND ${Vitis_HLS} -f ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_synthesis.tcl
+                       DEPENDS ${HLSLIB_FILES})
+    add_custom_target(synthesize_${HLSLIB_TARGET_NAME} DEPENDS  
+                      ${HLSLIB_TARGET_NAME}/${HLSLIB_PLATFORM_PART}/${HLSLIB_PLATFORM_PART}.log)
+  endif()
+
+  # Add Xilinx build directory to clean target
+  set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES ${CMAKE_CURRENT_BINARY_DIR}/_x)
+
+endfunction()
 
 set(Vitis_EXPORTS
     Vitis_COMPILER
