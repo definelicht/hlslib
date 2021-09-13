@@ -1,6 +1,6 @@
 # User options
 set(HLSLIB_PART_NAME "xcvu9p-flgb2104-2-i" CACHE STRING "Part name for HLS.")
-set(HLSLIB_DSA_NAME "xilinx_vcu1525_dynamic_5_1" CACHE STRING "DSA string for v++/xocc.")
+set(HLSLIB_DSA_NAME "xilinx_u250_gen3x16_xdma_3_1_202020_1" CACHE STRING "DSA string for v++/xocc.")
 
 include_directories(${Vitis_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/include)
 

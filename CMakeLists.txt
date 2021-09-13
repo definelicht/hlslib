@@ -6,7 +6,7 @@ project(hlslib)
 option(HLSLIB_ENABLE_TESTING
        "Enable CTest when built as a standalone CMake project." ON)
 option(HLSLIB_BUILD_DOCUMENTATION
-       "Build Doxygen documentation when built as a standalone CMake project." ON)
+       "Build Doxygen documentation when built as a standalone CMake project." OFF)
 
 # Include custom Find<Module>.cmake scripts to enable searching for
 # Vitis/SDx/SDAccel and Intel FPGA OpenCL.
