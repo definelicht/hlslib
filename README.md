@@ -54,13 +54,17 @@ The `add_vitis_kernel` takes a number of optional arguments that can be used to 
 
 ```cmake
 add_vitis_kernel(MyKernel xilinx_vcu1525_dynamic_5_1
-                 FILES src/MyKernel.cpp
-                 CLOCK 400
+                 FILES src/MyKernel.cpp src/MyKernelHelper.cpp
+                 # All flags below this are optional keywords, and any combination of them
+                 # can be specified/not specified
+                 CLOCK 400  # Target a higher clock frequency
                  KERNEL NameOfKernelFunction  # If different from target name
                  CONFIG scripts/my_config.cfg  # Given as --config to Vitis
                  SAVE_TEMPS ON  # Forwards --save-temps to Vitis
                  HLS_FLAGS "-DMY_IMPORTANT_DEFINITION -O2"
                  BUILD_FLAGS "-Os --export_script"
+                 DEBUGGING ON  # Enables Chipscope debugging on all interfaces
+                 PROFILING ON  # Enables profiling for stalls, data transfers, and execution
                  DEPENDS include/MyHeader.h include/OtherDependency.h
                  INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include hlslib/include)
 ```

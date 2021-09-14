@@ -294,7 +294,7 @@ function(add_vitis_kernel
   cmake_parse_arguments(
       HLSLIB
       ""
-      "CLOCK;KERNEL;CONFIG;SAVE_TEMPS"
+      "CLOCK;KERNEL;CONFIG;SAVE_TEMPS;DEBUGGING;PROFILING"
       "FILES;HLS_FLAGS;BUILD_FLAGS;DEPENDS;INCLUDE_DIRS"
       ${ARGN})
 
@@ -302,6 +302,12 @@ function(add_vitis_kernel
   if(NOT HLSLIB_FILES)
     message(FATAL_ERROR "Must pass kernel file(s) to add_vitis_kernel using the FILES keyword.")
   endif()
+  hlslib_make_paths_absolute(HLSLIB_FILES ${HLSLIB_FILES})
+  # Convert list to string
+  string(REPLACE ";" " " HLSLIB_FILES "${HLSLIB_FILES}")
+
+  # Include kernel files in dependency list
+  set(HLSLIB_DEPENDS ${HLSLIB_FILES} ${HLSLIB_DEPENDS})
 
   # Recover the part name used by the given platform
   if(NOT "${${HLSLIB_TARGET_NAME}_PLATFORM}" STREQUAL "${HLSLIB_PLATFORM}")
@@ -340,7 +346,7 @@ function(add_vitis_kernel
   endif()
 
   # Save temporaries if instructed to do so
-  if(HLSLIB_SAVE_TEMPS)
+  if(DEFINED HLSLIB_SAVE_TEMPS)
     if(${HLSLIB_SAVE_TEMPS})
       set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} --save-temps")
     endif()
@@ -351,6 +357,21 @@ function(add_vitis_kernel
   string(FIND "${HLSLIB_BUILD_FLAGS}" "--optimize" FOUND_LONG)
   if(FOUND_SHORT EQUAL -1_SHORT AND FOUND_LONG EQUAL -1)
     set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} -O3")
+  endif()
+
+  # Optional profiling flags
+  if(DEFINED HLSLIB_PROFILING)
+    if(${HLSLIB_PROFILING})
+      set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} --profile.data all:all:all --profile.exec all:all --profile.stall all:all")
+    endif()
+  endif()
+
+  # Optional debugging flags
+  if(DEFINED HLSLIB_DEBUGGING)
+    if(${HLSLIB_DEBUGGING})
+      # Append _1 to match the Vitis convention (only supports single compute unit kernels)
+      set(HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS} --debug --debug.chipscope ${HLSLIB_KERNEL}_1")
+    endif()
   endif()
 
   # Mandatory flags for HLS when building kernels that use hlslib
@@ -408,10 +429,6 @@ function(add_vitis_kernel
   string(STRIP "${HLSLIB_BUILD_FLAGS}" HLSLIB_BUILD_FLAGS)
   string(REGEX REPLACE " " ";" HLSLIB_BUILD_FLAGS "${HLSLIB_BUILD_FLAGS}")
 
-  hlslib_make_paths_absolute(HLSLIB_FILES ${HLSLIB_FILES})
-  # Convert list to string
-  string(REPLACE ";" " " HLSLIB_FILES "${HLSLIB_FILES}")
-
   # Hardware emulation target
   add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xo
@@ -422,7 +439,7 @@ function(add_vitis_kernel
             ${HLSLIB_BUILD_FLAGS}
             ${HLSLIB_FILES}
             --output ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xo
-    DEPENDS ${HLSLIB_FILES} ${HLSLIB_DEPENDS})
+    DEPENDS ${HLSLIB_DEPENDS} ${HLSLIB_DEPENDS_DEBUGGING})
   add_custom_target(compile_${HLSLIB_TARGET_NAME}_hw_emu DEPENDS
                     ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw_emu.xo)
   add_custom_command(
@@ -455,7 +472,7 @@ function(add_vitis_kernel
             ${HLSLIB_BUILD_FLAGS}
             ${HLSLIB_FILES}
             --output ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw.xo
-    DEPENDS ${HLSLIB_FILES} ${HLSLIB_DEPENDS})
+    DEPENDS ${HLSLIB_DEPENDS} ${HLSLIB_DEPENDS_DEBUGGING})
   add_custom_target(compile_${HLSLIB_TARGET_NAME}_hw DEPENDS
                     ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_hw.xo)
   add_custom_command(
@@ -479,11 +496,23 @@ function(add_vitis_kernel
   else()
     add_dependencies(hw_emu ${HLSLIB_TARGET_NAME}_hw_emu)
   endif()
+  if(NOT TARGET compile_hw_emu)
+    add_custom_target(compile_hw_emu COMMENT "Compiling hardware emulation targets."
+                      DEPENDS compile_${HLSLIB_TARGET_NAME}_hw_emu)
+  else()
+    add_dependencies(compile_hw_emu compile_${HLSLIB_TARGET_NAME}_hw_emu)
+  endif()
   if(NOT TARGET hw)
     add_custom_target(hw COMMENT "Building hardware targets."
                       DEPENDS ${HLSLIB_TARGET_NAME}_hw)
   else()
     add_dependencies(hw ${HLSLIB_TARGET_NAME}_hw)
+  endif()
+  if(NOT TARGET link_hw_emu)
+    add_custom_target(link_hw_emu COMMENT "Linking hardware emulation targets."
+                      DEPENDS link_${HLSLIB_TARGET_NAME}_hw_emu)
+  else()
+    add_dependencies(link_hw_emu link_${HLSLIB_TARGET_NAME}_hw_emu)
   endif()
 
   if(HLSLIB_PLATFORM_PART)
@@ -506,7 +535,7 @@ exit")
     add_custom_command(OUTPUT ${HLSLIB_TARGET_NAME}/${HLSLIB_PLATFORM_PART}/${HLSLIB_PLATFORM_PART}.log
                        COMMENT "Running high-level synthesis for ${HLSLIB_TARGET_NAME}."
                        COMMAND ${Vitis_HLS} -f ${CMAKE_CURRENT_BINARY_DIR}/${HLSLIB_TARGET_NAME}_synthesis.tcl
-                       DEPENDS ${HLSLIB_FILES})
+                       DEPENDS ${HLSLIB_DEPENDS})
     add_custom_target(synthesize_${HLSLIB_TARGET_NAME} DEPENDS  
                       ${HLSLIB_TARGET_NAME}/${HLSLIB_PLATFORM_PART}/${HLSLIB_PLATFORM_PART}.log)
   endif()
