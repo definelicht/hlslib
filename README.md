@@ -29,7 +29,7 @@ A brief overview of hlslib features is given below.
 
 #### CMake integration
 
-For integrating the Xilinx or Intel HLS tools in your project, the `FindVitis.cmake` and `FindIntelFPGAOpenCL.cmake` are provided in the `cmake` subdirectory. The scripts will set all necessary variables required to build both host and device code.
+For integrating the Xilinx or Intel HLS tools in your project, the `FindVitis.cmake` and `FindIntelFPGAOpenCL.cmake` are provided in the `cmake` subdirectory. The scripts will set all necessary variables required to build both host and device code. It also provides the `add_vitis_kernel` function, which will produce targets for building hardware emulation, hardware, and synthesis.
 
 Example `CMakeLists.txt`:
 ```cmake
@@ -40,12 +40,33 @@ add_executable(MyHostExecutable src/MyHostExecutable.cpp)
 include_directories(${Vitis_INCLUDE_DIRS})
 target_link_libraries(MyHostExecutable ${Vitis_LIBRARIES})
 
-add_custom_target(compile_kernel ${Vitis_COMPILER} -c -t hw src/MyKernel.cpp
-                  --kernel MyKernel --platform xilinx_vcu1525_dynamic_5_1
-                  -o MyKernel.xo)
-add_custom_target(link_kernel ${Vitis_COMPILER} -l -t hw MyKernel.xo 
-                  --kernel MyKernel --platform xilinx_vcu1525_dynamic_5_1
-                  -o MyKernel.xclbin)
+# Will populate the "hw", "hw_emu", and "synthesis" targets
+add_vitis_kernel(MyKernel xilinx_vcu1525_dynamic_5_1 FILES src/MyKernel.cpp)
+```
+
+Kernels can then be built with:
+
+```bash
+make hw
+```
+
+The `add_vitis_kernel` takes a number of optional arguments that can be used to configure the hardware targets:
+
+```cmake
+add_vitis_kernel(MyKernel xilinx_vcu1525_dynamic_5_1
+                 FILES src/MyKernel.cpp src/MyKernelHelper.cpp
+                 # All flags below this are optional keywords, and any combination of them
+                 # can be specified/not specified
+                 CLOCK 400  # Target a higher clock frequency
+                 KERNEL NameOfKernelFunction  # If different from target name
+                 CONFIG scripts/my_config.cfg  # Given as --config to Vitis
+                 SAVE_TEMPS ON  # Forwards --save-temps to Vitis
+                 HLS_FLAGS "-DMY_IMPORTANT_DEFINITION -O2"
+                 BUILD_FLAGS "-Os --export_script"
+                 DEBUGGING ON  # Enables Chipscope debugging on all interfaces
+                 PROFILING ON  # Enables profiling for stalls, data transfers, and execution
+                 DEPENDS include/MyHeader.h include/OtherDependency.h
+                 INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include hlslib/include)
 ```
 
 #### DataPack
