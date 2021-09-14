@@ -260,6 +260,7 @@ endif()
 
 # Function to convert each path in a list to an absolute path, if it isn't already
 function(hlslib_make_paths_absolute OUTPUT_FILES)
+  string(REPLACE " " ";" OUTPUT_FILES ${OUTPUT_FILES})
   set(_OUTPUT_FILES)
   foreach(KERNEL_FILE_PATH ${ARGN})
     if(NOT IS_ABSOLUTE ${KERNEL_FILE_PATH})
@@ -299,17 +300,21 @@ function(add_vitis_kernel
       ${ARGN})
 
   # Verify that input is sane
-  string(REPLACE " " ";" KERNEL_FILES "${KERNEL_FILES}")
   if(NOT KERNEL_FILES)
     message(FATAL_ERROR "Must pass kernel file(s) to add_vitis_kernel using the FILES keyword.")
   endif()
   hlslib_make_paths_absolute(KERNEL_FILES ${KERNEL_FILES})
-  # Convert list to string
-  string(REPLACE ";" " " KERNEL_FILES "${KERNEL_FILES}")
 
-  # Include kernel files in dependency list
+  # Convert non-target dependencies to absolute paths
   string(REPLACE " " ";" KERNEL_DEPENDS "${KERNEL_DEPENDS}")
-  set(KERNEL_DEPENDS ${KERNEL_FILES} ${KERNEL_DEPENDS})
+  unset(_KERNEL_DEPENDS)
+  foreach(DEP ${KERNEL_DEPENDS})
+    if(NOT TARGET ${DEP}) 
+      hlslib_make_paths_absolute(DEP ${DEP})
+    endif()
+    set(_KERNEL_DEPENDS ${_KERNEL_DEPENDS} ${DEP})
+  endforeach()
+  set(KERNEL_DEPENDS ${KERNEL_FILES} ${_KERNEL_DEPENDS})
 
   # Recover the part name used by the given platform
   if(NOT "${${KERNEL_TARGET_NAME}_PLATFORM}" STREQUAL "${KERNEL_PLATFORM}")
