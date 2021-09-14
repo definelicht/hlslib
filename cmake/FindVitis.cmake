@@ -343,7 +343,9 @@ function(add_vitis_kernel
 
   # Use the target name as the kernel name if the kernel name hasn't been
   # explicitly passed
-  if(NOT KERNEL_NAME)
+  if(DEFINED KERNEL_KERNEL)
+    set(KERNEL_NAME ${KERNEL_KERNEL})
+  else()
     set(KERNEL_NAME ${KERNEL_TARGET_NAME})
   endif()
   set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} --kernel ${KERNEL_NAME}")
