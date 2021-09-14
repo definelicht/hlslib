@@ -555,12 +555,13 @@ function(add_vitis_kernel
     if(KERNEL_CLOCK)
       set(KERNEL_HLS_TCL_CLOCK "create_clock -period ${KERNEL_CLOCK}MHz -name default\n")
     endif()
+    string(REPLACE ";" " " KERNEL_FILES_STRING "${KERNEL_FILES}") 
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_synthesis.tcl
          "\
 open_project ${KERNEL_TARGET_NAME} \ 
 open_solution ${KERNEL_PLATFORM_PART} \ 
 set_part ${KERNEL_PLATFORM_PART} \ 
-add_files -cflags \"${KERNEL_HLS_FLAGS}\" \"${KERNEL_FILES}\" \ 
+add_files -cflags \"${KERNEL_HLS_FLAGS}\" \"${KERNEL_FILES_STRING}\" \ 
 set_top ${KERNEL_NAME} \ 
 ${KERNEL_HLS_TCL_CLOCK}\
 config_interface -m_axi_addr64 \ 
