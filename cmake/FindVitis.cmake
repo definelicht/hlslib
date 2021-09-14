@@ -299,6 +299,7 @@ function(add_vitis_kernel
       ${ARGN})
 
   # Verify that input is sane
+  string(REPLACE " " ";" KERNEL_FILES "${KERNEL_FILES}")
   if(NOT KERNEL_FILES)
     message(FATAL_ERROR "Must pass kernel file(s) to add_vitis_kernel using the FILES keyword.")
   endif()
@@ -307,6 +308,7 @@ function(add_vitis_kernel
   string(REPLACE ";" " " KERNEL_FILES "${KERNEL_FILES}")
 
   # Include kernel files in dependency list
+  string(REPLACE " " ";" KERNEL_DEPENDS "${KERNEL_DEPENDS}")
   set(KERNEL_DEPENDS ${KERNEL_FILES} ${KERNEL_DEPENDS})
 
   # Recover the part name used by the given platform
@@ -422,6 +424,7 @@ function(add_vitis_kernel
   endif()
 
   # Add additional include directories specified
+  string(REPLACE " " ";" KERNEL_INCLUDE_DIRS "${KERNEL_INCLUDE_DIRS}")
   hlslib_make_paths_absolute(KERNEL_INCLUDE_DIRS ${KERNEL_INCLUDE_DIRS})
   foreach(INCLUDE_DIR ${KERNEL_INCLUDE_DIRS})
     set(KERNEL_HLS_FLAGS "${KERNEL_HLS_FLAGS} -I${INCLUDE_DIR}")
