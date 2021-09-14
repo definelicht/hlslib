@@ -61,7 +61,7 @@ function(add_hls_test KERNEL_NAME)
       KERNEL
       ""
       "CONFIG"
-      "HLS_FLAGS"
+      "HLS_FLAGS;PORT_MAPPING"
       ${ARGN})
   # Abuse add_vitis_kernel to generate synthesis target, even if not all of the
   # tests would actually be valid OpenCL kernels
@@ -70,7 +70,8 @@ function(add_hls_test KERNEL_NAME)
                    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
                                 ${CMAKE_SOURCE_DIR}/include
                    HLS_FLAGS "${KERNEL_HLS_FLAGS}"
-                   CONFIG "${KERNEL_CONFIG}")
+                   CONFIG "${KERNEL_CONFIG}"
+                   PORT_MAPPING "${KERNEL_PORT_MAPPING}")
   add_test(NAME Test${KERNEL_NAME}Synthesis COMMAND ${CMAKE_COMMAND}
            --build ${CMAKE_CURRENT_BINARY_DIR} --target synthesize_${KERNEL_NAME}) 
 endfunction()
@@ -83,4 +84,4 @@ add_hls_test("ShiftRegister")
 add_hls_test("StreamAPI")
 add_hls_test("Subflow")
 add_hls_test("HBMandBlockCopy" CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg)
-add_hls_test("DDRExplicit" CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/configs/ddrkernel.cfg)
+add_hls_test("DDRExplicit" PORT_MAPPING "ddr0:DDR[0] ddr1:DDR[1]")

@@ -295,7 +295,7 @@ function(add_vitis_kernel
       KERNEL
       ""
       "CLOCK;KERNEL;CONFIG;SAVE_TEMPS;DEBUGGING;PROFILING"
-      "FILES;HLS_FLAGS;BUILD_FLAGS;DEPENDS;INCLUDE_DIRS"
+      "FILES;HLS_FLAGS;BUILD_FLAGS;COMPILE_FLAGS;LINK_FLAGS;DEPENDS;INCLUDE_DIRS;PORT_MAPPING"
       ${ARGN})
 
   # Verify that input is sane
@@ -312,6 +312,7 @@ function(add_vitis_kernel
   # Recover the part name used by the given platform
   if(NOT "${${KERNEL_TARGET_NAME}_PLATFORM}" STREQUAL "${KERNEL_PLATFORM}")
     set(${KERNEL_TARGET_NAME}_PLATFORM "" CACHE INTERNAL "")
+    message(STATUS "Querying Vitis platform for ${KERNEL_TARGET_NAME}.")
     execute_process(COMMAND ${Vitis_PLATFORMINFO} --platform ${KERNEL_PLATFORM} -jhardwarePlatform.board.part
                     OUTPUT_VARIABLE KERNEL_PLATFORM_PART
                     RESULT_VARIABLE PLATFORM_FOUND)
@@ -374,6 +375,17 @@ function(add_vitis_kernel
     endif()
   endif()
 
+  # Specify port mapping
+  string(REPLACE " " ";" KERNEL_PORT_MAPPING "${KERNEL_PORT_MAPPING}")
+  foreach(MAPPING ${KERNEL_PORT_MAPPING})
+    string(REGEX MATCH "[^: \t\n]+:[^: \t\n]+" IS_MEMORY_BANK ${MAPPING})
+    if(IS_MEMORY_BANK)
+      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.sp ${KERNEL_NAME}_1.${MAPPING}") 
+    else()
+      message(FATAL_ERROR "Unrecognized port mapping ${MAPPING}.")
+    endif()
+  endforeach()
+
   # Mandatory flags for HLS when building kernels that use hlslib
   string(FIND "${KERNEL_HLS_FLAGS}" "-DHLSLIB_SYNTHESIS" FOUND)
   if(FOUND EQUAL -1)
@@ -420,11 +432,17 @@ function(add_vitis_kernel
   string(REGEX REPLACE ";|[ \t\r\n][ \t\r\n]+" " " KERNEL_HLS_FLAGS "${KERNEL_HLS_FLAGS}")
   string(STRIP "${KERNEL_HLS_FLAGS}" KERNEL_HLS_FLAGS)
 
-  # Pass HLS flags to kernel build
-  set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} --advanced.prop kernel.${KERNEL_NAME}.kernel_flags=\"${KERNEL_HLS_FLAGS}\"")
+  # Pass HLS flags in compilation stage
+  set(KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS} --advanced.prop kernel.${KERNEL_NAME}.kernel_flags=\"${KERNEL_HLS_FLAGS}\"") 
 
-  # Clean up build flags by removing superfluous whitespace  and convert from
+  # Clean up build flags by removing superfluous whitespace and convert from
   # string syntax to list syntax,
+  string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
+  string(STRIP "${KERNEL_COMPILE_FLAGS}" KERNEL_COMPILE_FLAGS)
+  string(REGEX REPLACE " " ";" KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
+  string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
+  string(STRIP "${KERNEL_LINK_FLAGS}" KERNEL_LINK_FLAGS)
+  string(REGEX REPLACE " " ";" KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS}")
   string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS}")
   string(STRIP "${KERNEL_BUILD_FLAGS}" KERNEL_BUILD_FLAGS)
   string(REGEX REPLACE " " ";" KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS}")
@@ -437,6 +455,7 @@ function(add_vitis_kernel
             XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
             ${Vitis_COMPILER} --compile --target hw_emu
             ${KERNEL_BUILD_FLAGS}
+            ${KERNEL_COMPILE_FLAGS} 
             ${KERNEL_FILES}
             --output ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xo
     DEPENDS ${KERNEL_DEPENDS} ${KERNEL_DEPENDS_DEBUGGING})
@@ -456,6 +475,7 @@ function(add_vitis_kernel
             XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
             ${Vitis_COMPILER} --link --target hw_emu
             ${KERNEL_BUILD_FLAGS}
+            ${KERNEL_LINK_FLAGS}
             ${KERNEL_TARGET_NAME}_hw_emu.xo
             --output ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xclbin
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xo
@@ -473,6 +493,7 @@ function(add_vitis_kernel
             XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
             ${Vitis_COMPILER} --compile --target hw
             ${KERNEL_BUILD_FLAGS}
+            ${KERNEL_COMPILE_FLAGS}
             ${KERNEL_FILES}
             --output ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xo
     DEPENDS ${KERNEL_DEPENDS} ${KERNEL_DEPENDS_DEBUGGING})
@@ -485,6 +506,7 @@ function(add_vitis_kernel
             XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
             ${Vitis_COMPILER} --link --target hw
             ${KERNEL_BUILD_FLAGS}
+            ${KERNEL_LINK_FLAGS}
             ${KERNEL_TARGET_NAME}_hw.xo
             --output ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xclbin
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xo)
