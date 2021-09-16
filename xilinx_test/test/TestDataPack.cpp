@@ -4,12 +4,16 @@
 #include "hlslib/xilinx/DataPack.h"
 #include "catch.hpp"
 
-using Test_t = int;
-constexpr int kWidth = 4;
-constexpr int kFillVal = 5;
-using DataPack = hlslib::DataPack<Test_t, kWidth>;
+#include "ap_fixed.h"
+#include "ap_int.h"
 
-TEST_CASE("DataPack", "[DataPack]") {
+constexpr int kWidth = 4;
+
+TEMPLATE_TEST_CASE(
+    "DataPack", "[DataPack][template]",
+    int, ap_int<5>, ap_uint<33>, (ap_fixed<9, 4>), (ap_ufixed<19, 5>)) {
+  const TestType kFillVal = 5;
+  using DataPack = hlslib::DataPack<TestType, kWidth>;
 
   SECTION("Fill constructor") {
     const DataPack pack(kFillVal);
@@ -35,7 +39,7 @@ TEST_CASE("DataPack", "[DataPack]") {
   }
 
   SECTION("Array constructor") {
-    Test_t arr[kWidth];
+    TestType arr[kWidth];
     std::fill(arr, arr + kWidth, kFillVal);
     const DataPack pack(arr);
     for (int i = 0; i < kWidth; ++i) {
@@ -44,64 +48,64 @@ TEST_CASE("DataPack", "[DataPack]") {
   }
 
   SECTION("Assignment copy operator") {
-    DataPack lhs(0);
+    DataPack lhs(TestType(0));
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(lhs[i] == 0);
+      REQUIRE(lhs.Get(i) == 0);
     }
     DataPack rhs(kFillVal);
     lhs = rhs;
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(lhs[i] == kFillVal);
+      REQUIRE(lhs.Get(i) == kFillVal);
     }
   }
 
   SECTION("Assignment move operator") {
-    DataPack lhs(0);
+    DataPack lhs(TestType(0));
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(lhs[i] == 0);
+      REQUIRE(lhs.Get(i) == 0);
     }
     DataPack rhs(kFillVal);
     lhs = std::move(rhs);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(lhs[i] == kFillVal);
+      REQUIRE(lhs.Get(i) == kFillVal);
     }
   }
 
   SECTION("Index-wise assignment") {
-    DataPack lhs(0);
+    DataPack lhs(TestType(0));
     DataPack rhs(kFillVal);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(lhs[i] == 0);
+      REQUIRE(lhs.Get(i) == 0);
     }
     for (int i = 0; i < kWidth; ++i) {
       lhs[i] = rhs[i];
     }
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(lhs[i] == kFillVal);
+      REQUIRE(lhs.Get(i) == kFillVal);
     }
   }
 
   SECTION("Shift operation") {
     DataPack first(kFillVal);
-    DataPack second(0);
-    first.ShiftTo<0, kWidth/2, kWidth/2>(second);
+    DataPack second(TestType(0));
+    first.template ShiftTo<0, kWidth/2, kWidth/2>(second);
     for (int i = 0; i < kWidth/2; ++i) {
-      REQUIRE(second[i] == 0);
+      REQUIRE(second.Get(i) == 0);
     }
     for (int i = kWidth/2; i < kWidth; ++i) {
-      REQUIRE(second[i] == kFillVal);
+      REQUIRE(second.Get(i) == kFillVal);
     }
   }
 
   SECTION("Pack and unpack") {
-    DataPack pack(0);
-    Test_t arr0[kWidth];
-    Test_t arr1[kWidth];
+    DataPack pack(TestType(0));
+    TestType arr0[kWidth];
+    TestType arr1[kWidth];
     std::fill(arr0, arr0 + kWidth, kFillVal);
     std::fill(arr1, arr1 + kWidth, 0);
     pack.Pack(arr0);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(pack[i] == arr0[i]);
+      REQUIRE(pack.Get(i) == arr0[i]);
     }
     pack.Unpack(arr1);
     for (int i = 0; i < kWidth; ++i) {
@@ -111,7 +115,7 @@ TEST_CASE("DataPack", "[DataPack]") {
     std::fill(arr1, arr1 + kWidth, 0);
     pack << arr0;
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(pack[i] == arr0[i]);
+      REQUIRE(pack.Get(i) == arr0[i]);
     }
     pack >> arr1;
     for (int i = 0; i < kWidth; ++i) {
