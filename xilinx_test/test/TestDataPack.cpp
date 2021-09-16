@@ -1,24 +1,39 @@
 /// @author    Johannes de Fine Licht (definelicht@inf.ethz.ch)
-/// @copyright This software is copyrighted under the BSD 3-Clause License. 
+/// @copyright This software is copyrighted under the BSD 3-Clause License.
 
-#include "hlslib/xilinx/DataPack.h"
-#include "catch.hpp"
+#include <type_traits>
 
 #include "ap_fixed.h"
 #include "ap_int.h"
+#include "catch.hpp"
+#include "hlslib/xilinx/DataPack.h"
 
 constexpr int kWidth = 4;
 
-TEMPLATE_TEST_CASE(
-    "DataPack", "[DataPack][template]",
-    int, ap_int<5>, ap_uint<33>, (ap_fixed<9, 4>), (ap_ufixed<19, 5>)) {
+static_assert(hlslib::DataPack<ap_int<5>, 3>::kBits == 5, "Invalid bit size.");
+static_assert(std::is_same<hlslib::DataPack<ap_int<5>, 3>::Internal_t,
+                           ap_uint<15>>::value,
+              "Invalid internal type.");
+static_assert(hlslib::DataPack<ap_fixed<9, 7>, 8>::kBits == 9,
+              "Invalid bit size.");
+static_assert(std::is_same<hlslib::DataPack<ap_fixed<9, 7>, 8>::Internal_t,
+                           ap_uint<72>>::value,
+              "Invalid internal type.");
+static_assert(hlslib::DataPack<ap_ufixed<23, 5>, 8>::kBits == 23,
+              "Invalid bit size.");
+static_assert(std::is_same<hlslib::DataPack<ap_ufixed<23, 5>, 8>::Internal_t,
+                           ap_uint<184>>::value,
+              "Invalid internal type.");
+
+TEMPLATE_TEST_CASE("DataPack", "[DataPack][template]", int, ap_int<5>,
+                   ap_uint<33>, (ap_fixed<9, 4>), (ap_ufixed<19, 5>)) {
   const TestType kFillVal = 5;
   using DataPack = hlslib::DataPack<TestType, kWidth>;
 
   SECTION("Fill constructor") {
     const DataPack pack(kFillVal);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(pack[i] == kFillVal); 
+      REQUIRE(pack[i] == kFillVal);
     }
   }
 
@@ -26,7 +41,7 @@ TEMPLATE_TEST_CASE(
     const DataPack pack(kFillVal);
     const DataPack copy(pack);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(copy[i] == kFillVal); 
+      REQUIRE(copy[i] == kFillVal);
     }
   }
 
@@ -34,7 +49,7 @@ TEMPLATE_TEST_CASE(
     const DataPack pack(kFillVal);
     const DataPack move(std::move(pack));
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(move[i] == kFillVal); 
+      REQUIRE(move[i] == kFillVal);
     }
   }
 
@@ -43,7 +58,7 @@ TEMPLATE_TEST_CASE(
     std::fill(arr, arr + kWidth, kFillVal);
     const DataPack pack(arr);
     for (int i = 0; i < kWidth; ++i) {
-      REQUIRE(pack[i] == kFillVal); 
+      REQUIRE(pack[i] == kFillVal);
     }
   }
 
@@ -88,11 +103,11 @@ TEMPLATE_TEST_CASE(
   SECTION("Shift operation") {
     DataPack first(kFillVal);
     DataPack second(TestType(0));
-    first.template ShiftTo<0, kWidth/2, kWidth/2>(second);
-    for (int i = 0; i < kWidth/2; ++i) {
+    first.template ShiftTo<0, kWidth / 2, kWidth / 2>(second);
+    for (int i = 0; i < kWidth / 2; ++i) {
       REQUIRE(second.Get(i) == 0);
     }
-    for (int i = kWidth/2; i < kWidth; ++i) {
+    for (int i = kWidth / 2; i < kWidth; ++i) {
       REQUIRE(second.Get(i) == kFillVal);
     }
   }
@@ -130,5 +145,4 @@ TEMPLATE_TEST_CASE(
     ss << pack;
     REQUIRE(ss.str() == "{a, b, c, d, e}");
   }
-
 }
