@@ -275,28 +275,17 @@ function(hlslib_make_paths_absolute OUTPUT_FILES)
   set(${OUTPUT_FILES} ${_OUTPUT_FILES} PARENT_SCOPE)
 endfunction()
 
-# Registers targets to compile and link hardware and hardware emulation kernels
-# for a kernel with the given name, targeting the given platform.
-#
-# For a target "foo", the build targets will be called:
-#  make foo_hw
-#  make foo_hw_emu
-# Or for each step individually:
-#  make compile_foo_hw
-#  make link_foo_hw
-#
 # The name of the kernel is expected to match the target name. If it does not,
 # the kernel name can be passed separately with the KERNEL keyword.
 function(add_vitis_kernel
-         KERNEL_TARGET_NAME
-         KERNEL_PLATFORM)
+         KERNEL_TARGET)
 
   # Keyword arguments
   cmake_parse_arguments(
       KERNEL
       ""
-      "CLOCK;KERNEL;CONFIG;SAVE_TEMPS;DEBUGGING;PROFILING"
-      "FILES;HLS_FLAGS;BUILD_FLAGS;COMPILE_FLAGS;LINK_FLAGS;DEPENDS;INCLUDE_DIRS;PORT_MAPPING"
+      "KERNEL"
+      "FILES;DEPENDS;INCLUDE_DIRS;HLS_FLAGS;COMPILE_FLAGS;PORT_MAPPING"
       ${ARGN})
 
   # Verify that input is sane
@@ -316,72 +305,15 @@ function(add_vitis_kernel
   endforeach()
   set(KERNEL_DEPENDS ${KERNEL_FILES} ${_KERNEL_DEPENDS})
 
-  # Recover the part name used by the given platform
-  if(NOT "${${KERNEL_TARGET_NAME}_PLATFORM}" STREQUAL "${KERNEL_PLATFORM}")
-    set(${KERNEL_TARGET_NAME}_PLATFORM "" CACHE INTERNAL "")
-    message(STATUS "Querying Vitis platform for ${KERNEL_TARGET_NAME}.")
-    execute_process(COMMAND ${Vitis_PLATFORMINFO} --platform ${KERNEL_PLATFORM} -jhardwarePlatform.board.part
-                    OUTPUT_VARIABLE KERNEL_PLATFORM_PART
-                    RESULT_VARIABLE PLATFORM_FOUND)
-    string(STRIP ${KERNEL_PLATFORM_PART} KERNEL_PLATFORM_PART)
-    set(KERNEL_PLATFORM_PART ${KERNEL_PLATFORM_PART} CACHE INTERNAL "")
-  endif()
-  if(NOT KERNEL_PLATFORM_PART)
-    message(WARNING "Xilinx platform ${KERNEL_PLATFORM} was not found. Please consult \"${Vitis_PLATFORMINFO} -l\" for a list of installed platforms.")
-  else()
-    # Cache this so we don't have to rerun platform info if the platform didn't change
-    set(${KERNEL_TARGET_NAME}_PLATFORM ${KERNEL_PLATFORM} CACHE INTERNAL "")
-  endif()
-
-  # Augment with the platform specification
-  set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} --platform ${KERNEL_PLATFORM}")
-
-  # Augment with frequency flag is specified
-  if(KERNEL_CLOCK)
-    set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} --kernel_frequency ${KERNEL_CLOCK}")
-  endif()
+  # Create the target that will carry the properties and dependencies
+  add_custom_target(${KERNEL_TARGET} DEPENDS ${KERNEL_DEPENDS})
 
   # Use the target name as the kernel name if the kernel name hasn't been
   # explicitly passed
   if(DEFINED KERNEL_KERNEL)
     set(KERNEL_NAME ${KERNEL_KERNEL})
   else()
-    set(KERNEL_NAME ${KERNEL_TARGET_NAME})
-  endif()
-  set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} --kernel ${KERNEL_NAME}")
-
-  # Pass config file if specified
-  if(KERNEL_CONFIG)
-    set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} --config ${KERNEL_CONFIG}")
-  endif()
-
-  # Save temporaries if instructed to do so
-  if(DEFINED KERNEL_SAVE_TEMPS)
-    if(${KERNEL_SAVE_TEMPS})
-      set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} --save-temps")
-    endif()
-  endif()
-
-  # Default to -O3 if no other optimization flag is passed
-  string(FIND "${KERNEL_BUILD_FLAGS}" "-O" FOUND_SHORT)
-  string(FIND "${KERNEL_BUILD_FLAGS}" "--optimize" FOUND_LONG)
-  if(FOUND_SHORT EQUAL -1_SHORT AND FOUND_LONG EQUAL -1)
-    set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} -O3")
-  endif()
-
-  # Optional profiling flags
-  if(DEFINED KERNEL_PROFILING)
-    if(${KERNEL_PROFILING})
-      set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} --profile.data all:all:all --profile.exec all:all --profile.stall all:all")
-    endif()
-  endif()
-
-  # Optional debugging flags
-  if(DEFINED KERNEL_DEBUGGING)
-    if(${KERNEL_DEBUGGING})
-      # Append _1 to match the Vitis convention (only supports single compute unit kernels)
-      set(KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS} --debug --debug.chipscope ${KERNEL_NAME}_1")
-    endif()
+    set(KERNEL_NAME ${KERNEL_TARGET})
   endif()
 
   # Specify port mapping
@@ -391,7 +323,7 @@ function(add_vitis_kernel
     if(IS_MEMORY_BANK)
       set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.sp ${KERNEL_NAME}_1.${MAPPING}") 
     else()
-      message(FATAL_ERROR "Unrecognized port mapping ${MAPPING}.")
+      message(FATAL_ERROR "Unrecognized port mapping \"${MAPPING}\".")
     endif()
   endforeach()
 
@@ -423,7 +355,7 @@ function(add_vitis_kernel
     set(KERNEL_HLS_FLAGS "${KERNEL_HLS_FLAGS} -DVITIS_VERSION=${Vitis_VERSION}")
   endif()
 
-  # Tell hlslib if we're using Vitis HLS or Vivado HLS
+  # Tell hlslib whether we're using Vitis HLS or Vivado HLS
   if(NOT Vitis_USE_VITIS_HLS)
     set(KERNEL_HLS_FLAGS "${KERNEL_HLS_FLAGS} -D__VIVADO_HLS__")
   else()
@@ -442,138 +374,287 @@ function(add_vitis_kernel
   string(REGEX REPLACE ";|[ \t\r\n][ \t\r\n]+" " " KERNEL_HLS_FLAGS "${KERNEL_HLS_FLAGS}")
   string(STRIP "${KERNEL_HLS_FLAGS}" KERNEL_HLS_FLAGS)
 
-  # Pass HLS flags in compilation stage
-  set(KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS} --advanced.prop kernel.${KERNEL_NAME}.kernel_flags=\"${KERNEL_HLS_FLAGS}\"") 
+  # Pass variables the program target through properties
+  set_target_properties(${KERNEL_TARGET} PROPERTIES KERNEL_FILES "${KERNEL_FILES}")
+  set_target_properties(${KERNEL_TARGET} PROPERTIES KERNEL_NAME "${KERNEL_NAME}")
+  set_target_properties(${KERNEL_TARGET} PROPERTIES HLS_FLAGS "${KERNEL_HLS_FLAGS}")
+  set_target_properties(${KERNEL_TARGET} PROPERTIES COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
+  set_target_properties(${KERNEL_TARGET} PROPERTIES LINK_FLAGS "${KERNEL_LINK_FLAGS}")
+
+endfunction()
+
+function(add_vitis_program
+         PROGRAM_TARGET
+         PROGRAM_PLATFORM)
+
+  # Keyword arguments
+  cmake_parse_arguments(
+      PROGRAM
+      ""
+      "CLOCK;CONFIG;SAVE_TEMPS;DEBUGGING;PROFILING"
+      "KERNELS;BUILD_FLAGS;LINK_FLAGS;CONNECTIVITY;DEPENDS"
+      ${ARGN})
+
+  # Verify that input is sane
+  if(NOT PROGRAM_KERNELS)
+    message(FATAL_ERROR "Must pass kernel targets to add_vitis_program using the KERNELS keyword.")
+  endif()
+  foreach(KERNEL ${PROGRAM_KERNELS})
+    if(NOT TARGET ${KERNEL})
+      message(FATAL_ERROR "${KERNEL} is not a valid Vitis kernel. Kernels must have been created with the add_vitis_kernel function.")
+    endif()
+  endforeach()
+
+  # Convert non-target dependencies to absolute paths
+  string(REPLACE " " ";" PROGRAM_DEPENDS "${PROGRAM_DEPENDS}")
+  unset(_PROGRAM_DEPENDS)
+  foreach(DEP ${PROGRAM_DEPENDS})
+    if(NOT TARGET ${DEP}) 
+      hlslib_make_paths_absolute(DEP ${DEP})
+    endif()
+    set(_PROGRAM_DEPENDS ${_PROGRAM_DEPENDS} ${DEP})
+  endforeach()
+  set(PROGRAM_DEPENDS ${PROGRAM_DEPENDS} ${_PROGRAM_DEPENDS})
+
+  # Recover the part name used by the given platform
+  if(NOT "${${PROGRAM_TARGET}_PLATFORM}" STREQUAL "${PROGRAM_PLATFORM}")
+    set(${PROGRAM_TARGET}_PLATFORM "" CACHE INTERNAL "")
+    message(STATUS "Querying Vitis platform for ${PROGRAM_TARGET}.")
+    execute_process(COMMAND ${Vitis_PLATFORMINFO} --platform ${PROGRAM_PLATFORM} -jhardwarePlatform.board.part
+                    OUTPUT_VARIABLE PROGRAM_PLATFORM_PART
+                    RESULT_VARIABLE PLATFORM_FOUND)
+    string(STRIP ${PROGRAM_PLATFORM_PART} PROGRAM_PLATFORM_PART)
+    set(PROGRAM_PLATFORM_PART ${PROGRAM_PLATFORM_PART} CACHE INTERNAL "")
+  endif()
+  if(NOT PROGRAM_PLATFORM_PART)
+    message(WARNING "Xilinx platform ${PROGRAM_PLATFORM} was not found. Please consult \"${Vitis_PLATFORMINFO} -l\" for a list of installed platforms.")
+  else()
+    # Cache this so we don't have to rerun platforminfo if the platform didn't change
+    set(${PROGRAM_TARGET}_PLATFORM ${PROGRAM_PLATFORM} CACHE INTERNAL "")
+  endif()
+
+  # Specify the platform
+  set(PROGRAM_BUILD_FLAGS "${PROGRAM_BUILD_FLAGS} --platform ${PROGRAM_PLATFORM}")
+
+  # Augment with frequency flag if specified
+  if(PROGRAM_CLOCK)
+    set(PROGRAM_BUILD_FLAGS "${PROGRAM_BUILD_FLAGS} --kernel_frequency ${PROGRAM_CLOCK}")
+  endif()
+
+  # Pass config file if specified
+  if(PROGRAM_CONFIG)
+    set(PROGRAM_BUILD_FLAGS "${PROGRAM_BUILD_FLAGS} --config ${PROGRAM_CONFIG}")
+  endif()
+
+  # Save temporaries if instructed to do so
+  if(PROGRAM_SAVE_TEMPS)
+    set(PROGRAM_BUILD_FLAGS "${PROGRAM_BUILD_FLAGS} --save-temps")
+  endif()
+
+  # Default to -O3 if no other optimization flag is passed
+  string(FIND "${PROGRAM_BUILD_FLAGS} ${PROGRAM_LINK_FLAGS}" "-O" FOUND_SHORT)
+  string(FIND "${PROGRAM_BUILD_FLAGS} ${PROGRAM_LINK_FLAGS}" "--optimize" FOUND_LONG)
+  if(FOUND_SHORT EQUAL -1 AND FOUND_LONG EQUAL -1)
+    set(PROGRAM_BUILD_FLAGS "${PROGRAM_BUILD_FLAGS} -O3")
+  endif()
+
+  # Optional profiling flags
+  if(PROGRAM_PROFILING)
+    set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} --profile.data all:all:all --profile.exec all:all --profile.stall all:all")
+  endif()
+
+  # Optional debugging flags
+  if(PROGRAM_DEBUGGING)
+    foreach(KERNEL ${PROGRAM_KERNELS})
+      # Append _1 to match the Vitis convention (only supports single compute unit kernels)
+      get_target_property(KERNEL_NAME ${KERNEL} KERNEL_NAME)
+      set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} --debug --debug.chipscope ${KERNEL_NAME}_1")
+    endforeach()
+  endif()
+
+  # Mapping between streaming interfaces on kernels
+  string(REPLACE " " ";" PROGRAM_CONNECTIVITY "${PROGRAM_CONNECTIVITY}")
+  foreach(MAPPING ${PROGRAM_CONNECTIVITY})
+    string(REGEX MATCH "[^\\.: \t\n]+\\.[^\\.: \t\n]+:[^\\.: \t\n]+\\.[^\\.: \t\n]+" IS_MAPPING ${MAPPING})
+    if(IS_MAPPING)
+      set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} --connectivity.sc ${MAPPING}") 
+    else()
+      message(FATAL_ERROR "Unrecognized kernel mapping \"${MAPPING}\".")
+    endif()
+  endforeach()
 
   # Clean up build flags by removing superfluous whitespace and convert from
   # string syntax to list syntax,
-  string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
-  string(STRIP "${KERNEL_COMPILE_FLAGS}" KERNEL_COMPILE_FLAGS)
-  string(REGEX REPLACE " " ";" KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
-  string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
-  string(STRIP "${KERNEL_LINK_FLAGS}" KERNEL_LINK_FLAGS)
-  string(REGEX REPLACE " " ";" KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS}")
-  string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS}")
-  string(STRIP "${KERNEL_BUILD_FLAGS}" KERNEL_BUILD_FLAGS)
-  string(REGEX REPLACE " " ";" KERNEL_BUILD_FLAGS "${KERNEL_BUILD_FLAGS}")
+  string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " PROGRAM_BUILD_FLAGS "${PROGRAM_BUILD_FLAGS}")
+  string(STRIP "${PROGRAM_BUILD_FLAGS}" PROGRAM_BUILD_FLAGS)
+  string(REGEX REPLACE " " ";" PROGRAM_BUILD_FLAGS "${PROGRAM_BUILD_FLAGS}")
 
-  # Hardware emulation target
-  add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xo
-    COMMENT "Compiling ${KERNEL_TARGET_NAME} for hardware emulation."
-    COMMAND ${CMAKE_COMMAND} -E env
-            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
-            ${Vitis_COMPILER} --compile --target hw_emu
-            ${KERNEL_BUILD_FLAGS}
-            ${KERNEL_COMPILE_FLAGS} 
-            ${KERNEL_FILES}
-            --output ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xo
-    DEPENDS ${KERNEL_DEPENDS} ${KERNEL_DEPENDS_DEBUGGING})
-  add_custom_target(compile_${KERNEL_TARGET_NAME}_hw_emu DEPENDS
-                    ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xo)
-  add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/emconfig.json
-    COMMENT "Generating emconfig.json file for hardware emulation."
-    COMMAND ${VITIS_ROOT}/bin/emconfigutil --platform ${KERNEL_PLATFORM})
-  if(NOT TARGET ${KERNEL_PLATFORM}_emconfig)
-    add_custom_target(${KERNEL_PLATFORM}_emconfig DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/emconfig.json)
-  endif()
-  add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xclbin
-    COMMENT "Linking ${KERNEL_TARGET_NAME} for hardware emulation."
-    COMMAND ${CMAKE_COMMAND} -E env
-            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
-            ${Vitis_COMPILER} --link --target hw_emu
-            ${KERNEL_BUILD_FLAGS}
-            ${KERNEL_LINK_FLAGS}
-            ${KERNEL_TARGET_NAME}_hw_emu.xo
-            --output ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xclbin
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xo
-            ${KERNEL_PLATFORM}_emconfig)
-  add_custom_target(link_${KERNEL_TARGET_NAME}_hw_emu DEPENDS
-                    ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xclbin)
-  add_custom_target(${KERNEL_TARGET_NAME}_hw_emu DEPENDS
-                    ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw_emu.xclbin)
+  unset(PROGRAM_XO_FILES_HW_EMU)
+  unset(PROGRAM_XO_FILES_HW)
 
-  # Hardware target
-  add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xo
-    COMMENT "Compiling ${KERNEL_TARGET_NAME} for hardware."
-    COMMAND ${CMAKE_COMMAND} -E env
-            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
-            ${Vitis_COMPILER} --compile --target hw
-            ${KERNEL_BUILD_FLAGS}
-            ${KERNEL_COMPILE_FLAGS}
-            ${KERNEL_FILES}
-            --output ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xo
-    DEPENDS ${KERNEL_DEPENDS} ${KERNEL_DEPENDS_DEBUGGING})
-  add_custom_target(compile_${KERNEL_TARGET_NAME}_hw DEPENDS
-                    ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xo)
-  add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xclbin
-    COMMENT "Linking ${KERNEL_TARGET_NAME} for hardware."
-    COMMAND ${CMAKE_COMMAND} -E env
-            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
-            ${Vitis_COMPILER} --link --target hw
-            ${KERNEL_BUILD_FLAGS}
-            ${KERNEL_LINK_FLAGS}
-            ${KERNEL_TARGET_NAME}_hw.xo
-            --output ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xclbin
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xo)
-  add_custom_target(link_${KERNEL_TARGET_NAME}_hw DEPENDS
-                    ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_hw.xclbin)
-  add_custom_target(${KERNEL_TARGET_NAME}_hw DEPENDS link_${KERNEL_TARGET_NAME}_hw)
+  foreach(KERNEL ${PROGRAM_KERNELS})
+  
+    get_target_property(KERNEL_NAME ${KERNEL} KERNEL_NAME)
+    get_target_property(KERNEL_FILES ${KERNEL} KERNEL_FILES)
+    get_target_property(KERNEL_HLS_FLAGS ${KERNEL} HLS_FLAGS)
+    get_target_property(KERNEL_COMPILE_FLAGS ${KERNEL} COMPILE_FLAGS)
+    get_target_property(KERNEL_LINK_FLAGS ${KERNEL} LINK_FLAGS)
+    set(KERNEL_COMPILE_FLAGS "${PROGRAM_COMPILE_FLAGS} ${KERNEL_COMPILE_FLAGS} --advanced.prop kernel.${KERNEL_NAME}.kernel_flags=\"${KERNEL_HLS_FLAGS}\"") 
+    set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} ${KERNEL_LINK_FLAGS}")
+    
+    # Canonicalize flags
+    string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
+    string(STRIP "${KERNEL_COMPILE_FLAGS}" KERNEL_COMPILE_FLAGS)
+    string(REGEX REPLACE " " ";" KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
 
-  # Shorthand to compile kernels, so user can just run "make hw" or "make hw_emu"
-  if(NOT TARGET hw_emu)
-    add_custom_target(hw_emu COMMENT "Building hardware emulation targets."
-                      DEPENDS ${KERNEL_TARGET_NAME}_hw_emu)
-  else()
-    add_dependencies(hw_emu ${KERNEL_TARGET_NAME}_hw_emu)
-  endif()
-  if(NOT TARGET compile_hw_emu)
-    add_custom_target(compile_hw_emu COMMENT "Compiling hardware emulation targets."
-                      DEPENDS compile_${KERNEL_TARGET_NAME}_hw_emu)
-  else()
-    add_dependencies(compile_hw_emu compile_${KERNEL_TARGET_NAME}_hw_emu)
-  endif()
-  if(NOT TARGET hw)
-    add_custom_target(hw COMMENT "Building hardware targets."
-                      DEPENDS ${KERNEL_TARGET_NAME}_hw)
-  else()
-    add_dependencies(hw ${KERNEL_TARGET_NAME}_hw)
-  endif()
-  if(NOT TARGET link_hw_emu)
-    add_custom_target(link_hw_emu COMMENT "Linking hardware emulation targets."
-                      DEPENDS link_${KERNEL_TARGET_NAME}_hw_emu)
-  else()
-    add_dependencies(link_hw_emu link_${KERNEL_TARGET_NAME}_hw_emu)
-  endif()
-
-  if(KERNEL_PLATFORM_PART)
-    # Make separate synthesis target, which is faster to run than Vitis compile
-    if(KERNEL_CLOCK)
-      set(KERNEL_HLS_TCL_CLOCK "create_clock -period ${KERNEL_CLOCK}MHz -name default\n")
+    # Hardware emulation target
+    set(KERNEL_XO_FILE_HW_EMU ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_NAME}_hw_emu.xo)
+    set(PROGRAM_XO_FILES_HW_EMU ${PROGRAM_XO_FILES_HW_EMU} ${KERNEL_XO_FILE_HW_EMU})
+    add_custom_command(
+      OUTPUT ${KERNEL_XO_FILE_HW_EMU}
+      COMMENT "Compiling ${KERNEL} for hardware emulation."
+      COMMAND ${CMAKE_COMMAND} -E env
+              XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+              ${Vitis_COMPILER} --compile --target hw_emu
+              --kernel ${KERNEL_NAME}
+              ${KERNEL_COMPILE_FLAGS} 
+              ${PROGRAM_BUILD_FLAGS}
+              ${KERNEL_FILES}
+              --output ${KERNEL_XO_FILE_HW_EMU}
+      DEPENDS ${KERNEL})
+    add_custom_target(compile_${KERNEL}_hw_emu DEPENDS
+                      ${KERNEL_XO_FILE_HW_EMU})
+    if(NOT TARGET compile_hw_emu)
+      add_custom_target(compile_hw_emu COMMENT "Compiling hardware emulation targets."
+                        DEPENDS compile_${KERNEL}_hw_emu)
+    else()
+      add_dependencies(compile_hw_emu compile_${KERNEL}_hw_emu)
     endif()
-    string(REPLACE ";" " " KERNEL_FILES_STRING "${KERNEL_FILES}") 
-    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_synthesis.tcl
-         "\
-open_project ${KERNEL_TARGET_NAME} \ 
-open_solution ${KERNEL_PLATFORM_PART} \ 
-set_part ${KERNEL_PLATFORM_PART} \ 
-add_files -cflags \"${KERNEL_HLS_FLAGS}\" \"${KERNEL_FILES_STRING}\" \ 
+
+    # Hardware target
+    set(KERNEL_XO_FILE_HW ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_NAME}_hw.xo)
+    set(PROGRAM_XO_FILES_HW ${PROGRAM_XO_FILES_HW} ${KERNEL_XO_FILE_HW})
+    add_custom_command(
+      OUTPUT ${KERNEL_XO_FILE_HW}
+      COMMENT "Compiling ${KERNEL_NAME} for hardware."
+      COMMAND ${CMAKE_COMMAND} -E env
+              XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+              ${Vitis_COMPILER} --compile --target hw
+              --kernel ${KERNEL_NAME}
+              ${KERNEL_COMPILE_FLAGS}
+              ${PROGRAM_BUILD_FLAGS}
+              ${KERNEL_FILES}
+              --output ${KERNEL_XO_FILE_HW}
+      DEPENDS ${KERNEL})
+    add_custom_target(compile_${KERNEL}_hw DEPENDS
+                      ${KERNEL_XO_FILE_HW})
+    if(NOT TARGET compile_hw)
+      add_custom_target(compile_hw COMMENT "Compiling hardware targets."
+                        DEPENDS compile_${KERNEL}_hw)
+    else()
+      add_dependencies(compile_hw compile_${KERNEL}_hw)
+    endif()
+
+    if(PROGRAM_PLATFORM_PART)
+      # Make separate synthesis target, which is faster to run than Vitis compile
+      if(PROGRAM_CLOCK)
+        set(KERNEL_HLS_TCL_CLOCK "create_clock -period ${PROGRAM_CLOCK}MHz -name default\n")
+      endif()
+      string(REPLACE ";" " " KERNEL_FILES "${KERNEL_FILES}") 
+      file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL}_synthesis.tcl
+           "\
+open_project ${KERNEL} \ 
+open_solution ${PROGRAM_PLATFORM_PART} \ 
+set_part ${PROGRAM_PLATFORM_PART} \ 
+add_files -cflags \"${KERNEL_HLS_FLAGS}\" \"${KERNEL_FILES}\" \ 
 set_top ${KERNEL_NAME} \ 
 ${KERNEL_HLS_TCL_CLOCK}\
 config_interface -m_axi_addr64 \ 
 config_compile -name_max_length 256 \ 
 csynth_design \ 
 exit")
-    add_custom_command(OUTPUT ${KERNEL_TARGET_NAME}/${KERNEL_PLATFORM_PART}/${KERNEL_PLATFORM_PART}.log
-                       COMMENT "Running high-level synthesis for ${KERNEL_TARGET_NAME}."
-                       COMMAND ${Vitis_HLS} -f ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_TARGET_NAME}_synthesis.tcl
-                       DEPENDS ${KERNEL_DEPENDS})
-    add_custom_target(synthesize_${KERNEL_TARGET_NAME} DEPENDS  
-                      ${KERNEL_TARGET_NAME}/${KERNEL_PLATFORM_PART}/${KERNEL_PLATFORM_PART}.log)
+      add_custom_command(OUTPUT ${KERNEL}/${KERNEL_PLATFORM_PART}/${KERNEL_PLATFORM_PART}.log
+                         COMMENT "Running high-level synthesis for ${KERNEL}."
+                         COMMAND ${Vitis_HLS} -f ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL}_synthesis.tcl
+                         DEPENDS ${KERNEL})
+      add_custom_target(synthesize_${KERNEL} DEPENDS  
+                        ${KERNEL}/${KERNEL_PLATFORM_PART}/${KERNEL_PLATFORM_PART}.log)
+    endif()
+
+  endforeach()
+
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/emconfig.json
+    COMMENT "Generating emconfig.json file for hardware emulation."
+    COMMAND ${VITIS_ROOT}/bin/emconfigutil --platform ${PROGRAM_PLATFORM})
+  if(NOT TARGET ${PROGRAM_PLATFORM}_emconfig)
+    add_custom_target(${PROGRAM_PLATFORM}_emconfig DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/emconfig.json)
+  endif()
+
+  # Canonicalize link flags
+  string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS}")
+  string(STRIP "${PROGRAM_LINK_FLAGS}" PROGRAM_LINK_FLAGS)
+  string(REGEX REPLACE " " ";" PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS}")
+
+  # Hardware emulation target
+  set(PROGRAM_XCLBIN_HW_EMU ${CMAKE_CURRENT_BINARY_DIR}/${PROGRAM_TARGET}_hw_emu.xclbin)
+  add_custom_command(
+    OUTPUT ${PROGRAM_XCLBIN_HW_EMU}
+    COMMENT "Linking ${PROGRAM_TARGET} for hardware emulation."
+    COMMAND ${CMAKE_COMMAND} -E env
+            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+            ${Vitis_COMPILER} --link --target hw_emu
+            ${PROGRAM_BUILD_FLAGS}
+            ${PROGRAM_LINK_FLAGS}
+            ${PROGRAM_XO_FILES_HW_EMU}
+            --output ${PROGRAM_XCLBIN_HW_EMU}
+    DEPENDS ${PROGRAM_XO_FILES_HW_EMU}
+            ${PROGRAM_PLATFORM}_emconfig
+            ${PROGRAM_DEPENDS})
+  add_custom_target(link_${PROGRAM_TARGET}_hw_emu DEPENDS ${PROGRAM_XCLBIN_HW_EMU})
+  add_custom_target(${PROGRAM_TARGET}_hw_emu DEPENDS ${PROGRAM_XCLBIN_HW_EMU})
+
+  # Hardware target
+  set(PROGRAM_XCLBIN_HW ${CMAKE_CURRENT_BINARY_DIR}/${PROGRAM_TARGET}_hw.xclbin)
+  add_custom_command(
+    OUTPUT ${PROGRAM_XCLBIN_HW}
+    COMMENT "Linking ${PROGRAM_TARGET} for hardware."
+    COMMAND ${CMAKE_COMMAND} -E env
+            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+            ${Vitis_COMPILER} --link --target hw
+            ${PROGRAM_BUILD_FLAGS}
+            ${PROGRAM_LINK_FLAGS}
+            ${PROGRAM_XO_FILES_HW}
+            --output ${PROGRAM_XCLBIN_HW}
+    DEPENDS ${PROGRAM_XO_FILES_HW}
+            ${PROGRAM_DEPENDS})
+  add_custom_target(link_${PROGRAM_TARGET}_hw DEPENDS ${PROGRAM_XCLBIN_HW})
+  add_custom_target(${PROGRAM_TARGET}_hw DEPENDS link_${KERNEL_TARGET_NAME}_hw)
+
+  # Shorthand to compile kernels, so user can just run "make hw" or "make hw_emu"
+  if(NOT TARGET link_hw_emu)
+    add_custom_target(link_hw_emu COMMENT "Linking hardware emulation targets."
+                      DEPENDS link_${PROGRAM_TARGET}_hw_emu)
+  else()
+    add_dependencies(link_hw_emu link_${PROGRAM_TARGET}_hw_emu)
+  endif()
+  if(NOT TARGET link_hw)
+    add_custom_target(link_hw COMMENT "Linking hardware targets."
+                      DEPENDS link_${PROGRAM_TARGET}_hw)
+  else()
+    add_dependencies(link_hw link_${PROGRAM_TARGET}_hw)
+  endif()
+  if(NOT TARGET hw_emu)
+    add_custom_target(hw_emu COMMENT "Building hardware emulation targets."
+                      DEPENDS link_hw_emu)
+  else()
+    add_dependencies(hw_emu ${PROGRAM_TARGET}_hw_emu)
+  endif()
+  if(NOT TARGET hw)
+    add_custom_target(hw COMMENT "Building hardware targets."
+                      DEPENDS link_hw)
+  else()
+    add_dependencies(hw ${PROGRAM_TARGET}_hw)
   endif()
 
   # Add Xilinx build directory to clean target

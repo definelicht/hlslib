@@ -65,13 +65,15 @@ function(add_hls_test KERNEL_NAME)
       ${ARGN})
   # Abuse add_vitis_kernel to generate synthesis target, even if not all of the
   # tests would actually be valid OpenCL kernels
-  add_vitis_kernel(${KERNEL_NAME} ${HLSLIB_DSA_NAME}
+  add_vitis_kernel(${KERNEL_NAME}
                    FILES kernels/${KERNEL_NAME}.cpp
                    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
                                 ${CMAKE_SOURCE_DIR}/include
                    HLS_FLAGS "${KERNEL_HLS_FLAGS}"
-                   CONFIG "${KERNEL_CONFIG}"
                    PORT_MAPPING "${KERNEL_PORT_MAPPING}")
+  add_vitis_program(${KERNEL_NAME} ${HLSLIB_DSA_NAME}
+                    KERNELS ${KERNEL_NAME}
+                    CONFIG "${KERNEL_CONFIG}")
   add_test(NAME Test${KERNEL_NAME}Synthesis COMMAND ${CMAKE_COMMAND}
            --build ${CMAKE_CURRENT_BINARY_DIR} --target synthesize_${KERNEL_NAME}) 
 endfunction()
@@ -84,4 +86,22 @@ add_hls_test("ShiftRegister")
 add_hls_test("StreamAPI")
 add_hls_test("Subflow")
 add_hls_test("HBMandBlockCopy" CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg)
+
 add_hls_test("DDRExplicit" PORT_MAPPING "ddr0:DDR[0] ddr1:DDR[1]")
+add_test(NAME TestDDRMapping
+         --build ${CMAKE_CURRENT_BINARY_DIR} --target DDRExplicit_hw_emu)
+
+# Test linking multiple kernels
+add_vitis_kernel(FirstKernel
+                 FILES kernels/MultipleKernels.cpp
+                 INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+                              ${CMAKE_SOURCE_DIR}/include)
+add_vitis_kernel(SecondKernel
+                 FILES kernels/MultipleKernels.cpp
+                 INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+                              ${CMAKE_SOURCE_DIR}/include)
+add_vitis_program(MultipleKernels ${HLSLIB_DSA_NAME}
+                  KERNELS FirstKernel SecondKernel
+                  CONNECTIVITY "FirstKernel_1.stream:SecondKernel_1.stream")
+add_test(NAME TestLinkMultipleKernels COMMAND ${CMAKE_COMMAND}
+         --build ${CMAKE_CURRENT_BINARY_DIR} --target MultipleKernels_hw_emu)
