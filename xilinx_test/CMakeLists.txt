@@ -43,7 +43,6 @@ function(add_hls_test KERNEL_NAME)
                    HLS_FLAGS "${KERNEL_HLS_FLAGS}"
                    PORT_MAPPING "${KERNEL_PORT_MAPPING}")
   add_vitis_program(${KERNEL_NAME} ${HLSLIB_DSA_NAME}
-                    KERNELS ${KERNEL_NAME}
                     CONFIG "${KERNEL_CONFIG}")
   add_test(NAME Test${KERNEL_NAME}Synthesis COMMAND ${CMAKE_COMMAND}
            --build ${CMAKE_CURRENT_BINARY_DIR} --target synthesize_${KERNEL_NAME}) 

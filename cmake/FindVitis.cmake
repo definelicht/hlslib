@@ -397,7 +397,13 @@ function(add_vitis_program
 
   # Verify that input is sane
   if(NOT PROGRAM_KERNELS)
-    message(FATAL_ERROR "Must pass kernel targets to add_vitis_program using the KERNELS keyword.")
+    if(TARGET ${PROGRAM_TARGET})
+      # If no kernels were specified, try using the same target name
+      set(PROGRAM_KERNELS ${PROGRAM_TARGET})
+    else()
+      # Otherwise we have to give up
+      message(FATAL_ERROR "Must pass kernel targets created with add_vitis_kernel to add_vitis_program using the KERNELS keyword.")
+    endif()
   endif()
   foreach(KERNEL ${PROGRAM_KERNELS})
     if(NOT TARGET ${KERNEL})
