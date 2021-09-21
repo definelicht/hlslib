@@ -48,7 +48,7 @@ struct _MaxImpl<I, Is...> {
 
 template <typename T, size_t Size>
 class _ShiftRegisterStageImpl {
-  using Index_t = ap_uint<hlslib::ConstLog2(Size)>;
+  using Index_t = ap_uint<hlslib::ConstLog2(Size) + 1>;
 
  public:
   T Shift(T const &next) {
