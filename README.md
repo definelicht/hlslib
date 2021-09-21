@@ -15,9 +15,8 @@ There are a few ways:
 
 #### How do I use it?
 
-Just `#include` the header(s) you are interested in. You can see an example [here](https://github.com/spcl/gemm_hls)!
-
-When a Xilinx hlslib header is included, compilation must allow C++11 features, and the macro `HLSLIB_SYNTHESIS` must be set whenever HLS is run. Set `-cflags "-std=c++11 -DHLSLIB_SYNTHESIS"` in your synthesis script, and `--advanced.prop kernel.<name of your kernel>.kernel_flags="-std=c++11 -DHLSLIB_SYNTHESIS"` when building Xilinx kernels. See the included `xilinx_test/CMakeLists.txt` for reference. 
+Just `#include` the header(s) you are interested in, and/or put the CMake files somewhere in your project directory and
+add their path to your `${CMAKE_MODULE_PATH}`. You can see an example [here](https://github.com/spcl/gemm_hls)!
 
 Officially supported versions of Vitis currently include 2021.1, 2020.2, 2020.1, and 2019.2. Older versions (including SDx and SDAccel) _might_ work, but should be used at your own discretion.
 
