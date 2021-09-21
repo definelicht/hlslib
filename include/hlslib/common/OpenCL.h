@@ -34,7 +34,7 @@ namespace hlslib {
 namespace ocl {
 
 //#############################################################################
-// Enumerations
+// Enumerations and types
 //#############################################################################
 
 /// Enum for type of memory access to device buffers. Will cause the
@@ -46,6 +46,11 @@ enum class MemoryBank { unspecified, bank0, bank1, bank2, bank3 };
 
 /// Enum for storage types on the FPGA
 enum class StorageType { DDR, HBM };
+
+/// Used to signal that an argument is a streaming connection between kernels
+/// and should not be assigned from the host as an OpenCL argument
+struct _Stream {};
+inline constexpr _Stream Stream;
 
 //#############################################################################
 // OpenCL exceptions
@@ -1234,6 +1239,10 @@ class Kernel {
       ThrowConfigurationError(ss.str());
       return;
     }
+  }
+
+  void SetKernelArguments(size_t index, _Stream const &) {
+    // Ignore argument, as this is set internally during linking
   }
 
   template <typename T>
