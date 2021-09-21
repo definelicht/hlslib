@@ -489,6 +489,7 @@ function(add_vitis_program
   string(STRIP "${PROGRAM_BUILD_FLAGS}" PROGRAM_BUILD_FLAGS)
   string(REGEX REPLACE " " ";" PROGRAM_BUILD_FLAGS "${PROGRAM_BUILD_FLAGS}")
 
+  unset(PROGRAM_XO_FILES_SW_EMU)
   unset(PROGRAM_XO_FILES_HW_EMU)
   unset(PROGRAM_XO_FILES_HW)
 
@@ -499,6 +500,7 @@ function(add_vitis_program
     get_target_property(KERNEL_HLS_FLAGS ${KERNEL} HLS_FLAGS)
     get_target_property(KERNEL_COMPILE_FLAGS ${KERNEL} COMPILE_FLAGS)
     get_target_property(KERNEL_LINK_FLAGS ${KERNEL} LINK_FLAGS)
+
     set(KERNEL_COMPILE_FLAGS "${PROGRAM_COMPILE_FLAGS} ${KERNEL_COMPILE_FLAGS} --advanced.prop kernel.${KERNEL_NAME}.kernel_flags=\"${KERNEL_HLS_FLAGS}\"") 
     set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} ${KERNEL_LINK_FLAGS}")
     
@@ -506,6 +508,30 @@ function(add_vitis_program
     string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
     string(STRIP "${KERNEL_COMPILE_FLAGS}" KERNEL_COMPILE_FLAGS)
     string(REGEX REPLACE " " ";" KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
+
+    # Software emulation target
+    set(KERNEL_XO_FILE_SW_EMU ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_NAME}_sw_emu.xo)
+    set(PROGRAM_XO_FILES_SW_EMU ${PROGRAM_XO_FILES_SW_EMU} ${KERNEL_XO_FILE_SW_EMU})
+    add_custom_command(
+      OUTPUT ${KERNEL_XO_FILE_SW_EMU}
+      COMMENT "Compiling ${KERNEL} for software emulation."
+      COMMAND ${CMAKE_COMMAND} -E env
+              XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+              ${Vitis_COMPILER} --compile --target sw_emu
+              --kernel ${KERNEL_NAME}
+              ${KERNEL_COMPILE_FLAGS} 
+              ${PROGRAM_BUILD_FLAGS}
+              ${KERNEL_FILES}
+              --output ${KERNEL_XO_FILE_SW_EMU}
+      DEPENDS ${KERNEL})
+    add_custom_target(compile_${KERNEL}_sw_emu DEPENDS
+                      ${KERNEL_XO_FILE_SW_EMU})
+    if(NOT TARGET compile_sw_emu)
+      add_custom_target(compile_sw_emu COMMENT "Compiling software emulation targets."
+                        DEPENDS compile_${KERNEL}_sw_emu)
+    else()
+      add_dependencies(compile_sw_emu compile_${KERNEL}_sw_emu)
+    endif()
 
     # Hardware emulation target
     set(KERNEL_XO_FILE_HW_EMU ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_NAME}_hw_emu.xo)
@@ -596,6 +622,24 @@ exit")
   string(STRIP "${PROGRAM_LINK_FLAGS}" PROGRAM_LINK_FLAGS)
   string(REGEX REPLACE " " ";" PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS}")
 
+  # Software emulation target
+  set(PROGRAM_XCLBIN_SW_EMU ${CMAKE_CURRENT_BINARY_DIR}/${PROGRAM_TARGET}_sw_emu.xclbin)
+  add_custom_command(
+    OUTPUT ${PROGRAM_XCLBIN_SW_EMU}
+    COMMENT "Linking ${PROGRAM_TARGET} for software emulation."
+    COMMAND ${CMAKE_COMMAND} -E env
+            XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
+            ${Vitis_COMPILER} --link --target sw_emu
+            ${PROGRAM_BUILD_FLAGS}
+            ${PROGRAM_LINK_FLAGS}
+            ${PROGRAM_XO_FILES_SW_EMU}
+            --output ${PROGRAM_XCLBIN_SW_EMU}
+    DEPENDS ${PROGRAM_XO_FILES_SW_EMU}
+            ${PROGRAM_PLATFORM}_emconfig
+            ${PROGRAM_DEPENDS})
+  add_custom_target(link_${PROGRAM_TARGET}_sw_emu DEPENDS ${PROGRAM_XCLBIN_SW_EMU})
+  add_custom_target(${PROGRAM_TARGET}_sw_emu DEPENDS ${PROGRAM_XCLBIN_SW_EMU})
+
   # Hardware emulation target
   set(PROGRAM_XCLBIN_HW_EMU ${CMAKE_CURRENT_BINARY_DIR}/${PROGRAM_TARGET}_hw_emu.xclbin)
   add_custom_command(
@@ -632,6 +676,12 @@ exit")
   add_custom_target(${PROGRAM_TARGET}_hw DEPENDS link_${KERNEL_TARGET_NAME}_hw)
 
   # Shorthand to compile kernels, so user can just run "make hw" or "make hw_emu"
+  if(NOT TARGET link_sw_emu)
+    add_custom_target(link_sw_emu COMMENT "Linking software emulation targets."
+                      DEPENDS link_${PROGRAM_TARGET}_sw_emu)
+  else()
+    add_dependencies(link_sw_emu link_${PROGRAM_TARGET}_sw_emu)
+  endif()
   if(NOT TARGET link_hw_emu)
     add_custom_target(link_hw_emu COMMENT "Linking hardware emulation targets."
                       DEPENDS link_${PROGRAM_TARGET}_hw_emu)
@@ -643,6 +693,12 @@ exit")
                       DEPENDS link_${PROGRAM_TARGET}_hw)
   else()
     add_dependencies(link_hw link_${PROGRAM_TARGET}_hw)
+  endif()
+  if(NOT TARGET sw_emu)
+    add_custom_target(sw_emu COMMENT "Building software emulation targets."
+                      DEPENDS link_sw_emu)
+  else()
+    add_dependencies(sw_emu ${PROGRAM_TARGET}_sw_emu)
   endif()
   if(NOT TARGET hw_emu)
     add_custom_target(hw_emu COMMENT "Building hardware emulation targets."
