@@ -12,7 +12,7 @@ namespace hlslib {
 // Constexpr methods for compile-time computations
 
 constexpr unsigned char ConstLog2(unsigned long val) {
-  return val == 0 ? 0 : 1 + ConstLog2(val >> 1);
+  return val <= 1 ? 0 : 1 + ConstLog2(val >> 1);
 }
 
 // Integer division with ceil instead of floor

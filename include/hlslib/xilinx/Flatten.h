@@ -117,9 +117,10 @@ namespace {
 template <signed long begin, signed long end>
 struct BitsToRepresent {
   static constexpr unsigned kBits =
-      (begin < 0 || end < 0)
-          ? (ConstLog2(hlslib::max(hlslib::abs(begin), hlslib::abs(end))) + 1)
-          : ConstLog2(hlslib::max(begin, end));
+      1 +
+      ((begin < 0 || end < 0)
+           ? (ConstLog2(hlslib::max(hlslib::abs(begin), hlslib::abs(end))) + 1)
+           : ConstLog2(hlslib::max(begin, end)));
   using type = typename std::conditional<(begin < 0 || end < 0), ap_int<kBits>,
                                          ap_uint<kBits>>::type;
 };
