@@ -4,7 +4,7 @@ set(HLSLIB_DSA_NAME "xilinx_u250_gen3x16_xdma_3_1_202020_1" CACHE STRING "DSA st
 
 include_directories(${Vitis_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/include)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -DHLSLIB_XILINX")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DHLSLIB_XILINX")
 if(((${Vitis_MAJOR_VERSION} LESS 2018) AND (${Vitis_MINOR_VERSION} LESS 3)) OR ${Vitis_MAJOR_VERSION} LESS 2017)
   message(STATUS "Targeting legacy SDx.")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHLSLIB_LEGACY_SDX=1")
@@ -26,35 +26,6 @@ add_test(TestFlatten TestFlatten)
 add_executable(TestHBMandBlockCopySimulation test/TestHBMandBlockCopySimulation.cpp)
 target_link_libraries(TestHBMandBlockCopySimulation ${Vitis_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} catch)
 add_test(TestHBMandBlockCopySimulation TestHBMandBlockCopySimulation)
-
-# Test kernels in software
-find_package(Threads)
-if(Threads_FOUND)
-  add_executable(TestStream test/TestStream.cpp kernels/MultiStageAdd.cpp)
-  target_link_libraries(TestStream ${CMAKE_THREAD_LIBS_INIT} catch)
-  add_test(TestStream TestStream)
-  target_compile_options(TestStream PRIVATE "-DHLSLIB_STREAM_SYNCHRONIZE")
-  add_executable(TestAccumulateFloat test/TestAccumulate.cpp kernels/AccumulateFloat.cpp)
-  target_compile_options(TestAccumulateFloat PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
-  target_link_libraries(TestAccumulateFloat ${CMAKE_THREAD_LIBS_INIT} catch)
-  add_test(TestAccumulateFloat TestAccumulateFloat)
-  add_executable(TestAccumulateInt test/TestAccumulate.cpp kernels/AccumulateInt.cpp)
-  target_compile_options(TestAccumulateInt PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
-  target_link_libraries(TestAccumulateInt ${CMAKE_THREAD_LIBS_INIT} catch)
-  add_test(TestAccumulateInt TestAccumulateInt)
-  add_executable(TestSimulationForwarding test/TestSimulationForwarding.cpp)
-  target_compile_options(TestSimulationForwarding PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
-  target_link_libraries(TestSimulationForwarding ${CMAKE_THREAD_LIBS_INIT} catch)
-  add_test(TestSimulationForwarding TestSimulationForwarding)
-  add_executable(TestShiftRegister test/TestShiftRegister.cpp)
-  target_link_libraries(TestShiftRegister ${CMAKE_THREAD_LIBS_INIT} catch)
-  add_test(TestShiftRegister TestShiftRegister)
-  add_executable(TestSubflow test/TestSubflow.cpp kernels/Subflow.cpp)
-  target_link_libraries(TestSubflow ${CMAKE_THREAD_LIBS_INIT} catch)
-  add_test(TestSubflow TestSubflow)
-else()
-  message(WARNING "Threads not found. Disabling multi-PE kernel tests.")
-endif()
 
 function(add_hls_test KERNEL_NAME)
   cmake_parse_arguments(
@@ -87,9 +58,17 @@ add_hls_test("StreamAPI")
 add_hls_test("Subflow")
 add_hls_test("HBMandBlockCopy" CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg)
 
-add_hls_test("DDRExplicit" PORT_MAPPING "ddr0:DDR[0] ddr1:DDR[1]")
-add_test(NAME TestDDRMapping
-         --build ${CMAKE_CURRENT_BINARY_DIR} --target DDRExplicit_hw_emu)
+# Test mapping of interfaces to DRAM banks
+add_vitis_kernel(DDRMappingKernel
+                 FILES kernels/DDRExplicit.cpp
+                 KERNEL DDRExplicit
+                 INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+                              ${CMAKE_SOURCE_DIR}/include
+                 PORT_MAPPING "ddr0:DDR[0]" "ddr1:DDR[1]")
+add_vitis_program(DDRMapping ${HLSLIB_DSA_NAME}
+                  KERNELS DDRMappingKernel)
+add_test(NAME TestDDRMapping COMMAND ${CMAKE_COMMAND}
+         --build ${CMAKE_CURRENT_BINARY_DIR} --target DDRMapping_hw_emu)
 
 # Test linking multiple kernels
 add_vitis_kernel(FirstKernel
@@ -103,5 +82,39 @@ add_vitis_kernel(SecondKernel
 add_vitis_program(MultipleKernels ${HLSLIB_DSA_NAME}
                   KERNELS FirstKernel SecondKernel
                   CONNECTIVITY "FirstKernel_1.stream:SecondKernel_1.stream")
-add_test(NAME TestLinkMultipleKernels COMMAND ${CMAKE_COMMAND}
-         --build ${CMAKE_CURRENT_BINARY_DIR} --target MultipleKernels_hw_emu)
+
+# Test kernels in software
+find_package(Threads)
+if(Threads_FOUND)
+  add_executable(TestStream test/TestStream.cpp kernels/MultiStageAdd.cpp)
+  target_link_libraries(TestStream ${CMAKE_THREAD_LIBS_INIT} catch)
+  add_test(TestStream TestStream)
+  target_compile_options(TestStream PRIVATE "-DHLSLIB_STREAM_SYNCHRONIZE")
+  add_executable(TestAccumulateFloat test/TestAccumulate.cpp kernels/AccumulateFloat.cpp)
+  target_compile_options(TestAccumulateFloat PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_FLOAT")
+  target_link_libraries(TestAccumulateFloat ${CMAKE_THREAD_LIBS_INIT} catch)
+  add_test(TestAccumulateFloat TestAccumulateFloat)
+  add_executable(TestAccumulateInt test/TestAccumulate.cpp kernels/AccumulateInt.cpp)
+  target_compile_options(TestAccumulateInt PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
+  target_link_libraries(TestAccumulateInt ${CMAKE_THREAD_LIBS_INIT} catch)
+  add_test(TestAccumulateInt TestAccumulateInt)
+  add_executable(TestSimulationForwarding test/TestSimulationForwarding.cpp)
+  target_compile_options(TestSimulationForwarding PRIVATE "-DHLSLIB_COMPILE_ACCUMULATE_INT")
+  target_link_libraries(TestSimulationForwarding ${CMAKE_THREAD_LIBS_INIT} catch)
+  add_test(TestSimulationForwarding TestSimulationForwarding)
+  add_executable(TestShiftRegister test/TestShiftRegister.cpp)
+  target_link_libraries(TestShiftRegister ${CMAKE_THREAD_LIBS_INIT} catch)
+  add_test(TestShiftRegister TestShiftRegister)
+  add_executable(TestSubflow test/TestSubflow.cpp kernels/Subflow.cpp)
+  target_link_libraries(TestSubflow ${CMAKE_THREAD_LIBS_INIT} catch)
+  add_test(TestSubflow TestSubflow)
+  add_executable(TestMultipleKernels test/TestMultipleKernels.cpp)
+  add_dependencies(TestMultipleKernels MultipleKernels_hw_emu)
+  target_link_libraries(TestMultipleKernels ${Vitis_LIBRARIES} catch ${CMAKE_THREAD_LIBS_INIT})
+  add_test(NAME TestMultipleKernels 
+           COMMAND ${CMAKE_COMMAND} -E env
+           XCL_EMULATION_MODE="hw_emu"
+           ${CMAKE_CURRENT_BINARY_DIR}/TestMultipleKernels)
+else()
+  message(WARNING "Threads not found. Disabling multi-PE kernel tests.")
+endif()
