@@ -32,7 +32,7 @@ function(add_hls_test KERNEL_NAME)
       KERNEL
       ""
       "CONFIG"
-      "HLS_FLAGS;PORT_MAPPING"
+      "HLS_FLAGS"
       ${ARGN})
   # Abuse add_vitis_kernel to generate synthesis target, even if not all of the
   # tests would actually be valid OpenCL kernels
@@ -40,8 +40,7 @@ function(add_hls_test KERNEL_NAME)
                    FILES kernels/${KERNEL_NAME}.cpp
                    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
                                 ${CMAKE_SOURCE_DIR}/include
-                   HLS_FLAGS "${KERNEL_HLS_FLAGS}"
-                   PORT_MAPPING "${KERNEL_PORT_MAPPING}")
+                   HLS_FLAGS "${KERNEL_HLS_FLAGS}")
   add_vitis_program(${KERNEL_NAME} ${HLSLIB_DSA_NAME}
                     CONFIG "${KERNEL_CONFIG}")
   add_test(NAME Test${KERNEL_NAME}Synthesis COMMAND ${CMAKE_COMMAND}

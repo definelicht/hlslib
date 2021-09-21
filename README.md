@@ -29,7 +29,7 @@ A brief overview of hlslib features is given below.
 
 #### CMake integration
 
-For integrating the Xilinx or Intel HLS tools in your project, the `FindVitis.cmake` and `FindIntelFPGAOpenCL.cmake` are provided in the `cmake` subdirectory. The scripts will set all necessary variables required to build both host and device code. It also provides the `add_vitis_kernel` function, which will produce targets for building hardware emulation, hardware, and synthesis.
+For integrating the Xilinx or Intel HLS tools in your project, the `FindVitis.cmake` and `FindIntelFPGAOpenCL.cmake` are provided in the `cmake` subdirectory. The scripts will set all necessary variables required to build both host and device code. It also provides the `add_vitis_kernel` and `add_vitis_program` functions, which will produce targets for building hardware emulation, hardware, and high-level synthesis.
 
 Example `CMakeLists.txt`:
 ```cmake
@@ -41,7 +41,8 @@ include_directories(${Vitis_INCLUDE_DIRS})
 target_link_libraries(MyHostExecutable ${Vitis_LIBRARIES})
 
 # Will populate the "hw", "hw_emu", and "synthesis" targets
-add_vitis_kernel(MyKernel xilinx_vcu1525_dynamic_5_1 FILES src/MyKernel.cpp)
+add_vitis_kernel(MyKernel FILES src/MyKernel.cpp)
+add_vitis_program(MyKernel xilinx_u250_gen3x16_xdma_3_1_202020_1)
 ```
 
 Kernels can then be built with:
@@ -50,23 +51,34 @@ Kernels can then be built with:
 make hw
 ```
 
-The `add_vitis_kernel` takes a number of optional arguments that can be used to configure the hardware targets:
+The `add_vitis_kernel` and `add_vitis_program` functions takes a number of optional arguments that can be used to configure the hardware targets:
 
 ```cmake
-add_vitis_kernel(MyKernel xilinx_vcu1525_dynamic_5_1
+add_vitis_kernel(MyKernel
                  FILES src/MyKernel.cpp src/MyKernelHelper.cpp
-                 # All flags below this are optional keywords, and any combination of them
-                 # can be specified/not specified
-                 CLOCK 400  # Target a higher clock frequency
-                 KERNEL NameOfKernelFunction  # If different from target name
-                 CONFIG scripts/my_config.cfg  # Given as --config to Vitis
-                 SAVE_TEMPS ON  # Forwards --save-temps to Vitis
+                 # All flags below this are optional keywords, and any
+                 # combination of them can be specified/not specified.
+                 KERNEL MyKernelName  # If different from target name
                  HLS_FLAGS "-DMY_IMPORTANT_DEFINITION -O2"
-                 BUILD_FLAGS "-Os --export_script"
-                 DEBUGGING ON  # Enables Chipscope debugging on all interfaces
-                 PROFILING ON  # Enables profiling for stalls, data transfers, and execution
                  DEPENDS include/MyHeader.h include/OtherDependency.h
-                 INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include hlslib/include)
+                 INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include hlslib/include
+                 PORT_MAPPING "ddr0:DDR[0]" "ddr1:DDR[1]")
+add_vitis_kernel(MyOtherKernel
+                 FILES src/MyOtherKernel.cpp)
+add_vitis_program(MyProgram
+                  xilinx_u250_gen3x16_xdma_3_1_202020_1  # Name of Vitis platform
+                  # All flags below this are optional keywords, and any
+                  # combination of them can be specified/not specified.
+                  KERNELS MyKernel       # If KERNELS is not specified, the function checks for a kernel
+                          MyOtherKernel  # with the same name as specified for the program
+                  # Connect multiple linked kernels using streaming interfaces
+                  CONNECTIVITY "MyKernel_1.stream_out:MyOtherKernel_1.stream_in"
+                  CLOCK 400  # Target a different clock frequency than the default
+                  CONFIG scripts/my_config.cfg  # Given as --config to Vitis
+                  SAVE_TEMPS ON  # Forwards --save-temps to Vitis
+                  BUILD_FLAGS "-Os --export_script"
+                  DEBUGGING ON  # Enables Chipscope debugging on all interfaces
+                  PROFILING ON)  # Enables profiling for stalls, data transfers, and execution
 ```
 
 #### DataPack
