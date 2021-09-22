@@ -611,6 +611,14 @@ exit")
                          DEPENDS ${KERNEL})
       add_custom_target(synthesize_${KERNEL} DEPENDS  
                         ${KERNEL}/${KERNEL_PLATFORM_PART}/${KERNEL_PLATFORM_PART}.log)
+      set_property(TARGET synthesize_${KERNEL} APPEND PROPERTY ADDITIONAL_CLEAN_FILES
+                   ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL} vitis_hls.log)
+      if(NOT TARGET synthesis)
+        add_custom_target(synthesis COMMENT "Running high-level synthesis for Vitis kernels."
+                          DEPENDS synthesize_${KERNEL})
+      else()
+        add_dependencies(synthesis synthesize_${KERNEL})
+      endif()
     endif()
 
   endforeach()
