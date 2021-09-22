@@ -5,6 +5,7 @@
 
 #include <cstddef> // ap_int.h will break some compilers if this is not included 
 #include <ostream>
+#include <ap_fixed.h>
 #include <ap_int.h>
 
 namespace hlslib {
@@ -15,6 +16,94 @@ template <typename T, int width>
 class DataPackProxy; // Forward declaration
 
 } // End anonymous namespace
+
+namespace detail {
+
+/// Helper class to allow more efficient packing on the FPGA, where memory
+/// access is not restricted to byte-sized chunks.
+/// This class should be specialized for types with bit-widths that are not a
+/// multiple of a byte. For examples, see below specializations for common
+/// Xilinx arbitrary bit-width types.
+template <typename T>
+struct TypeHandler {
+  static constexpr int width = 8 * sizeof(T);
+
+  static T from_range(ap_uint<width> const &range) {
+    return *reinterpret_cast<T const *>(&range);
+  }
+
+  static ap_uint<width> to_range(T const &value) {
+    return *reinterpret_cast<ap_uint<width> const *>(&value);
+  }
+};
+
+template <int _AP_W>
+struct TypeHandler<ap_int<_AP_W>> {
+  static constexpr int width = _AP_W;
+
+  static ap_int<_AP_W> from_range(ap_uint<width> const &range) {
+    ap_int<_AP_W> out;
+    out.range() = range;
+    return out;
+  }
+
+  static ap_uint<width> to_range(ap_int<_AP_W> const &value) { return value.range(); }
+};
+
+template <int _AP_W>
+struct TypeHandler<ap_uint<_AP_W>> {
+  static constexpr int width = _AP_W;
+
+  static ap_uint<_AP_W> from_range(ap_uint<width> const &range) {
+    ap_uint<_AP_W> out;
+    out.range() = range;
+    return out;
+  }
+
+  static ap_uint<width> to_range(ap_uint<_AP_W> const &value) { return value.range(); }
+};
+
+template <int _AP_W, int _AP_I, ap_q_mode _AP_Q, ap_o_mode _AP_O, int _AP_N>
+struct TypeHandler<ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
+  static constexpr int width = _AP_W;
+
+  static ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> from_range(
+    ap_uint<width> const &range
+  ) {
+    ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> out;
+    out.range() = range;
+    return out;
+  }
+
+  static ap_uint<width> to_range(
+    ap_fixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> const &value
+  ) {
+    return value.range().to_ap_int_base();
+  }
+};
+
+template <int _AP_W, int _AP_I, ap_q_mode _AP_Q, ap_o_mode _AP_O, int _AP_N>
+struct TypeHandler<ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N>> {
+  static constexpr int width = _AP_W;
+
+  static ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> from_range(
+    ap_uint<width> const &range
+  ) {
+    ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> out;
+    out.range() = range;
+    return out;
+  }
+
+  static ap_uint<width> to_range(
+    ap_ufixed<_AP_W, _AP_I, _AP_Q, _AP_O, _AP_N> const &value
+  ) {
+    return value.range().to_ap_int_base();
+  }
+};
+
+} // End namespace detail
+
+
 
 /// Class to accommodate SIMD-style vectorization of a data path on FPGA using
 /// ap_uint to force wide ports.
@@ -28,7 +117,7 @@ class DataPack {
 
  public:
 
-  static constexpr int kBits = 8 * sizeof(T);
+  static constexpr int kBits = detail::TypeHandler<T>::width;
   static constexpr int kWidth = width;
   using Pack_t = ap_uint<kBits>;
   using Internal_t = ap_uint<width * kBits>;
@@ -79,7 +168,7 @@ class DataPack {
     }
 #endif
     Pack_t temp = data_.range((i + 1) * kBits - 1, i * kBits);
-    return *reinterpret_cast<T const *>(&temp);
+    return detail::TypeHandler<T>::from_range(temp);
   }
 
   void Set(int i, T value) {
@@ -91,8 +180,9 @@ class DataPack {
       throw std::out_of_range(ss.str());
     }
 #endif
-    Pack_t temp = *reinterpret_cast<Pack_t const *>(&value);
-    data_.range((i + 1) * kBits - 1, i * kBits) = temp;
+    data_.range((i + 1) * kBits - 1, i * kBits) = (
+      detail::TypeHandler<T>::to_range(value)
+    );
   }
 
   void Fill(T const &value) {

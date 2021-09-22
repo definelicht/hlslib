@@ -55,6 +55,7 @@ add_hls_test("ShiftRegister")
 add_hls_test("StreamAPI")
 add_hls_test("Subflow")
 add_hls_test("HBMandBlockCopy" CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/configs/hbmkernel.cfg)
+add_hls_test("TightPacking")
 
 # Test mapping of interfaces to DRAM banks
 add_vitis_kernel(DDRMappingKernel
