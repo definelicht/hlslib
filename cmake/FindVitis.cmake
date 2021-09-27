@@ -610,7 +610,7 @@ set_part ${PROGRAM_PLATFORM_PART} \
 add_files -cflags \"${KERNEL_HLS_FLAGS}\" \"${KERNEL_FILES}\" \ 
 set_top ${KERNEL_NAME} \ 
 ${KERNEL_HLS_TCL_CLOCK}\
-${KERNEL_HLS_CONFIG}\
+${KERNEL_HLS_CONFIG} \ 
 config_interface -m_axi_addr64 \ 
 config_compile -name_max_length 256 \ 
 csynth_design \ 
