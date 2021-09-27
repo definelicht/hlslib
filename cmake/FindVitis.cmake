@@ -285,7 +285,7 @@ function(add_vitis_kernel
       KERNEL
       ""
       "KERNEL"
-      "FILES;DEPENDS;INCLUDE_DIRS;HLS_FLAGS;COMPILE_FLAGS;PORT_MAPPING"
+      "FILES;DEPENDS;INCLUDE_DIRS;HLS_FLAGS;HLS_CONFIG;COMPILE_FLAGS;PORT_MAPPING"
       ${ARGN})
 
   # Verify that input is sane
@@ -380,6 +380,7 @@ function(add_vitis_kernel
   set_target_properties(${KERNEL_TARGET} PROPERTIES HLS_FLAGS "${KERNEL_HLS_FLAGS}")
   set_target_properties(${KERNEL_TARGET} PROPERTIES COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
   set_target_properties(${KERNEL_TARGET} PROPERTIES LINK_FLAGS "${KERNEL_LINK_FLAGS}")
+  set_target_properties(${KERNEL_TARGET} PROPERTIES HLS_CONFIG "${KERNEL_HLS_CONFIG}")
 
 endfunction()
 
@@ -504,11 +505,19 @@ function(add_vitis_program
     get_target_property(KERNEL_NAME ${KERNEL} KERNEL_NAME)
     get_target_property(KERNEL_FILES ${KERNEL} KERNEL_FILES)
     get_target_property(KERNEL_HLS_FLAGS ${KERNEL} HLS_FLAGS)
+    get_target_property(KERNEL_HLS_CONFIG ${KERNEL} HLS_CONFIG)
     get_target_property(KERNEL_COMPILE_FLAGS ${KERNEL} COMPILE_FLAGS)
     get_target_property(KERNEL_LINK_FLAGS ${KERNEL} LINK_FLAGS)
 
     set(KERNEL_COMPILE_FLAGS "${PROGRAM_COMPILE_FLAGS} ${KERNEL_COMPILE_FLAGS} --advanced.prop kernel.${KERNEL_NAME}.kernel_flags=\"${KERNEL_HLS_FLAGS}\"") 
     set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} ${KERNEL_LINK_FLAGS}")
+
+    # If HLS TCL config commands are provided, generate a file that can be passed
+    if(HLS_CONFIG)
+      set(HLS_TCL_FILE ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL}_config.tcl)
+      file(WRITE ${HLS_TCL_FILE} "${HLS_CONFIG}")
+      set(KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS} --hls.pre_tcl ${HLS_TCL_FILE}")
+    endif()
     
     # Canonicalize flags
     string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
@@ -601,6 +610,7 @@ set_part ${PROGRAM_PLATFORM_PART} \
 add_files -cflags \"${KERNEL_HLS_FLAGS}\" \"${KERNEL_FILES}\" \ 
 set_top ${KERNEL_NAME} \ 
 ${KERNEL_HLS_TCL_CLOCK}\
+${KERNEL_HLS_CONFIG}\
 config_interface -m_axi_addr64 \ 
 config_compile -name_max_length 256 \ 
 csynth_design \ 

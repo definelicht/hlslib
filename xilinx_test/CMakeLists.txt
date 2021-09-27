@@ -63,6 +63,7 @@ add_vitis_kernel(DDRMappingKernel
                  KERNEL DDRExplicit
                  INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
                               ${CMAKE_SOURCE_DIR}/include
+                 HLS_CONFIG "config_compile -pipeline_style frp"
                  PORT_MAPPING "ddr0:DDR[0]" "ddr1:DDR[1]")
 add_vitis_program(DDRMapping ${HLSLIB_DSA_NAME}
                   KERNELS DDRMappingKernel)
