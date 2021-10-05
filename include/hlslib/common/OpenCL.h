@@ -262,24 +262,27 @@ cl_mem_flags BankToFlag(MemoryBank memoryBank, bool failIfUnspecified,
 
 MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
   if (storage != StorageType::DDR) {
-    ThrowRuntimeError("Only DDR bank identifiers can be converted to memory bank flags.");
+    ThrowRuntimeError(
+        "Only DDR bank identifiers can be converted to memory bank flags.");
   }
   if (bank < -1 || bank > 3) {
-    ThrowRuntimeError("Bank identifier is out of range (must be [0-3] or -1 for unspecified).");
+    ThrowRuntimeError(
+        "Bank identifier is out of range (must be [0-3] or -1 for "
+        "unspecified).");
   }
   switch (bank) {
-  case -1:
-    return MemoryBank::unspecified;
-  case 0:
-    return MemoryBank::bank0;
-  case 1:
-    return MemoryBank::bank1;
-  case 2:
-    return MemoryBank::bank2;
-  case 3:
-    return MemoryBank::bank3;
-  default:
-    ThrowRuntimeError("Unsupported bank identifier.");
+    case -1:
+      return MemoryBank::unspecified;
+    case 0:
+      return MemoryBank::bank0;
+    case 1:
+      return MemoryBank::bank1;
+    case 2:
+      return MemoryBank::bank2;
+    case 3:
+      return MemoryBank::bank3;
+    default:
+      ThrowRuntimeError("Unsupported bank identifier.");
   }
   return MemoryBank::unspecified;
 }
@@ -488,9 +491,9 @@ class Buffer {
     void *hostPtr = nullptr;
     ExtendedMemoryPointer extendedHostPointer;
     cl_mem_flags flags = CreateAllocFlags(CL_MEM_ALLOC_HOST_PTR);
-    if(storageType != StorageType::DDR || bankIndex != -1) {
-      extendedHostPointer = CreateExtendedPointer(
-        nullptr, storageType, bankIndex, context.DDRFlags_);
+    if (storageType != StorageType::DDR || bankIndex != -1) {
+      extendedHostPointer = CreateExtendedPointer(nullptr, storageType,
+                                                  bankIndex, context.DDRFlags_);
       hostPtr = &extendedHostPointer;
       flags |= kXilinxMemPointer;
     }
@@ -530,9 +533,9 @@ class Buffer {
     void *hostPtr = const_cast<T *>(&(*begin));
     ExtendedMemoryPointer extendedHostPointer;
     cl_mem_flags flags = CreateAllocFlags(CL_MEM_USE_HOST_PTR);
-    if(storageType != StorageType::DDR || bankIndex != -1) {
-      extendedHostPointer = CreateExtendedPointer(
-        hostPtr, storageType, bankIndex, context.DDRFlags_);
+    if (storageType != StorageType::DDR || bankIndex != -1) {
+      extendedHostPointer = CreateExtendedPointer(hostPtr, storageType,
+                                                  bankIndex, context.DDRFlags_);
       hostPtr = &extendedHostPointer;
       flags |= kXilinxMemPointer;
     }
@@ -988,15 +991,15 @@ class Buffer {
     cl_mem_flags flags;
 
     switch (access) {
-    case Access::read:
-      flags = CL_MEM_READ_ONLY;
-      break;
-    case Access::write:
-      flags = CL_MEM_WRITE_ONLY;
-      break;
-    case Access::readWrite:
-      flags = CL_MEM_READ_WRITE;
-      break;
+      case Access::read:
+        flags = CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        flags = CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        flags = CL_MEM_READ_WRITE;
+        break;
     }
 
 #ifdef HLSLIB_XILINX
@@ -1040,15 +1043,15 @@ class Buffer {
 
     cl_mem_flags flags;
     switch (access) {
-    case Access::read:
-      flags = CL_MEM_READ_ONLY;
-      break;
-    case Access::write:
-      flags = CL_MEM_WRITE_ONLY;
-      break;
-    case Access::readWrite:
-      flags = CL_MEM_READ_WRITE;
-      break;
+      case Access::read:
+        flags = CL_MEM_READ_ONLY;
+        break;
+      case Access::write:
+        flags = CL_MEM_WRITE_ONLY;
+        break;
+      case Access::readWrite:
+        flags = CL_MEM_READ_WRITE;
+        break;
     }
 
     void *hostPtr = nullptr;
@@ -1351,7 +1354,9 @@ class Kernel {
                                         EventIterator eventsEnd) {
     const auto start = std::chrono::high_resolution_clock::now();
     auto event = ExecuteTaskFork(eventsBegin, eventsEnd);
+#ifndef HLSLIB_SIMULATE_OPENCL
     event.wait();
+#endif
     const auto end = std::chrono::high_resolution_clock::now();
     const double elapsedChrono =
         1e-9 * std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
@@ -1402,10 +1407,11 @@ class Kernel {
       ThrowRuntimeError("Failed to execute kernel.");
       return {};
     }
+    return cl::Event(event);
 #else
     hostFunction_();  // Simulate by calling host function
+    return {};        // Return dummy event
 #endif
-    return cl::Event(event);
   }
 
   cl::Event ExecuteTaskFork() {
