@@ -305,7 +305,8 @@ function(add_vitis_kernel
   endforeach()
   set(KERNEL_DEPENDS ${KERNEL_FILES} ${_KERNEL_DEPENDS})
 
-  # Create the target that will carry the properties and dependencies
+  # Create the target that will carry properties. Adding the depends here does not actually work, so we have to store
+  # them as a property, retrieve them later, and add them manually to each target
   add_custom_target(${KERNEL_TARGET} DEPENDS ${KERNEL_DEPENDS})
 
   # Use the target name as the kernel name if the kernel name hasn't been
@@ -381,6 +382,7 @@ function(add_vitis_kernel
   set_target_properties(${KERNEL_TARGET} PROPERTIES COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
   set_target_properties(${KERNEL_TARGET} PROPERTIES LINK_FLAGS "${KERNEL_LINK_FLAGS}")
   set_target_properties(${KERNEL_TARGET} PROPERTIES HLS_CONFIG "${KERNEL_HLS_CONFIG}")
+  set_target_properties(${KERNEL_TARGET} PROPERTIES DEPENDS "${KERNEL_DEPENDS}")
 
 endfunction()
 
@@ -508,6 +510,7 @@ function(add_vitis_program
     get_target_property(KERNEL_HLS_CONFIG ${KERNEL} HLS_CONFIG)
     get_target_property(KERNEL_COMPILE_FLAGS ${KERNEL} COMPILE_FLAGS)
     get_target_property(KERNEL_LINK_FLAGS ${KERNEL} LINK_FLAGS)
+    get_target_property(KERNEL_DEPENDS ${KERNEL} DEPENDS)
 
     set(KERNEL_COMPILE_FLAGS "${PROGRAM_COMPILE_FLAGS} ${KERNEL_COMPILE_FLAGS} --advanced.prop kernel.${KERNEL_NAME}.kernel_flags=\"${KERNEL_HLS_FLAGS}\"") 
     set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} ${KERNEL_LINK_FLAGS}")
@@ -538,7 +541,7 @@ function(add_vitis_program
               ${PROGRAM_BUILD_FLAGS}
               ${KERNEL_FILES}
               --output ${KERNEL_XO_FILE_SW_EMU}
-      DEPENDS ${KERNEL})
+      DEPENDS ${KERNEL} ${KERNEL_DEPENDS})
     add_custom_target(compile_${KERNEL}_sw_emu DEPENDS
                       ${KERNEL_XO_FILE_SW_EMU})
     if(NOT TARGET compile_sw_emu)
@@ -562,7 +565,7 @@ function(add_vitis_program
               ${PROGRAM_BUILD_FLAGS}
               ${KERNEL_FILES}
               --output ${KERNEL_XO_FILE_HW_EMU}
-      DEPENDS ${KERNEL})
+      DEPENDS ${KERNEL} ${KERNEL_DEPENDS})
     add_custom_target(compile_${KERNEL}_hw_emu DEPENDS
                       ${KERNEL_XO_FILE_HW_EMU})
     if(NOT TARGET compile_hw_emu)
@@ -586,7 +589,7 @@ function(add_vitis_program
               ${PROGRAM_BUILD_FLAGS}
               ${KERNEL_FILES}
               --output ${KERNEL_XO_FILE_HW}
-      DEPENDS ${KERNEL})
+      DEPENDS ${KERNEL} ${KERNEL_DEPENDS})
     add_custom_target(compile_${KERNEL}_hw DEPENDS
                       ${KERNEL_XO_FILE_HW})
     if(NOT TARGET compile_hw)
@@ -615,12 +618,14 @@ config_interface -m_axi_addr64 \
 config_compile -name_max_length 256 \ 
 csynth_design \ 
 exit")
-      add_custom_command(OUTPUT ${KERNEL}/${KERNEL_PLATFORM_PART}/${KERNEL_PLATFORM_PART}.log
+      add_custom_command(OUTPUT ${KERNEL}/${PROGRAM_PLATFORM_PART}/${PROGRAM_PLATFORM_PART}.log
                          COMMENT "Running high-level synthesis for ${KERNEL}."
                          COMMAND ${Vitis_HLS} -f ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL}_synthesis.tcl
-                         DEPENDS ${KERNEL})
+                         # CMake does not seem to rerun the custom target if the target that it depends
+                         # on is rerun, so we have to re-add the files as dependencies here.
+                         DEPENDS ${KERNEL} ${KERNEL_DEPENDS})
       add_custom_target(synthesize_${KERNEL} DEPENDS  
-                        ${KERNEL}/${KERNEL_PLATFORM_PART}/${KERNEL_PLATFORM_PART}.log)
+                        ${KERNEL}/${PROGRAM_PLATFORM_PART}/${PROGRAM_PLATFORM_PART}.log)
       set_property(TARGET synthesize_${KERNEL} APPEND PROPERTY ADDITIONAL_CLEAN_FILES
                    ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL} vitis_hls.log)
       if(NOT TARGET synthesis)
