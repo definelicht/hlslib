@@ -513,9 +513,9 @@ function(add_vitis_program
     set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} ${KERNEL_LINK_FLAGS}")
 
     # If HLS TCL config commands are provided, generate a file that can be passed
-    if(HLS_CONFIG)
+    if(KERNEL_HLS_CONFIG)
       set(HLS_TCL_FILE ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL}_config.tcl)
-      file(WRITE ${HLS_TCL_FILE} "${HLS_CONFIG}")
+      file(WRITE ${HLS_TCL_FILE} "${KERNEL_HLS_CONFIG}")
       set(KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS} --hls.pre_tcl ${HLS_TCL_FILE}")
     endif()
     
