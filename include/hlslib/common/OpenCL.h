@@ -52,22 +52,65 @@ enum class StorageType { DDR, HBM };
 struct _Stream {};
 inline constexpr _Stream Stream;
 
+/// Wraps cl::Event so we can also wait on them in simulation mode.
+class Event {
+ public:
+#ifndef HLSLIB_SIMULATE_OPENCL
+  Event(cl::Event const &event) : event_(event) {
+  }
+
+  Event(cl_event const &event) : event_(event) {
+  }
+
+  operator cl::Event() const {
+    return event_;
+  }
+
+  cl::Event event() const {
+    return this->operator cl::Event();
+  }
+
+  cl_int wait() const {
+    return event_.wait();
+  }
+#else
+  Event(std::function<void(void)> const &f) {
+    future_ = std::async(std::launch::async, f);
+  }
+
+  void wait() const {
+    return future_.wait();
+  }
+#endif
+
+ private:
+#ifndef HLSLIB_SIMULATE_OPENCL
+  cl::Event event_;
+#else
+  std::future<void> future_;
+#endif
+};
+
 //#############################################################################
 // OpenCL exceptions
 //#############################################################################
 
 class ConfigurationError : public std::logic_error {
  public:
-  ConfigurationError(std::string const &message) : std::logic_error(message) {}
+  ConfigurationError(std::string const &message) : std::logic_error(message) {
+  }
 
-  ConfigurationError(char const *const message) : std::logic_error(message) {}
+  ConfigurationError(char const *const message) : std::logic_error(message) {
+  }
 };
 
 class RuntimeError : public std::runtime_error {
  public:
-  RuntimeError(std::string const &message) : std::runtime_error(message) {}
+  RuntimeError(std::string const &message) : std::runtime_error(message) {
+  }
 
-  RuntimeError(char const *const message) : std::runtime_error(message) {}
+  RuntimeError(char const *const message) : std::runtime_error(message) {
+  }
 };
 
 //#############################################################################
@@ -287,8 +330,8 @@ MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
   return MemoryBank::unspecified;
 }
 
-cl_uint NumEvents(cl::Event const *const eventsBegin,
-                  cl::Event const *const eventsEnd) {
+cl_uint NumEvents(Event const *const eventsBegin,
+                  Event const *const eventsEnd) {
   if (eventsBegin != nullptr) {
     if (eventsEnd != nullptr) {
       return std::distance(eventsBegin, eventsEnd);
@@ -340,7 +383,8 @@ class Context {
 
   /// Performs initialization of the requested device name.
   inline Context(std::string const &deviceName)
-      : Context(HLSLIB_OPENCL_VENDOR_STRING, deviceName) {}
+      : Context(HLSLIB_OPENCL_VENDOR_STRING, deviceName) {
+  }
 
   /// Performs initialization of the specified vendor and device index.
   inline Context(std::string const &vendorName, int index) {
@@ -365,10 +409,12 @@ class Context {
   }
 
   /// Performs initialization of the specified device index.
-  inline Context(int index) : Context(HLSLIB_OPENCL_VENDOR_STRING, index) {}
+  inline Context(int index) : Context(HLSLIB_OPENCL_VENDOR_STRING, index) {
+  }
 
   /// Performs initialization of first available device.
-  inline Context() : Context(0) {}
+  inline Context() : Context(0) {
+  }
 
   inline Context(Context const &) = delete;
   inline Context(Context &&) = default;
@@ -382,7 +428,9 @@ class Context {
   inline Program MakeProgram(std::string const &path);
 
   /// Returns the internal OpenCL device id.
-  inline cl::Device const &device() const { return device_; }
+  inline cl::Device const &device() const {
+    return device_;
+  }
 
   inline std::string DeviceName() const {
 #ifndef HLSLIB_SIMULATE_OPENCL
@@ -393,12 +441,18 @@ class Context {
   }
 
   /// Returns the internal OpenCL execution context.
-  inline cl::Context const &context() const { return context_; }
+  inline cl::Context const &context() const {
+    return context_;
+  }
 
   /// Returns the internal OpenCL command queue.
-  inline cl::CommandQueue const &commandQueue() const { return commandQueue_; }
+  inline cl::CommandQueue const &commandQueue() const {
+    return commandQueue_;
+  }
 
-  inline cl::CommandQueue &commandQueue() { return commandQueue_; }
+  inline cl::CommandQueue &commandQueue() {
+    return commandQueue_;
+  }
 
   inline Program CurrentlyLoadedProgram() const;
 
@@ -416,11 +470,17 @@ class Context {
     loadedProgram_ = program;
   }
 
-  std::mutex &memcopyMutex() { return memcopyMutex_; }
+  std::mutex &memcopyMutex() {
+    return memcopyMutex_;
+  }
 
-  std::mutex &enqueueMutex() { return enqueueMutex_; }
+  std::mutex &enqueueMutex() {
+    return enqueueMutex_;
+  }
 
-  std::mutex &reprogramMutex() { return reprogramMutex_; }
+  std::mutex &reprogramMutex() {
+    return reprogramMutex_;
+  }
 
  private:
   cl::Platform platformId_{};
@@ -441,11 +501,14 @@ class Context {
 template <typename T, Access access>
 class Buffer {
  public:
-  Buffer() : context_(nullptr), nElements_(0) {}
+  Buffer() : context_(nullptr), nElements_(0) {
+  }
 
   Buffer(Buffer<T, access> const &other) = delete;
 
-  Buffer(Buffer<T, access> &&other) : Buffer() { swap(*this, other); }
+  Buffer(Buffer<T, access> &&other) : Buffer() {
+    swap(*this, other);
+  }
 
   /// Allocate and copy to device.
   // First check is used to go on if this might be a call to the HBM constructor
@@ -465,7 +528,8 @@ class Buffer {
                                        IsIteratorOfType<IteratorType, T>() &&
                                        IsRandomAccess<IteratorType>()>::type>
   Buffer(Context &context, IteratorType begin, IteratorType end)
-      : Buffer(context, MemoryBank::unspecified, begin, end) {}
+      : Buffer(context, MemoryBank::unspecified, begin, end) {
+  }
 
   /// Allocate but don't perform any transfers
   Buffer(Context &context, MemoryBank memoryBank, size_t nElements)
@@ -474,7 +538,8 @@ class Buffer {
   }
 
   Buffer(Context &context, size_t nElements)
-      : Buffer(context, MemoryBank::unspecified, nElements) {}
+      : Buffer(context, MemoryBank::unspecified, nElements) {
+  }
 
   /// Allocate DDR or HBM but don't perform any transfers.
   Buffer(Context &context, StorageType storageType, int bankIndex,
@@ -571,12 +636,12 @@ class Buffer {
   ~Buffer() = default;
 
   template <
-      typename DataIterator, typename EventIterator = cl::Event *,
+      typename DataIterator, typename EventIterator = Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
                                          IsRandomAccess<DataIterator>()>::type,
-      typename = typename std::enable_if<
-          IsIteratorOfType<EventIterator, cl::Event>() &&
-          IsRandomAccess<EventIterator>()>::type>
+      typename =
+          typename std::enable_if<IsIteratorOfType<EventIterator, Event>() &&
+                                  IsRandomAccess<EventIterator>()>::type>
   void CopyFromHost(int deviceOffset, int numElements, DataIterator source,
                     EventIterator eventsBegin, EventIterator eventsEnd) {
 #ifndef HLSLIB_SIMULATE_OPENCL
@@ -585,7 +650,8 @@ class Buffer {
     const auto numEvents = NumEvents(eventsBegin, eventsEnd);
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
-      static_assert(sizeof(cl_event) == sizeof(cl::Event),
+      static_assert(sizeof(cl_event) == sizeof(cl::Event) &&
+                        sizeof(cl::Event) == sizeof(Event),
                     "Reinterpret cast is not safe.");
       errorCode = clEnqueueWriteBuffer(
           context_->commandQueue().get(), devicePtr_.get(), CL_TRUE,
@@ -598,6 +664,9 @@ class Buffer {
       throw std::runtime_error("Failed to copy data to device.");
     }
 #else
+    for (; eventsBegin != eventsEnd; ++eventsBegin) {
+      eventsBegin->wait();
+    }
     std::copy(source, source + numElements, devicePtr_.get() + deviceOffset);
 #endif
   }
@@ -606,17 +675,17 @@ class Buffer {
                                        IsIteratorOfType<DataIterator, T>() &&
                                        IsRandomAccess<DataIterator>()>::type>
   void CopyFromHost(int deviceOffset, int numElements, DataIterator source) {
-    return CopyFromHost<DataIterator, cl::Event *>(deviceOffset, numElements,
-                                                   source, nullptr, nullptr);
+    return CopyFromHost<DataIterator, Event *>(deviceOffset, numElements,
+                                               source, nullptr, nullptr);
   }
 
   template <
-      typename DataIterator, typename EventIterator = cl::Event *,
+      typename DataIterator, typename EventIterator = Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
                                          IsRandomAccess<DataIterator>()>::type,
-      typename = typename std::enable_if<
-          IsIteratorOfType<EventIterator, cl::Event>() &&
-          IsRandomAccess<EventIterator>()>::type>
+      typename =
+          typename std::enable_if<IsIteratorOfType<EventIterator, Event>() &&
+                                  IsRandomAccess<EventIterator>()>::type>
   void CopyFromHost(DataIterator source, EventIterator eventBegin,
                     EventIterator eventEnd) {
     return CopyFromHost(0, nElements_, source, eventBegin, eventEnd);
@@ -626,17 +695,17 @@ class Buffer {
                                        IsIteratorOfType<DataIterator, T>() &&
                                        IsRandomAccess<DataIterator>()>::type>
   void CopyFromHost(DataIterator source) {
-    return CopyFromHost<DataIterator, cl::Event *>(0, nElements_, source,
-                                                   nullptr, nullptr);
+    return CopyFromHost<DataIterator, Event *>(0, nElements_, source, nullptr,
+                                               nullptr);
   }
 
   template <
-      typename DataIterator, typename EventIterator = cl::Event *,
+      typename DataIterator, typename EventIterator = Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
                                          IsRandomAccess<DataIterator>()>::type,
-      typename = typename std::enable_if<
-          IsIteratorOfType<EventIterator, cl::Event>() &&
-          IsRandomAccess<EventIterator>()>::type>
+      typename =
+          typename std::enable_if<IsIteratorOfType<EventIterator, Event>() &&
+                                  IsRandomAccess<EventIterator>()>::type>
   void CopyToHost(size_t deviceOffset, size_t numElements, DataIterator target,
                   EventIterator eventsBegin, EventIterator eventsEnd) {
 #ifndef HLSLIB_SIMULATE_OPENCL
@@ -645,7 +714,8 @@ class Buffer {
     const auto numEvents = NumEvents(eventsBegin, eventsEnd);
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
-      static_assert(sizeof(cl_event) == sizeof(cl::Event),
+      static_assert(sizeof(cl_event) == sizeof(cl::Event) &&
+                        sizeof(cl::Event) == sizeof(Event),
                     "Reinterpret cast is not safe.");
       errorCode = clEnqueueReadBuffer(
           context_->commandQueue().get(), devicePtr_.get(), CL_TRUE,
@@ -659,6 +729,9 @@ class Buffer {
       return;
     }
 #else
+    for (; eventsBegin != eventsEnd; ++eventsBegin) {
+      eventsBegin->wait();
+    }
     std::copy(devicePtr_.get() + deviceOffset,
               devicePtr_.get() + deviceOffset + numElements, target);
 #endif
@@ -669,17 +742,17 @@ class Buffer {
                                        IsRandomAccess<DataIterator>()>::type>
   void CopyToHost(size_t deviceOffset, size_t numElements,
                   DataIterator target) {
-    return CopyToHost<DataIterator, cl::Event *>(deviceOffset, numElements,
-                                                 target, nullptr, nullptr);
+    return CopyToHost<DataIterator, Event *>(deviceOffset, numElements, target,
+                                             nullptr, nullptr);
   }
 
   template <
-      typename DataIterator, typename EventIterator = cl::Event *,
+      typename DataIterator, typename EventIterator = Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
                                          IsRandomAccess<DataIterator>()>::type,
-      typename = typename std::enable_if<
-          IsIteratorOfType<EventIterator, cl::Event>() &&
-          IsRandomAccess<EventIterator>()>::type>
+      typename =
+          typename std::enable_if<IsIteratorOfType<EventIterator, Event>() &&
+                                  IsRandomAccess<EventIterator>()>::type>
   void CopyToHost(DataIterator target, EventIterator eventsBegin,
                   EventIterator eventsEnd) {
     return CopyToHost(0, nElements_, target, eventsBegin, eventsEnd);
@@ -689,13 +762,13 @@ class Buffer {
                                        IsIteratorOfType<DataIterator, T>() &&
                                        IsRandomAccess<DataIterator>()>::type>
   void CopyToHost(DataIterator target) {
-    return CopyToHost<DataIterator, cl::Event *>(0, nElements_, target, nullptr,
-                                                 nullptr);
+    return CopyToHost<DataIterator, Event *>(0, nElements_, target, nullptr,
+                                             nullptr);
   }
 
-  template <Access accessType, typename EventIterator = cl::Event *,
+  template <Access accessType, typename EventIterator = Event *,
             typename = typename std::enable_if<
-                IsIteratorOfType<EventIterator, cl::Event>() &&
+                IsIteratorOfType<EventIterator, Event>() &&
                 IsRandomAccess<EventIterator>()>::type>
   void CopyToDevice(size_t offsetSource, size_t numElements,
                     Buffer<T, accessType> &other, size_t offsetDestination,
@@ -707,7 +780,8 @@ class Buffer {
     }
     cl_event event;
     cl_int errorCode;
-    static_assert(sizeof(cl_event) == sizeof(cl::Event),
+    static_assert(sizeof(cl_event) == sizeof(cl::Event) &&
+                      sizeof(cl::Event) == sizeof(Event),
                   "Reinterpret cast is not safe.");
     const auto numEvents = NumEvents(eventsBegin, eventsEnd);
     {
@@ -733,7 +807,7 @@ class Buffer {
   template <Access accessType>
   void CopyToDevice(size_t offsetSource, size_t numElements,
                     Buffer<T, accessType> &other, size_t offsetDestination) {
-    return CopyToDevice<accessType, cl::Event *>(
+    return CopyToDevice<accessType, Event *>(
         offsetSource, numElements, other, offsetDestination, nullptr, nullptr);
   }
 
@@ -896,16 +970,26 @@ class Buffer {
   }
 
 #ifndef HLSLIB_SIMULATE_OPENCL
-  cl::Buffer const &devicePtr() const { return devicePtr_; }
+  cl::Buffer const &devicePtr() const {
+    return devicePtr_;
+  }
 
-  cl::Buffer &devicePtr() { return devicePtr_; }
+  cl::Buffer &devicePtr() {
+    return devicePtr_;
+  }
 #else
-  T const *devicePtr() const { return devicePtr_.get(); }
+  T const *devicePtr() const {
+    return devicePtr_.get();
+  }
 
-  T *devicePtr() { return devicePtr_.get(); }
+  T *devicePtr() {
+    return devicePtr_.get();
+  }
 #endif
 
-  size_t nElements() const { return nElements_; }
+  size_t nElements() const {
+    return nElements_;
+  }
 
  private:
 #ifdef HLSLIB_XILINX
@@ -1189,19 +1273,29 @@ class Program {
   ~Program() = default;
 
   // Returns the reference Context object.
-  inline Context &context() { return context_; }
+  inline Context &context() {
+    return context_;
+  }
 
   // Returns the reference Context object.
-  inline Context const &context() const { return context_; }
+  inline Context const &context() const {
+    return context_;
+  }
 
   // Returns the internal OpenCL program object.
-  inline cl::Program &program() { return program_->second; }
+  inline cl::Program &program() {
+    return program_->second;
+  }
 
   // Returns the internal OpenCL program object.
-  inline cl::Program const &program() const { return program_->second; }
+  inline cl::Program const &program() const {
+    return program_->second;
+  }
 
   // Returns the path to the loaded program
-  inline std::string const &path() const { return program_->first; }
+  inline std::string const &path() const {
+    return program_->first;
+  }
 
   /// Create a kernel with the specified name contained in this loaded OpenCL
   /// program, binding the argument to the passed ones.
@@ -1219,7 +1313,8 @@ class Program {
 
   inline Program(Context &context,
                  std::shared_ptr<std::pair<std::string, cl::Program>> program)
-      : context_(context), program_(program) {}
+      : context_(context), program_(program) {
+  }
 
  private:
   Context &context_;
@@ -1259,9 +1354,11 @@ class Kernel {
     }
   }
 
-  void SetKernelArguments(size_t) {}
+  void SetKernelArguments(size_t) {
+  }
 
-  void SetKernelArguments() {}
+  void SetKernelArguments() {
+  }
 
   template <typename T, typename... Ts>
   void SetKernelArguments(size_t index, T &&arg, Ts &&... args) {
@@ -1332,39 +1429,46 @@ class Kernel {
 
   inline ~Kernel() = default;
 
-  inline Program const &program() const { return program_; }
+  inline Program const &program() const {
+    return program_;
+  }
 
-  inline cl::Kernel const &kernel() const { return kernel_; }
+  inline cl::Kernel const &kernel() const {
+    return kernel_;
+  }
 
 #ifdef HLSLIB_INTEL
   /// Returns the internal OpenCL command queue (Intel FPGA only).
-  inline cl::CommandQueue const &commandQueue() const { return commandQueue_; }
+  inline cl::CommandQueue const &commandQueue() const {
+    return commandQueue_;
+  }
   /// Returns the internal OpenCL command queue (Intel FPGA only).
-  inline cl::CommandQueue &commandQueue() { return commandQueue_; }
+  inline cl::CommandQueue &commandQueue() {
+    return commandQueue_;
+  }
 #endif
 
   /// Execute the kernel as an OpenCL task, wait for it to finish, then return
   /// the time elapsed as reported by OpenCL (first) and as measured with
   /// chrono (second).
-  template <typename EventIterator = cl::Event *,
+  template <typename EventIterator = Event *,
             typename = typename std::enable_if<
-                IsIteratorOfType<EventIterator, cl::Event>() &&
+                IsIteratorOfType<EventIterator, Event>() &&
                 IsRandomAccess<EventIterator>()>::type>
   std::pair<double, double> ExecuteTask(EventIterator eventsBegin,
                                         EventIterator eventsEnd) {
     const auto start = std::chrono::high_resolution_clock::now();
     auto event = ExecuteTaskFork(eventsBegin, eventsEnd);
-#ifndef HLSLIB_SIMULATE_OPENCL
     event.wait();
-#endif
     const auto end = std::chrono::high_resolution_clock::now();
     const double elapsedChrono =
         1e-9 * std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
                    .count();
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_ulong timeStart, timeEnd;
-    event.getProfilingInfo(CL_PROFILING_COMMAND_START, &timeStart);
-    event.getProfilingInfo(CL_PROFILING_COMMAND_END, &timeEnd);
+    auto event_ocl = event.event();
+    event_ocl.getProfilingInfo(CL_PROFILING_COMMAND_START, &timeStart);
+    event_ocl.getProfilingInfo(CL_PROFILING_COMMAND_END, &timeEnd);
     const double elapsedOpenCL = 1e-9 * (timeEnd - timeStart);
     return {elapsedOpenCL, elapsedChrono};
 #else
@@ -1373,18 +1477,17 @@ class Kernel {
   }
 
   std::pair<double, double> ExecuteTask() {
-    return ExecuteTask<cl::Event *>(nullptr, nullptr);
+    return ExecuteTask<Event *>(nullptr, nullptr);
   }
 
   /// Launch the kernel and return immediately, without requiring the caller
   /// to wait on the kernel to finish. This is useful for kernels that are
   /// never expected to terminate.
-  template <typename EventIterator = cl::Event *,
+  template <typename EventIterator = Event *,
             typename = typename std::enable_if<
-                IsIteratorOfType<EventIterator, cl::Event>() &&
+                IsIteratorOfType<EventIterator, Event>() &&
                 IsRandomAccess<EventIterator>()>::type>
-  cl::Event ExecuteTaskFork(EventIterator eventsBegin,
-                            EventIterator eventsEnd) {
+  Event ExecuteTaskFork(EventIterator eventsBegin, EventIterator eventsEnd) {
     cl_event event;
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_int errorCode;
@@ -1392,7 +1495,8 @@ class Kernel {
 #ifndef HLSLIB_INTEL
     {
       std::lock_guard<std::mutex> lock(program_.context().enqueueMutex());
-      static_assert(sizeof(cl_event) == sizeof(cl::Event),
+      static_assert(sizeof(cl_event) == sizeof(cl::Event) &&
+                        sizeof(cl::Event) == sizeof(Event),
                     "Reinterpret cast is not safe.");
       errorCode = clEnqueueTask(
           program_.context().commandQueue().get(), kernel_.get(), numEvents,
@@ -1405,17 +1509,19 @@ class Kernel {
 #endif
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to execute kernel.");
-      return {};
+      return Event(cl::Event());
     }
-    return cl::Event(event);
+    return Event(event);
 #else
-    hostFunction_();  // Simulate by calling host function
-    return {};        // Return dummy event
+    for (; eventsBegin != eventsEnd; ++eventsBegin) {
+      eventsBegin->wait();
+    }
+    return Event(hostFunction_);  // Simulate by calling host function
 #endif
   }
 
-  cl::Event ExecuteTaskFork() {
-    return ExecuteTaskFork<cl::Event *>(nullptr, nullptr);
+  Event ExecuteTaskFork() {
+    return ExecuteTaskFork<Event *>(nullptr, nullptr);
   }
 
   /// Returns a future to the result of a kernel launch, returning immediately
@@ -1584,16 +1690,20 @@ class AlignedAllocator {
   };
 
  public:
-  AlignedAllocator() noexcept {}
+  AlignedAllocator() noexcept {
+  }
 
   template <class U>
-  AlignedAllocator(const AlignedAllocator<U, alignment> &) noexcept {}
+  AlignedAllocator(const AlignedAllocator<U, alignment> &) noexcept {
+  }
 
   size_type max_size() const noexcept {
     return (size_type(~0) - size_type(alignment)) / sizeof(T);
   }
 
-  pointer address(reference x) const noexcept { return std::addressof(x); }
+  pointer address(reference x) const noexcept {
+    return std::addressof(x);
+  }
 
   const_pointer address(const_reference x) const noexcept {
     return std::addressof(x);
@@ -1619,7 +1729,9 @@ class AlignedAllocator {
     ::new (reinterpret_cast<void *>(p)) U(std::forward<Args>(args)...);
   }
 
-  void destroy(pointer p) { p->~T(); }
+  void destroy(pointer p) {
+    p->~T();
+  }
 };
 
 template <typename T, size_t alignment>
@@ -1641,10 +1753,12 @@ class AlignedAllocator<const T, alignment> {
   };
 
  public:
-  AlignedAllocator() noexcept {}
+  AlignedAllocator() noexcept {
+  }
 
   template <class U>
-  AlignedAllocator(const AlignedAllocator<U, alignment> &) noexcept {}
+  AlignedAllocator(const AlignedAllocator<U, alignment> &) noexcept {
+  }
 
   size_type max_size() const noexcept {
     return (size_type(~0) - size_type(alignment)) / sizeof(T);
@@ -1674,7 +1788,9 @@ class AlignedAllocator<const T, alignment> {
     ::new (reinterpret_cast<void *>(p)) U(std::forward<Args>(args)...);
   }
 
-  void destroy(pointer p) { p->~T(); }
+  void destroy(pointer p) {
+    p->~T();
+  }
 };
 
 template <typename T, size_t TAlignment, typename U, size_t UAlignment>
