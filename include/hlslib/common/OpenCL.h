@@ -52,28 +52,12 @@ enum class StorageType { DDR, HBM };
 struct _Stream {};
 inline constexpr _Stream Stream;
 
+#ifndef HLSLIB_SIMULATE_OPENCL
+using Event = cl::Event;
+#else
 /// Wraps cl::Event so we can also wait on them in simulation mode.
 class Event {
  public:
-#ifndef HLSLIB_SIMULATE_OPENCL
-  Event(cl::Event const &event) : event_(event) {
-  }
-
-  Event(cl_event const &event) : event_(event) {
-  }
-
-  operator cl::Event() const {
-    return event_;
-  }
-
-  cl::Event event() const {
-    return this->operator cl::Event();
-  }
-
-  cl_int wait() const {
-    return event_.wait();
-  }
-#else
   Event(std::function<void(void)> const &f) {
     future_ = std::async(std::launch::async, f);
   }
@@ -81,15 +65,11 @@ class Event {
   void wait() const {
     return future_.wait();
   }
-#endif
 
  private:
-#ifndef HLSLIB_SIMULATE_OPENCL
-  cl::Event event_;
-#else
   std::future<void> future_;
-#endif
 };
+#endif
 
 //#############################################################################
 // OpenCL exceptions
@@ -798,6 +778,9 @@ class Buffer {
       return;
     }
 #else
+    for (; eventsBegin != eventsEnd; ++eventsBegin) {
+      eventsBegin->wait();
+    }
     std::copy(devicePtr_.get() + offsetSource,
               devicePtr_.get() + offsetSource + numElements,
               other.devicePtr_.get() + offsetDestination);
@@ -1466,9 +1449,8 @@ class Kernel {
                    .count();
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_ulong timeStart, timeEnd;
-    auto event_ocl = event.event();
-    event_ocl.getProfilingInfo(CL_PROFILING_COMMAND_START, &timeStart);
-    event_ocl.getProfilingInfo(CL_PROFILING_COMMAND_END, &timeEnd);
+    event.getProfilingInfo(CL_PROFILING_COMMAND_START, &timeStart);
+    event.getProfilingInfo(CL_PROFILING_COMMAND_END, &timeEnd);
     const double elapsedOpenCL = 1e-9 * (timeEnd - timeStart);
     return {elapsedOpenCL, elapsedChrono};
 #else
@@ -1640,6 +1622,17 @@ Kernel Program::MakeKernel(F &&hostFunction, std::string const &kernelName,
                            Ts &&... args) {
   return Kernel(*this, std::forward<F>(hostFunction), kernelName,
                 std::forward<Ts>(args)...);
+}
+
+cl_int WaitForEvents(std::vector<Event> const &events) {
+#ifdef HLSLIB_SIMULATE_OPENCL
+  for (auto &e : events) {
+    e.wait();
+  }
+  return 0;
+#else
+  return cl::WaitForEvents(events);
+#endif
 }
 
 //#############################################################################
