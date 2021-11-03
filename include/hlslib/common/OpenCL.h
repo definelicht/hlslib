@@ -59,15 +59,19 @@ using Event = cl::Event;
 class Event {
  public:
   Event(std::function<void(void)> const &f) {
-    future_ = std::async(std::launch::async, f);
+    future_ = std::async(std::launch::async, f).share();
   }
+
+  // Because we use a shared_future, we can copy this object
+  Event(Event &&) = default;
+  Event(Event const &) = default;
 
   void wait() const {
     return future_.wait();
   }
 
  private:
-  std::future<void> future_;
+  std::shared_future<void> future_;
 };
 #endif
 
