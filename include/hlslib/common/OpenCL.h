@@ -1624,7 +1624,9 @@ Kernel Program::MakeKernel(F &&hostFunction, std::string const &kernelName,
                 std::forward<Ts>(args)...);
 }
 
-cl_int WaitForEvents(std::vector<Event> const &events) {
+/// Analogous to cl::waitForEvents, but compatible with the hlslib wrapper so it
+/// works across simulation and hardware environments.
+inline cl_int WaitForEvents(std::vector<Event> const &events) {
 #ifdef HLSLIB_SIMULATE_OPENCL
   for (auto &e : events) {
     e.wait();
