@@ -1500,9 +1500,9 @@ class Kernel {
     return Event(event);
 #else
 
-    return Event([this, &eventsBegin, &eventsEnd]() {
-      for (; eventsBegin != eventsEnd; ++eventsBegin) {
-        eventsBegin->wait();
+    return Event([this, eventsBegin, eventsEnd]() {
+      for (auto i = eventsBegin; i != eventsEnd; ++i) {
+        i->wait();
       }
       hostFunction_();
     });  // Simulate by calling host function
