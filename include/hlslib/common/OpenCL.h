@@ -1499,10 +1499,13 @@ class Kernel {
     }
     return Event(event);
 #else
-    for (; eventsBegin != eventsEnd; ++eventsBegin) {
-      eventsBegin->wait();
-    }
-    return Event(hostFunction_);  // Simulate by calling host function
+
+    return Event([this, &eventsBegin, &eventsEnd]() {
+      for (; eventsBegin != eventsEnd; ++eventsBegin) {
+        eventsBegin->wait();
+      }
+      hostFunction_();
+    });  // Simulate by calling host function
 #endif
   }
 
