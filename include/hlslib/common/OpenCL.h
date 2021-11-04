@@ -56,7 +56,7 @@ inline constexpr _Stream Stream;
 using Event = cl::Event;
 #else
 /// Wraps cl::Event so we can also wait on them in simulation mode.
-class Event {
+class Event : public cl::Event {
  public:
   Event(std::function<void(void)> const &f) {
     future_ = std::async(std::launch::async, f).share();
@@ -66,8 +66,9 @@ class Event {
   Event(Event &&) = default;
   Event(Event const &) = default;
 
-  void wait() const {
-    return future_.wait();
+  cl_int wait() const {
+    future_.wait();
+    return CL_SUCCESS;
   }
 
  private:
@@ -1445,7 +1446,7 @@ class Kernel {
   std::pair<double, double> ExecuteTask(EventIterator eventsBegin,
                                         EventIterator eventsEnd) {
     const auto start = std::chrono::high_resolution_clock::now();
-    auto event = ExecuteTaskFork(eventsBegin, eventsEnd);
+    auto event = ExecuteTaskAsync(eventsBegin, eventsEnd);
     event.wait();
     const auto end = std::chrono::high_resolution_clock::now();
     const double elapsedChrono =
@@ -1466,14 +1467,14 @@ class Kernel {
     return ExecuteTask<Event *>(nullptr, nullptr);
   }
 
-  /// Launch the kernel and return immediately, without requiring the caller
-  /// to wait on the kernel to finish. This is useful for kernels that are
-  /// never expected to terminate.
+  /// Returns a future  to the result of a kernel launch, returning immediately
+  /// and allows the caller to wait on execution to finish as needed. Useful
+  /// for executing multiple concurrent kernels.
   template <typename EventIterator = Event *,
             typename = typename std::enable_if<
                 IsIteratorOfType<EventIterator, Event>() &&
                 IsRandomAccess<EventIterator>()>::type>
-  Event ExecuteTaskFork(EventIterator eventsBegin, EventIterator eventsEnd) {
+  Event ExecuteTaskAsync(EventIterator eventsBegin, EventIterator eventsEnd) {
     cl_event event;
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_int errorCode;
@@ -1509,15 +1510,8 @@ class Kernel {
 #endif
   }
 
-  Event ExecuteTaskFork() {
-    return ExecuteTaskFork<Event *>(nullptr, nullptr);
-  }
-
-  /// Returns a future to the result of a kernel launch, returning immediately
-  /// and allows the caller to wait on execution to finish as needed. Useful
-  /// for executing multiple concurrent kernels.
-  std::future<std::pair<double, double>> ExecuteTaskAsync() {
-    return std::async(std::launch::async, [this]() { return ExecuteTask(); });
+  Event ExecuteTaskAsync() {
+    return ExecuteTaskAsync<Event *>(nullptr, nullptr);
   }
 
  private:
