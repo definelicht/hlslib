@@ -188,10 +188,11 @@ sudo apt install libc6-dev-i386
 
 ## Projects using hlslib
 
-- [Matrix multiplication code](https://github.com/spcl/gemm_hls) [1]: uses a wide range of hlslib features, including simulation, streams, vectors, CMake integration, and OpenCL wrapper code.
-- [SMI](https://github.com/spcl/SMI) [2]: streaming message passing library for inter-FPGA communication in OpenCL. Uses hlslib for OpenCL host code.
+- [Matrix multiplication code](https://github.com/spcl/gemm_hls) [1]: Uses a wide range of hlslib features, including simulation, streams, vectors, CMake integration, and OpenCL wrapper code.
+- [SMI](https://github.com/spcl/SMI) [2]: Streaming message passing library for inter-FPGA communication in OpenCL. Uses hlslib for OpenCL host code.
 - [HelmGemm](https://ieeexplore.ieee.org/document/8825124/) [3]: uses the simulation features of hlslib, and incorporates the matrix multiplication code above.
-- [DaCe](https://arxiv.org/abs/1902.10345) [4]: a data-centric parallel programming framework targeting a wide range of architectures, including both Intel and Xilinx FPGAs. Uses hlslib for CMake integration, OpenCL host code, vectors, streams, and simulation.
+- [DaCe](https://github.com/spcl/dace) [4]: A data-centric parallel programming framework targeting a wide range of architectures, including both Intel and Xilinx FPGAs. Uses hlslib for CMake integration, OpenCL host code, vectors, streams, and simulation.
+- [REVD](https://arxiv.org/abs/2102.00294) [5]: Uses hlslib streaming and simulation features to accelerate the deconvolution workloads of GANs with reverse looping optimizations on Xilinx FPGAs.
 
 _If you use hlslib in your project, please let us know, so we can add you to the list._
 
@@ -208,19 +209,20 @@ If your project uses hlslib, please consider citing us:
 @article{hlslib,
   title={{hlslib}: Software Engineering for Hardware Design},
   author={de~Fine~Licht, Johannes and Hoefler, Torsten},
-  journal={arXiv preprint arXiv:1910.04436},
+  journal={arXiv:1910.04436},
   year={2019}
 }
 ```
 
 **Plain text:**
 ```
-J. de Fine Licht and T. Hoefler, "hlslib: Software Engineering for Hardware Design", arXiv preprint arXiv:1910.04436 (2019).
+J. de Fine Licht and T. Hoefler, "hlslib: Software Engineering for Hardware Design", arXiv:1910.04436 (2019).
 ```
 
 ## References
 
-- [1] Johannes de Fine Licht, Grzegorz Kwasniewski, and Torsten Hoefler, _"Flexible Communication Avoiding Matrix Multiplication on FPGA with High-Level Synthesis"_, in Proceedings of 28th ACM/SIGDA International Symposium on Field-Programmable Gate Arrays (FPGA'20).
+- [1] Johannes de Fine Licht, Grzegorz Kwasniewski, and Torsten Hoefler. _"Flexible Communication Avoiding Matrix Multiplication on FPGA with High-Level Synthesis"_, in Proceedings of 28th ACM/SIGDA International Symposium on Field-Programmable Gate Arrays (FPGA'20).
 - [2] Tiziano De Matteis, Johannes de Fine Licht, Jakub Beránek, and Torsten Hoefler. _"Streaming Message Interface: High-Performance Distributed Memory Programming on Reconfigurable Hardware"_, in Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC'19).
 - [3] Dionysios Diamantopoulos, and Christoph Hagleitner. _"HelmGemm: Managing GPUs and FPGAs for transprecision GEMM workloads in containerized environments."_, in Proceedings of the 2019 IEEE 30th International Conference on Application-specific Systems, Architectures and Processors (ASAP'19).
 - [4] Tal Ben-Nun, Johannes de Fine Licht, Alexandros Nikolaos Ziogas, Timo Schneider, and Torsten Hoefler. _"Stateful Dataflow Multigraphs: A Data-Centric Model for High-Performance Parallel Programs"_, in Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC'19).
+- [5] Ian Colbert, Jake Daly, Ken Kreutz-Delgado, and Srinjoy Das. _"A Competitive Edge: Can FPGAs Beat GPUs at DCNN Inference Acceleration in Resource-Limited Edge Computing Applications?"_, arXiv:2102.00294.
