@@ -10,7 +10,6 @@
 #include <thread>
 #include <vector>
 #include <functional>
-#include <iostream>
 // #include "hlslib/Stream.h"
 #endif
 
