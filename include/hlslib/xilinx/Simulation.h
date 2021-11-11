@@ -9,7 +9,6 @@
 #include <queue>
 #include <thread>
 #include <vector>
-#include <functional>
 // #include "hlslib/Stream.h"
 #endif
 
