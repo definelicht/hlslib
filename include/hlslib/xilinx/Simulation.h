@@ -9,6 +9,8 @@
 #include <queue>
 #include <thread>
 #include <vector>
+#include <functional>
+#include <iostream>
 // #include "hlslib/Stream.h"
 #endif
 
@@ -36,6 +38,7 @@ namespace hlslib {
 #ifdef HLSLIB_SYNTHESIS
 #define HLSLIB_DATAFLOW_INIT()
 #define HLSLIB_DATAFLOW_FUNCTION(func, ...) func(__VA_ARGS__)
+#define HLSLIB_FREERUNNING_FUNCTION(func, ...) func(__VA_ARGS__)
 #define HLSLIB_DATAFLOW_FINALIZE()
 #else
 namespace {
@@ -65,24 +68,34 @@ class _Dataflow {
 
  public:
   template <class Ret, typename... Args>
-  void AddFunction(Ret (*func)(Args...), non_deducible_t<Args>... args) {
-    threads_.emplace_back(func, passed_by(std::forward<Args>(args),
+  void AddDataflowFunction(Ret (*func)(Args...), non_deducible_t<Args>... args) {
+    df_threads_.emplace_back(func, passed_by(std::forward<Args>(args),
+                                          std::is_reference<Args>{})...);
+  }
+
+  template <class Ret, typename... Args>
+  void AddFreeRunningFunction(Ret (*func)(Args...), non_deducible_t<Args>... args) {
+    auto lambda = [](auto f, auto ...params){while(1){f(params...);}};
+    fr_threads_.emplace_back(lambda, func, passed_by(std::forward<Args>(args),
                                           std::is_reference<Args>{})...);
   }
 
   inline void Join() {
-    for (auto& t : threads_) {
+    for (auto& t : df_threads_) {
       t.join();
     }
-    threads_.clear();
+    df_threads_.clear();
   }
 
  private:
-  std::vector<std::thread> threads_{};
+  std::vector<std::thread> df_threads_{};
+  std::vector<std::thread> fr_threads_{};
 };
 #define HLSLIB_DATAFLOW_INIT() ::hlslib::_Dataflow __hlslib_dataflow_context;
 #define HLSLIB_DATAFLOW_FUNCTION(func, ...) \
-  __hlslib_dataflow_context.AddFunction(func, __VA_ARGS__)
+  __hlslib_dataflow_context.AddDataflowFunction(func, __VA_ARGS__)
+#define HLSLIB_FREERUNNING_FUNCTION(func, ...) \
+  __hlslib_dataflow_context.AddFreeRunningFunction(func, __VA_ARGS__)
 #define HLSLIB_DATAFLOW_FINALIZE() __hlslib_dataflow_context.Join();
 }  // namespace
 #endif
