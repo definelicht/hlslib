@@ -47,10 +47,35 @@ enum class MemoryBank { unspecified, bank0, bank1, bank2, bank3 };
 /// Enum for storage types on the FPGA
 enum class StorageType { DDR, HBM };
 
-/// Used to signal that an argument is a streaming connection between kernels
-/// and should not be assigned from the host as an OpenCL argument
-struct _Stream {};
-inline constexpr _Stream Stream;
+/// Wrapper for argument that should pass a different value to the kernel in
+/// simulation mode versus in hardware mode. The use case in mind is
+/// inter-kernel streams, where Xilinx OpenCL expects nullptr, but simulation
+/// mode requires a stream to be passed from the host function.
+template <typename T, typename U>
+struct _SimulationArgument {
+  _SimulationArgument(T _simulation) : _SimulationArgument(_simulation, U()) {
+    // Intentionally left empty
+  }
+  _SimulationArgument(T _simulation, U _hardware)
+      : simulation(_simulation), hardware(_hardware) {
+    // Intentionally left empty
+  }
+  /// The reference or value passed in simulation mode.
+  T simulation;
+  /// The value passed in hardware or hardware simulation mode.
+  U hardware;
+};
+template <typename T, typename U = void *>
+auto SimulationArgument(T &&simulation, U &&hardware = U()) {
+  return _SimulationArgument<
+      typename std::conditional<std::is_rvalue_reference<T &&>::value,
+                                typename std::remove_reference<T>::type,
+                                T &&>::type,
+      typename std::conditional<std::is_rvalue_reference<U &&>::value,
+                                typename std::remove_reference<U>::type,
+                                U &&>::type>(std::forward<T>(simulation),
+                                             std::forward<U>(hardware));
+}
 
 //#############################################################################
 // OpenCL exceptions
@@ -1244,8 +1269,9 @@ class Kernel {
     }
   }
 
-  void SetKernelArguments(size_t index, _Stream const &) {
-    // Ignore argument, as this is set internally during linking
+  template <typename T, typename U>
+  void SetKernelArguments(size_t index, _SimulationArgument<T, U> &arg) {
+    SetKernelArguments(index, arg.hardware);
   }
 
   template <typename T>
@@ -1280,6 +1306,30 @@ class Kernel {
     // In simulation mode, unpack the buffer to the raw pointer
     return buffer.devicePtr();
 #endif
+  }
+
+  template <typename T, typename U>
+  static typename std::conditional<
+      std::is_reference<T>::value,
+      std::reference_wrapper<typename std::decay<T>::type>, T>::type
+  UnpackPointers(_SimulationArgument<T, U> &arg) {
+    return arg.simulation;
+  }
+
+  template <typename T, typename U>
+  static typename std::conditional<
+      std::is_reference<T>::value,
+      std::reference_wrapper<typename std::decay<T>::type>, T>::type
+  UnpackPointers(_SimulationArgument<T, U> const &arg) {
+    return arg.simulation;
+  }
+
+  template <typename T, typename U>
+  static typename std::conditional<
+      std::is_reference<T>::value,
+      std::reference_wrapper<typename std::decay<T>::type>, T>::type
+  UnpackPointers(_SimulationArgument<T, U> &&arg) {
+    return arg.simulation;
   }
 
   template <typename T>

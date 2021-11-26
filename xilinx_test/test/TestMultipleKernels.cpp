@@ -13,8 +13,12 @@ TEST_CASE("MultipleKernels") {
   auto memory = context.MakeBuffer<uint64_t, Access::readWrite>(
       memory_host.cbegin(), memory_host.cend());
   hlslib::Stream<uint64_t> pipe;
-  auto first_kernel = program.MakeKernel("FirstKernel", memory, Stream, 128);
-  auto second_kernel = program.MakeKernel("SecondKernel", Stream, memory, 128);
+  auto first_kernel =
+      program.MakeKernel(FirstKernel, "FirstKernel", memory,
+                         hlslib::ocl::SimulationArgument(pipe, nullptr), 128);
+  auto second_kernel = program.MakeKernel(
+      SecondKernel, "SecondKernel",
+      hlslib::ocl::SimulationArgument(pipe, nullptr), memory, 128);
   auto first_future = first_kernel.ExecuteTaskAsync();
   auto second_future = second_kernel.ExecuteTaskAsync();
   first_future.wait();

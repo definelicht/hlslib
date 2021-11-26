@@ -108,7 +108,7 @@ if(Threads_FOUND)
   add_executable(TestSubflow test/TestSubflow.cpp kernels/Subflow.cpp)
   target_link_libraries(TestSubflow ${CMAKE_THREAD_LIBS_INIT} catch)
   add_test(TestSubflow TestSubflow)
-  add_executable(TestMultipleKernels test/TestMultipleKernels.cpp)
+  add_executable(TestMultipleKernels test/TestMultipleKernels.cpp kernels/MultipleKernels.cpp)
   add_dependencies(TestMultipleKernels MultipleKernels_hw_emu)
   target_link_libraries(TestMultipleKernels ${Vitis_LIBRARIES} catch ${CMAKE_THREAD_LIBS_INIT})
   add_test(NAME TestMultipleKernels 
