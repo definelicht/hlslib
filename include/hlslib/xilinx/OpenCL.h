@@ -30,7 +30,7 @@ DSAs. Therefore for Xilinx these flags are now initialized and stored as part of
 the Context class
 */
 class DDRBankFlags {
-public:
+ public:
   DDRBankFlags(const std::string &device_name) {
     if (device_name.find("xilinx_u280") != std::string::npos) {
       memory_bank_0_ = XCL_MEM_TOPOLOGY | 32;
@@ -42,17 +42,27 @@ public:
     }
   }
 
-  DDRBankFlags() { DefaultAssignment(); }
+  DDRBankFlags() {
+    DefaultAssignment();
+  }
 
-  inline int memory_bank_0() const { return memory_bank_0_; }
+  inline int memory_bank_0() const {
+    return memory_bank_0_;
+  }
 
-  inline int memory_bank_1() const { return memory_bank_1_; }
+  inline int memory_bank_1() const {
+    return memory_bank_1_;
+  }
 
-  inline int memory_bank_2() const { return memory_bank_2_; }
+  inline int memory_bank_2() const {
+    return memory_bank_2_;
+  }
 
-  inline int memory_bank_3() const { return memory_bank_3_; }
+  inline int memory_bank_3() const {
+    return memory_bank_3_;
+  }
 
-private:
+ private:
   void DefaultAssignment() {
     memory_bank_0_ = XCL_MEM_DDR_BANK0;
     memory_bank_1_ = XCL_MEM_DDR_BANK1;
@@ -66,16 +76,17 @@ private:
   int memory_bank_3_;
 };
 
-//See: Documentation: https://www.xilinx.com/support/documentation/sw_manuals/xilinx2020_2/ug1393-vitis-application-acceleration.pdf
-//HBM Examples: https://github.com/Xilinx/Vitis_Accel_Examples/tree/master/host
+// See: Documentation:
+// https://www.xilinx.com/support/documentation/sw_manuals/xilinx2020_2/ug1393-vitis-application-acceleration.pdf
+// HBM Examples: https://github.com/Xilinx/Vitis_Accel_Examples/tree/master/host
 constexpr auto kHBMStorageMagicNumber = XCL_MEM_TOPOLOGY;
 using ExtendedMemoryPointer = cl_mem_ext_ptr_t;
 
 constexpr cl_command_queue_properties kCommandQueueFlags =
     CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
 
-} // End namespace ocl
+}  // End namespace ocl
 
-} // End namespace hlslib
+}  // End namespace hlslib
 
 #include "../common/OpenCL.h"

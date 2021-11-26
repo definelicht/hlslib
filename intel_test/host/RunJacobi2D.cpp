@@ -1,24 +1,28 @@
-#include "hlslib/intel/OpenCL.h"
-#include "Jacobi2D.h"
 #include <cmath>
 #include <iostream>
 
+#include "Jacobi2D.h"
+#include "hlslib/intel/OpenCL.h"
+
 // Convert from C to C++
 using Data_t = DTYPE;
-constexpr int kW = W;
-constexpr int kH = H;
-constexpr int kT = T;
-constexpr auto kUsage = "Usage: ./RunJacobi2D <[emulator/hardware]> [<[default/oldapi_copy/newapi_copy/newapi_notransfer]>]\n";
+constexpr int kW = COLS;
+constexpr int kH = ROWS;
+constexpr int kT = TIMESTEPS;
+constexpr auto kUsage =
+    "Usage: ./RunJacobi2D <[emulator/hardware]> "
+    "[<[default/oldapi_copy/newapi_copy/newapi_notransfer]>]\n";
 
 // Reference implementation for checking correctness
 void Reference(std::vector<Data_t> &domain) {
   std::vector<Data_t> buffer(domain);
-  for (int t = 0; t < T; ++t) {
-    for (int i = 1; i < H - 1; ++i) {
-      for (int j = 1; j < W - 1; ++j) {
-        buffer[i * W + j] = static_cast<Data_t>(0.25) *
-                            (domain[(i - 1) * W + j] + domain[(i + 1) * W + j] +
-                             domain[i * W + j - 1] + domain[i * W + j + 1]);
+  for (int t = 0; t < kT; ++t) {
+    for (int i = 1; i < kH - 1; ++i) {
+      for (int j = 1; j < kW - 1; ++j) {
+        buffer[i * kW + j] =
+            static_cast<Data_t>(0.25) *
+            (domain[(i - 1) * kW + j] + domain[(i + 1) * kW + j] +
+             domain[i * kW + j - 1] + domain[i * kW + j + 1]);
       }
     }
     domain.swap(buffer);
@@ -26,7 +30,6 @@ void Reference(std::vector<Data_t> &domain) {
 }
 
 int main(int argc, char **argv) {
-
   // Handle input arguments
   bool printError = argc < 2 && argc > 3;
   std::string copyMode = "default";
@@ -60,11 +63,11 @@ int main(int argc, char **argv) {
   // Set center to 0
   std::vector<Data_t> host_buffer(kW * kH, 0);
   // Set boundaries to 1
-  for (int i = 0; i < W; ++i) {
+  for (int i = 0; i < kW; ++i) {
     host_buffer[i] = 1;
     host_buffer[kW * (kH - 1) + i] = 1;
   }
-  for (int i = 0; i < H; ++i) {
+  for (int i = 0; i < kH; ++i) {
     host_buffer[i * kW] = 1;
     host_buffer[i * kW + kW - 1] = 1;
   }
@@ -112,7 +115,7 @@ int main(int argc, char **argv) {
   kernels.emplace_back(program.MakeKernel("Read", device_buffer));
   kernels.emplace_back(program.MakeKernel("Jacobi2D"));
   kernels.emplace_back(program.MakeKernel("Write", device_buffer));
-  std::vector<std::future<std::pair<double, double>>> futures;
+  std::vector<hlslib::ocl::Event> futures;
 
   // Execute kernel
   std::cout << "Launching kernels...\n" << std::flush;
