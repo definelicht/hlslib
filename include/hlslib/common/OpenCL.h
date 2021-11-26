@@ -1270,7 +1270,17 @@ class Kernel {
   }
 
   template <typename T, typename U>
+  void SetKernelArguments(size_t index, _SimulationArgument<T, U> const &arg) {
+    SetKernelArguments(index, arg.hardware);
+  }
+
+  template <typename T, typename U>
   void SetKernelArguments(size_t index, _SimulationArgument<T, U> &arg) {
+    SetKernelArguments(index, arg.hardware);
+  }
+
+  template <typename T, typename U>
+  void SetKernelArguments(size_t index, _SimulationArgument<T, U> &&arg) {
     SetKernelArguments(index, arg.hardware);
   }
 
