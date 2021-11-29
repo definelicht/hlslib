@@ -47,59 +47,26 @@ enum class MemoryBank { unspecified, bank0, bank1, bank2, bank3 };
 /// Enum for storage types on the FPGA
 enum class StorageType { DDR, HBM };
 
-/// Wrapper for argument that should pass a different value to the kernel in
-/// simulation mode versus in hardware mode. The use case in mind is
-/// inter-kernel streams, where Xilinx OpenCL expects nullptr, but simulation
-/// mode requires a stream to be passed from the host function.
-template <typename T, typename U>
-struct _SimulationArgument {
-  _SimulationArgument(T _simulation) : _SimulationArgument(_simulation, U()) {
+/// Wrapper for an argument that should only be passed in simulation mode, but
+/// not when setting the arguments of the OpenCL kernel. The use case in mind is
+/// inter-kernel streams, where Xilinx OpenCL expects the argument to be left
+/// unset, but the simulation mode requires a stream to be passed from the host
+/// function.
+template <typename T>
+struct _SimulationOnly {
+  _SimulationOnly(T _simulation) : simulation(_simulation) {
     // Intentionally left empty
   }
-  _SimulationArgument(T _simulation, U _hardware)
-      : simulation(_simulation), hardware(_hardware) {
-    // Intentionally left empty
-  }
-  /// The reference or value passed in simulation mode.
+  /// The reference or value passed in simulation mode only.
   T simulation;
-  /// The value passed in hardware or hardware simulation mode.
-  U hardware;
 };
-template <typename T, typename U = void *>
-auto SimulationArgument(T &&simulation, U &&hardware = U()) {
-  return _SimulationArgument<
-      typename std::conditional<std::is_rvalue_reference<T &&>::value,
-                                typename std::remove_reference<T>::type,
-                                T &&>::type,
-      typename std::conditional<std::is_rvalue_reference<U &&>::value,
-                                typename std::remove_reference<U>::type,
-                                U &&>::type>(std::forward<T>(simulation),
-                                             std::forward<U>(hardware));
+template <typename T>
+auto SimulationOnly(T &&simulation) {
+  return _SimulationOnly<typename std::conditional<
+      std::is_rvalue_reference<T &&>::value,
+      typename std::remove_reference<T>::type, T &&>::type>(
+      std::forward<T>(simulation));
 }
-
-#ifndef HLSLIB_SIMULATE_OPENCL
-using Event = cl::Event;
-#else
-/// Wraps cl::Event so we can also wait on them in simulation mode.
-class Event : public cl::Event {
- public:
-  Event(std::function<void(void)> const &f) {
-    future_ = std::async(std::launch::async, f).share();
-  }
-
-  // Because we use a shared_future, we can copy this object
-  Event(Event &&) = default;
-  Event(Event const &) = default;
-
-  cl_int wait() const {
-    future_.wait();
-    return CL_SUCCESS;
-  }
-
- private:
-  std::shared_future<void> future_;
-};
-#endif
 
 //#############################################################################
 // OpenCL exceptions
@@ -340,8 +307,8 @@ MemoryBank StorageTypeToMemoryBank(StorageType storage, int bank) {
   return MemoryBank::unspecified;
 }
 
-cl_uint NumEvents(Event const *const eventsBegin,
-                  Event const *const eventsEnd) {
+cl_uint NumEvents(cl::Event const *const eventsBegin,
+                  cl::Event const *const eventsEnd) {
   if (eventsBegin != nullptr) {
     if (eventsEnd != nullptr) {
       return std::distance(eventsBegin, eventsEnd);
@@ -646,12 +613,12 @@ class Buffer {
   ~Buffer() = default;
 
   template <
-      typename DataIterator, typename EventIterator = Event *,
+      typename DataIterator, typename EventIterator = cl::Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
                                          IsRandomAccess<DataIterator>()>::type,
-      typename =
-          typename std::enable_if<IsIteratorOfType<EventIterator, Event>() &&
-                                  IsRandomAccess<EventIterator>()>::type>
+      typename = typename std::enable_if<
+          IsIteratorOfType<EventIterator, cl::Event>() &&
+          IsRandomAccess<EventIterator>()>::type>
   void CopyFromHost(int deviceOffset, int numElements, DataIterator source,
                     EventIterator eventsBegin, EventIterator eventsEnd) {
 #ifndef HLSLIB_SIMULATE_OPENCL
@@ -660,8 +627,7 @@ class Buffer {
     const auto numEvents = NumEvents(eventsBegin, eventsEnd);
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
-      static_assert(sizeof(cl_event) == sizeof(cl::Event) &&
-                        sizeof(cl::Event) == sizeof(Event),
+      static_assert(sizeof(cl_event) == sizeof(cl::Event),
                     "Reinterpret cast is not safe.");
       errorCode = clEnqueueWriteBuffer(
           context_->commandQueue().get(), devicePtr_.get(), CL_TRUE,
@@ -674,9 +640,6 @@ class Buffer {
       throw std::runtime_error("Failed to copy data to device.");
     }
 #else
-    for (; eventsBegin != eventsEnd; ++eventsBegin) {
-      eventsBegin->wait();
-    }
     std::copy(source, source + numElements, devicePtr_.get() + deviceOffset);
 #endif
   }
@@ -685,17 +648,17 @@ class Buffer {
                                        IsIteratorOfType<DataIterator, T>() &&
                                        IsRandomAccess<DataIterator>()>::type>
   void CopyFromHost(int deviceOffset, int numElements, DataIterator source) {
-    return CopyFromHost<DataIterator, Event *>(deviceOffset, numElements,
-                                               source, nullptr, nullptr);
+    return CopyFromHost<DataIterator, cl::Event *>(deviceOffset, numElements,
+                                                   source, nullptr, nullptr);
   }
 
   template <
-      typename DataIterator, typename EventIterator = Event *,
+      typename DataIterator, typename EventIterator = cl::Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
                                          IsRandomAccess<DataIterator>()>::type,
-      typename =
-          typename std::enable_if<IsIteratorOfType<EventIterator, Event>() &&
-                                  IsRandomAccess<EventIterator>()>::type>
+      typename = typename std::enable_if<
+          IsIteratorOfType<EventIterator, cl::Event>() &&
+          IsRandomAccess<EventIterator>()>::type>
   void CopyFromHost(DataIterator source, EventIterator eventBegin,
                     EventIterator eventEnd) {
     return CopyFromHost(0, nElements_, source, eventBegin, eventEnd);
@@ -705,17 +668,17 @@ class Buffer {
                                        IsIteratorOfType<DataIterator, T>() &&
                                        IsRandomAccess<DataIterator>()>::type>
   void CopyFromHost(DataIterator source) {
-    return CopyFromHost<DataIterator, Event *>(0, nElements_, source, nullptr,
-                                               nullptr);
+    return CopyFromHost<DataIterator, cl::Event *>(0, nElements_, source,
+                                                   nullptr, nullptr);
   }
 
   template <
-      typename DataIterator, typename EventIterator = Event *,
+      typename DataIterator, typename EventIterator = cl::Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
                                          IsRandomAccess<DataIterator>()>::type,
-      typename =
-          typename std::enable_if<IsIteratorOfType<EventIterator, Event>() &&
-                                  IsRandomAccess<EventIterator>()>::type>
+      typename = typename std::enable_if<
+          IsIteratorOfType<EventIterator, cl::Event>() &&
+          IsRandomAccess<EventIterator>()>::type>
   void CopyToHost(size_t deviceOffset, size_t numElements, DataIterator target,
                   EventIterator eventsBegin, EventIterator eventsEnd) {
 #ifndef HLSLIB_SIMULATE_OPENCL
@@ -724,8 +687,7 @@ class Buffer {
     const auto numEvents = NumEvents(eventsBegin, eventsEnd);
     {
       std::lock_guard<std::mutex> lock(context_->memcopyMutex());
-      static_assert(sizeof(cl_event) == sizeof(cl::Event) &&
-                        sizeof(cl::Event) == sizeof(Event),
+      static_assert(sizeof(cl_event) == sizeof(cl::Event),
                     "Reinterpret cast is not safe.");
       errorCode = clEnqueueReadBuffer(
           context_->commandQueue().get(), devicePtr_.get(), CL_TRUE,
@@ -739,9 +701,6 @@ class Buffer {
       return;
     }
 #else
-    for (; eventsBegin != eventsEnd; ++eventsBegin) {
-      eventsBegin->wait();
-    }
     std::copy(devicePtr_.get() + deviceOffset,
               devicePtr_.get() + deviceOffset + numElements, target);
 #endif
@@ -752,17 +711,17 @@ class Buffer {
                                        IsRandomAccess<DataIterator>()>::type>
   void CopyToHost(size_t deviceOffset, size_t numElements,
                   DataIterator target) {
-    return CopyToHost<DataIterator, Event *>(deviceOffset, numElements, target,
-                                             nullptr, nullptr);
+    return CopyToHost<DataIterator, cl::Event *>(deviceOffset, numElements,
+                                                 target, nullptr, nullptr);
   }
 
   template <
-      typename DataIterator, typename EventIterator = Event *,
+      typename DataIterator, typename EventIterator = cl::Event *,
       typename = typename std::enable_if<IsIteratorOfType<DataIterator, T>() &&
                                          IsRandomAccess<DataIterator>()>::type,
-      typename =
-          typename std::enable_if<IsIteratorOfType<EventIterator, Event>() &&
-                                  IsRandomAccess<EventIterator>()>::type>
+      typename = typename std::enable_if<
+          IsIteratorOfType<EventIterator, cl::Event>() &&
+          IsRandomAccess<EventIterator>()>::type>
   void CopyToHost(DataIterator target, EventIterator eventsBegin,
                   EventIterator eventsEnd) {
     return CopyToHost(0, nElements_, target, eventsBegin, eventsEnd);
@@ -772,13 +731,13 @@ class Buffer {
                                        IsIteratorOfType<DataIterator, T>() &&
                                        IsRandomAccess<DataIterator>()>::type>
   void CopyToHost(DataIterator target) {
-    return CopyToHost<DataIterator, Event *>(0, nElements_, target, nullptr,
-                                             nullptr);
+    return CopyToHost<DataIterator, cl::Event *>(0, nElements_, target, nullptr,
+                                                 nullptr);
   }
 
-  template <Access accessType, typename EventIterator = Event *,
+  template <Access accessType, typename EventIterator = cl::Event *,
             typename = typename std::enable_if<
-                IsIteratorOfType<EventIterator, Event>() &&
+                IsIteratorOfType<EventIterator, cl::Event>() &&
                 IsRandomAccess<EventIterator>()>::type>
   void CopyToDevice(size_t offsetSource, size_t numElements,
                     Buffer<T, accessType> &other, size_t offsetDestination,
@@ -790,8 +749,7 @@ class Buffer {
     }
     cl_event event;
     cl_int errorCode;
-    static_assert(sizeof(cl_event) == sizeof(cl::Event) &&
-                      sizeof(cl::Event) == sizeof(Event),
+    static_assert(sizeof(cl_event) == sizeof(cl::Event),
                   "Reinterpret cast is not safe.");
     const auto numEvents = NumEvents(eventsBegin, eventsEnd);
     {
@@ -808,9 +766,6 @@ class Buffer {
       return;
     }
 #else
-    for (; eventsBegin != eventsEnd; ++eventsBegin) {
-      eventsBegin->wait();
-    }
     std::copy(devicePtr_.get() + offsetSource,
               devicePtr_.get() + offsetSource + numElements,
               other.devicePtr_.get() + offsetDestination);
@@ -820,7 +775,7 @@ class Buffer {
   template <Access accessType>
   void CopyToDevice(size_t offsetSource, size_t numElements,
                     Buffer<T, accessType> &other, size_t offsetDestination) {
-    return CopyToDevice<accessType, Event *>(
+    return CopyToDevice<accessType, cl::Event *>(
         offsetSource, numElements, other, offsetDestination, nullptr, nullptr);
   }
 
@@ -1352,23 +1307,23 @@ class Kernel {
     }
   }
 
-  template <typename T, typename U>
-  void SetKernelArguments(size_t index, _SimulationArgument<T, U> const &arg) {
-    SetKernelArguments(index, arg.hardware);
-  }
-
-  template <typename T, typename U>
-  void SetKernelArguments(size_t index, _SimulationArgument<T, U> &arg) {
-    SetKernelArguments(index, arg.hardware);
-  }
-
-  template <typename T, typename U>
-  void SetKernelArguments(size_t index, _SimulationArgument<T, U> &&arg) {
-    SetKernelArguments(index, arg.hardware);
+  template <typename T>
+  void SetKernelArguments(size_t index, _SimulationOnly<T> const &arg) {
+    // Do nothing
   }
 
   template <typename T>
-  void SetKernelArguments(size_t index, T &&arg) {
+  void SetKernelArguments(size_t index, _SimulationOnly<T> &arg) {
+    // Do nothing
+  }
+
+  template <typename T>
+  void SetKernelArguments(size_t index, _SimulationOnly<T> &&arg) {
+    // Do nothing
+  }
+
+  template <typename T>
+  void SetKernelArguments(size_t index, T arg) {
     auto errorCode = kernel_.setArg(index, arg);
     if (errorCode != CL_SUCCESS) {
       std::stringstream ss;
@@ -1379,9 +1334,11 @@ class Kernel {
   }
 
   void SetKernelArguments(size_t) {
+    // Bottom out
   }
 
   void SetKernelArguments() {
+    // Bottom out
   }
 
   template <typename T, typename... Ts>
@@ -1403,27 +1360,27 @@ class Kernel {
 #endif
   }
 
-  template <typename T, typename U>
+  template <typename T>
   static typename std::conditional<
       std::is_reference<T>::value,
       std::reference_wrapper<typename std::decay<T>::type>, T>::type
-  UnpackPointers(_SimulationArgument<T, U> &arg) {
+  UnpackPointers(_SimulationOnly<T> &arg) {
     return arg.simulation;
   }
 
-  template <typename T, typename U>
+  template <typename T>
   static typename std::conditional<
       std::is_reference<T>::value,
       std::reference_wrapper<typename std::decay<T>::type>, T>::type
-  UnpackPointers(_SimulationArgument<T, U> const &arg) {
+  UnpackPointers(_SimulationOnly<T> const &arg) {
     return arg.simulation;
   }
 
-  template <typename T, typename U>
+  template <typename T>
   static typename std::conditional<
       std::is_reference<T>::value,
       std::reference_wrapper<typename std::decay<T>::type>, T>::type
-  UnpackPointers(_SimulationArgument<T, U> &&arg) {
+  UnpackPointers(_SimulationOnly<T> &&arg) {
     return arg.simulation;
   }
 
@@ -1499,15 +1456,17 @@ class Kernel {
   /// Execute the kernel as an OpenCL task, wait for it to finish, then return
   /// the time elapsed as reported by OpenCL (first) and as measured with
   /// chrono (second).
-  template <typename EventIterator = Event *,
+  template <typename EventIterator = cl::Event *,
             typename = typename std::enable_if<
-                IsIteratorOfType<EventIterator, Event>() &&
+                IsIteratorOfType<EventIterator, cl::Event>() &&
                 IsRandomAccess<EventIterator>()>::type>
   std::pair<double, double> ExecuteTask(EventIterator eventsBegin,
                                         EventIterator eventsEnd) {
     const auto start = std::chrono::high_resolution_clock::now();
-    auto event = ExecuteTaskAsync(eventsBegin, eventsEnd);
+    auto event = ExecuteTaskFork(eventsBegin, eventsEnd);
+#ifndef HLSLIB_SIMULATE_OPENCL
     event.wait();
+#endif
     const auto end = std::chrono::high_resolution_clock::now();
     const double elapsedChrono =
         1e-9 * std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
@@ -1524,17 +1483,18 @@ class Kernel {
   }
 
   std::pair<double, double> ExecuteTask() {
-    return ExecuteTask<Event *>(nullptr, nullptr);
+    return ExecuteTask<cl::Event *>(nullptr, nullptr);
   }
 
-  /// Returns a future  to the result of a kernel launch, returning immediately
-  /// and allows the caller to wait on execution to finish as needed. Useful
-  /// for executing multiple concurrent kernels.
-  template <typename EventIterator = Event *,
+  /// Launch the kernel and return immediately, without requiring the caller
+  /// to wait on the kernel to finish. This is useful for kernels that are
+  /// never expected to terminate.
+  template <typename EventIterator = cl::Event *,
             typename = typename std::enable_if<
-                IsIteratorOfType<EventIterator, Event>() &&
+                IsIteratorOfType<EventIterator, cl::Event>() &&
                 IsRandomAccess<EventIterator>()>::type>
-  Event ExecuteTaskAsync(EventIterator eventsBegin, EventIterator eventsEnd) {
+  cl::Event ExecuteTaskFork(EventIterator eventsBegin,
+                            EventIterator eventsEnd) {
     cl_event event;
 #ifndef HLSLIB_SIMULATE_OPENCL
     cl_int errorCode;
@@ -1542,8 +1502,7 @@ class Kernel {
 #ifndef HLSLIB_INTEL
     {
       std::lock_guard<std::mutex> lock(program_.context().enqueueMutex());
-      static_assert(sizeof(cl_event) == sizeof(cl::Event) &&
-                        sizeof(cl::Event) == sizeof(Event),
+      static_assert(sizeof(cl_event) == sizeof(cl::Event),
                     "Reinterpret cast is not safe.");
       errorCode = clEnqueueTask(
           program_.context().commandQueue().get(), kernel_.get(), numEvents,
@@ -1556,22 +1515,24 @@ class Kernel {
 #endif
     if (errorCode != CL_SUCCESS) {
       ThrowRuntimeError("Failed to execute kernel.");
-      return Event(cl::Event());
+      return {};
     }
-    return Event(event);
+    return cl::Event(event);
 #else
-
-    return Event([this, eventsBegin, eventsEnd]() {
-      for (auto i = eventsBegin; i != eventsEnd; ++i) {
-        i->wait();
-      }
-      hostFunction_();
-    });  // Simulate by calling host function
+    hostFunction_();  // Simulate by calling host function
+    return {};        // Return dummy event
 #endif
   }
 
-  Event ExecuteTaskAsync() {
-    return ExecuteTaskAsync<Event *>(nullptr, nullptr);
+  cl::Event ExecuteTaskFork() {
+    return ExecuteTaskFork<cl::Event *>(nullptr, nullptr);
+  }
+
+  /// Returns a future to the result of a kernel launch, returning immediately
+  /// and allows the caller to wait on execution to finish as needed. Useful
+  /// for executing multiple concurrent kernels.
+  std::future<std::pair<double, double>> ExecuteTaskAsync() {
+    return std::async(std::launch::async, [this]() { return ExecuteTask(); });
   }
 
  private:
@@ -1683,19 +1644,6 @@ Kernel Program::MakeKernel(F &&hostFunction, std::string const &kernelName,
                            Ts &&... args) {
   return Kernel(*this, std::forward<F>(hostFunction), kernelName,
                 std::forward<Ts>(args)...);
-}
-
-/// Analogous to cl::waitForEvents, but compatible with the hlslib wrapper so it
-/// works across simulation and hardware environments.
-inline cl_int WaitForEvents(std::vector<Event> const &events) {
-#ifdef HLSLIB_SIMULATE_OPENCL
-  for (auto &e : events) {
-    e.wait();
-  }
-  return 0;
-#else
-  return cl::WaitForEvents(events);
-#endif
 }
 
 //#############################################################################

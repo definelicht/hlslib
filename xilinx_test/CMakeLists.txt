@@ -108,13 +108,17 @@ if(Threads_FOUND)
   add_executable(TestSubflow test/TestSubflow.cpp kernels/Subflow.cpp)
   target_link_libraries(TestSubflow ${CMAKE_THREAD_LIBS_INIT} catch)
   add_test(TestSubflow TestSubflow)
-  add_executable(TestMultipleKernels test/TestMultipleKernels.cpp kernels/MultipleKernels.cpp)
-  add_dependencies(TestMultipleKernels MultipleKernels_hw_emu)
-  target_link_libraries(TestMultipleKernels ${Vitis_LIBRARIES} catch ${CMAKE_THREAD_LIBS_INIT})
-  add_test(NAME TestMultipleKernels 
+  add_executable(TestMultipleKernelsHardwareEmulation test/TestMultipleKernels.cpp kernels/MultipleKernels.cpp)
+  add_dependencies(TestMultipleKernelsHardwareEmulation MultipleKernels_hw_emu)
+  target_link_libraries(TestMultipleKernelsHardwareEmulation ${Vitis_LIBRARIES} catch ${CMAKE_THREAD_LIBS_INIT})
+  add_test(NAME TestMultipleKernelsHardwareEmulation 
            COMMAND ${CMAKE_COMMAND} -E env
            XCL_EMULATION_MODE="hw_emu"
-           ${CMAKE_CURRENT_BINARY_DIR}/TestMultipleKernels)
+           ${CMAKE_CURRENT_BINARY_DIR}/TestMultipleKernelsHardwareEmulation)
+  add_executable(TestMultipleKernelsSimulation test/TestMultipleKernels.cpp kernels/MultipleKernels.cpp)
+  target_compile_options(TestMultipleKernelsSimulation PRIVATE -DHLSLIB_SIMULATE_OPENCL) 
+  target_link_libraries(TestMultipleKernelsSimulation ${Vitis_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} catch)
+  add_test(TestMultipleKernelsSimulation TestMultipleKernelsSimulation)
 else()
   message(WARNING "Threads not found. Disabling multi-PE kernel tests.")
 endif()
