@@ -47,10 +47,26 @@ enum class MemoryBank { unspecified, bank0, bank1, bank2, bank3 };
 /// Enum for storage types on the FPGA
 enum class StorageType { DDR, HBM };
 
-/// Used to signal that an argument is a streaming connection between kernels
-/// and should not be assigned from the host as an OpenCL argument
-struct _Stream {};
-inline constexpr _Stream Stream;
+/// Wrapper for an argument that should only be passed in simulation mode, but
+/// not when setting the arguments of the OpenCL kernel. The use case in mind is
+/// inter-kernel streams, where Xilinx OpenCL expects the argument to be left
+/// unset, but the simulation mode requires a stream to be passed from the host
+/// function.
+template <typename T>
+struct _SimulationOnly {
+  _SimulationOnly(T _simulation) : simulation(_simulation) {
+    // Intentionally left empty
+  }
+  /// The reference or value passed in simulation mode only.
+  T simulation;
+};
+template <typename T>
+auto SimulationOnly(T &&simulation) {
+  return _SimulationOnly<typename std::conditional<
+      std::is_rvalue_reference<T &&>::value,
+      typename std::remove_reference<T>::type, T &&>::type>(
+      std::forward<T>(simulation));
+}
 
 #ifndef HLSLIB_SIMULATE_OPENCL
 using Event = cl::Event;
@@ -1327,7 +1343,13 @@ class Kernel {
     }
   }
 
-  void SetKernelArguments(size_t index, _Stream const &) {
+  template <typename T>
+  void SetKernelArguments(size_t index, _SimulationOnly<T> const &) {
+    // Ignore argument, as this is set internally during linking
+  }
+
+  template <typename T>
+  void SetKernelArguments(size_t index, _SimulationOnly<T> &&) {
     // Ignore argument, as this is set internally during linking
   }
 
@@ -1343,9 +1365,11 @@ class Kernel {
   }
 
   void SetKernelArguments(size_t) {
+    // Bottom out
   }
 
   void SetKernelArguments() {
+    // Bottom out
   }
 
   template <typename T, typename... Ts>
@@ -1365,6 +1389,22 @@ class Kernel {
     // In simulation mode, unpack the buffer to the raw pointer
     return buffer.devicePtr();
 #endif
+  }
+
+  template <typename T>
+  static typename std::conditional<
+      std::is_reference<T>::value,
+      std::reference_wrapper<typename std::decay<T>::type>, T>::type
+  UnpackPointers(_SimulationOnly<T> const &arg) {
+    return arg.simulation;
+  }
+
+  template <typename T>
+  static typename std::conditional<
+      std::is_reference<T>::value,
+      std::reference_wrapper<typename std::decay<T>::type>, T>::type
+  UnpackPointers(_SimulationOnly<T> &&arg) {
+    return arg.simulation;
   }
 
   template <typename T>
