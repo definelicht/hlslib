@@ -608,14 +608,12 @@ function(add_vitis_program
       file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL}_synthesis.tcl
            "\
 open_project ${KERNEL} \ 
-open_solution ${PROGRAM_PLATFORM_PART} \ 
+open_solution -flow_target vitis ${PROGRAM_PLATFORM_PART} \ 
 set_part ${PROGRAM_PLATFORM_PART} \ 
 add_files -cflags \"${KERNEL_HLS_FLAGS}\" \"${KERNEL_FILES}\" \ 
 set_top ${KERNEL_NAME} \ 
 ${KERNEL_HLS_TCL_CLOCK}\
 ${KERNEL_HLS_CONFIG} \ 
-config_interface -m_axi_addr64 \ 
-config_compile -name_max_length 256 \ 
 csynth_design \ 
 exit")
       add_custom_command(OUTPUT ${KERNEL}/${PROGRAM_PLATFORM_PART}/${PROGRAM_PLATFORM_PART}.log
