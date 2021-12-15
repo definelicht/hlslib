@@ -81,7 +81,7 @@ struct Status { // 8 bits
     ret(3,0) = tag;
     ret(4,4) = internalError;
     ret(5,5) = decodeError;
-    ret(5,5) = slaveError;
+    ret(6,6) = slaveError;
     ret(7,7) = okay;
     ret(30,8) = bytesReceived;
     ret(31,31) = endOfPacket;
