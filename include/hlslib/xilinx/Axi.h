@@ -47,14 +47,14 @@ struct Command {
       : length(cmd(22,0)), type(cmd(23,23)), dsa(cmd(29,24)), eof(cmd(30,30)), drr(cmd(31,31)), address(cmd(95,32)), tag(cmd(99,96)) {}
   operator ap_uint<addressWidth+bttWidth+17>(){
     ap_uint<addressWidth+bttWidth+17> ret;
-    ret(22,0) = length;
-    ret(23,23) = type;
-    ret(29,24) = dsa;
-    ret(30,30) = eof;
-    ret(31,31) = drr;
-    ret(95,32) = address;
-    ret(99,96) = tag;
-    ret(103,100) = 0;
+    ret(bttWidth-1,0) = length;
+    ret(bttWidth,bttWidth) = type;
+    ret(bttWidth+6,bttWidth+1) = dsa;
+    ret(bttWidth+7,bttWidth+7) = eof;
+    ret(bttWidth+8,bttWidth+8) = drr;
+    ret(addressWidth+bttWidth+8,bttWidth+9) = address;
+    ret(addressWidth+bttWidth+12,addressWidth+bttWidth+9) = tag;
+    ret(addressWidth+bttWidth+16,addressWidth+bttWidth+13) = 0;
     return ret;
   }
 };
@@ -68,6 +68,8 @@ struct Status { // 8 bits
   ap_uint<1> decodeError{0};
   ap_uint<1> slaveError{0};
   ap_uint<1> okay;
+  ap_uint<23> bytesReceived{0};
+  ap_uint<1> endOfPacket{0};
 
 	Status(bool _okay) : okay(_okay) {}  
   Status() : okay(true) {}
