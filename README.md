@@ -18,7 +18,7 @@ There are a few ways:
 Just `#include` the header(s) you are interested in, and/or put the CMake files somewhere in your project directory and
 add their path to your `${CMAKE_MODULE_PATH}`. You can see an example [here](https://github.com/spcl/gemm_hls)!
 
-Officially supported versions of Vitis currently include 2021.1, 2020.2, 2020.1, and 2019.2. Older versions (including SDx and SDAccel) _might_ work, but should be used at your own discretion.
+Officially supported versions of Vitis currently include 2021.2, 2021.1, 2020.2, 2020.1, and 2019.2. Older versions (including SDx and SDAccel) _might_ work, but should be used at your own discretion.
 
 ## Feature overview
 
