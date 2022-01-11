@@ -286,7 +286,7 @@ function(add_vitis_kernel
       KERNEL
       ""
       "KERNEL"
-      "FILES;DEPENDS;INCLUDE_DIRS;HLS_FLAGS;HLS_CONFIG;COMPILE_FLAGS;PORT_MAPPING"
+      "FILES;COMPUTE_UNITS;DEPENDS;INCLUDE_DIRS;HLS_FLAGS;HLS_CONFIG;COMPILE_FLAGS;PORT_MAPPING"
       ${ARGN})
 
   # Verify that input is sane
@@ -318,14 +318,27 @@ function(add_vitis_kernel
     set(KERNEL_NAME ${KERNEL_TARGET})
   endif()
 
+  # Default the number of compute units
+  if(NOT KERNEL_COMPUTE_UNITS)
+    set(KERNEL_COMPUTE_UNITS 1)
+  endif()
+  if(${KERNEL_COMPUTE_UNITS} GREATER 1)
+    set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.nk ${KERNEL_NAME}:${KERNEL_COMPUTE_UNITS}")
+  endif()
+
   # Specify port mapping
   string(REPLACE " " ";" KERNEL_PORT_MAPPING "${KERNEL_PORT_MAPPING}")
   foreach(MAPPING ${KERNEL_PORT_MAPPING})
-    string(REGEX MATCH "[^: \t\n]+:[^: \t\n]+" IS_MEMORY_BANK ${MAPPING})
-    if(IS_MEMORY_BANK)
-      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.sp ${KERNEL_NAME}_1.${MAPPING}") 
+    string(REGEX MATCH "[A-Za-z0-9_]+\\.[^: \t\n]+:[^: \t\n]+" HAS_KERNEL_NAME ${MAPPING})
+    if(HAS_KERNEL_NAME)
+      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.sp ${MAPPING}") 
     else()
-      message(FATAL_ERROR "Unrecognized port mapping \"${MAPPING}\".")
+      string(REGEX MATCH "[^: \t\n]+:[^: \t\n]+" IS_MEMORY_BANK ${MAPPING})
+      if(IS_MEMORY_BANK)
+        set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.sp ${KERNEL_NAME}_1.${MAPPING}") 
+      else()
+        message(FATAL_ERROR "Unrecognized port mapping \"${MAPPING}\".")
+      endif()
     endif()
   endforeach()
 
@@ -378,6 +391,7 @@ function(add_vitis_kernel
 
   # Pass variables the program target through properties
   set_target_properties(${KERNEL_TARGET} PROPERTIES KERNEL_FILES "${KERNEL_FILES}")
+  set_target_properties(${KERNEL_TARGET} PROPERTIES KERNEL_COMPUTE_UNITS "${KERNEL_COMPUTE_UNITS}")
   set_target_properties(${KERNEL_TARGET} PROPERTIES KERNEL_NAME "${KERNEL_NAME}")
   set_target_properties(${KERNEL_TARGET} PROPERTIES HLS_FLAGS "${KERNEL_HLS_FLAGS}")
   set_target_properties(${KERNEL_TARGET} PROPERTIES COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
