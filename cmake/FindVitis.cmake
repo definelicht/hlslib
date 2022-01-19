@@ -286,7 +286,7 @@ function(add_vitis_kernel
       KERNEL
       ""
       "KERNEL"
-      "FILES;COMPUTE_UNITS;DEPENDS;INCLUDE_DIRS;HLS_FLAGS;HLS_CONFIG;COMPILE_FLAGS;PORT_MAPPING"
+      "FILES;COMPUTE_UNITS;DEPENDS;INCLUDE_DIRS;HLS_FLAGS;HLS_CONFIG;COMPILE_FLAGS;PORT_MAPPING;SLR_MAPPING"
       ${ARGN})
 
   # Verify that input is sane
@@ -339,6 +339,17 @@ function(add_vitis_kernel
       else()
         message(FATAL_ERROR "Unrecognized port mapping \"${MAPPING}\".")
       endif()
+    endif()
+  endforeach()
+
+  # Specify SLR mapping
+  string(REPLACE " " ";" KERNEL_SLR_MAPPING "${KERNEL_SLR_MAPPING}")
+  foreach(MAPPING ${KERNEL_SLR_MAPPING})
+    string(REGEX MATCH "[A-Za-z0-9_]+:[^: \t\n]+" HAS_KERNEL_NAME ${MAPPING})
+    if(HAS_KERNEL_NAME)
+      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.slr ${MAPPING}") 
+    else()
+      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.slr ${KERNEL_NAME}_1:${MAPPING}") 
     endif()
   endforeach()
 
