@@ -735,7 +735,7 @@ exit")
     DEPENDS ${PROGRAM_XO_FILES_HW}
             ${PROGRAM_DEPENDS})
   add_custom_target(link_${PROGRAM_TARGET}_hw DEPENDS ${PROGRAM_XCLBIN_HW})
-  add_custom_target(${PROGRAM_TARGET}_hw DEPENDS link_${KERNEL_TARGET_NAME}_hw)
+  add_custom_target(${PROGRAM_TARGET}_hw DEPENDS link_${PROGRAM_TARGET}_hw)
 
   # Shorthand to compile kernels, so user can just run "make hw" or "make hw_emu"
   if(NOT TARGET link_sw_emu)
