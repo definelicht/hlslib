@@ -172,7 +172,7 @@ class Stream<T, 0, Storage::Unspecified> {
   /// Compatibility with hls::stream interface.
   void write(T const &val) {
     #pragma HLS INLINE
-    WriteBlocking(val, std::numeric_limits<int>::max());
+    WriteBlocking(val);
   }
 
   /// Compatibility with hls::stream interface.
