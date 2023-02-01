@@ -138,12 +138,18 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
   # Floating point library
   #----------------------------------------------------------------------------
 
-  find_library(Vitis_FLOATING_POINT_LIBRARY Ip_floating_point_v7_0_bitacc_cmodel
+  find_library(Vitis_FLOATING_POINT_LIBRARY 
+               NAMES 
+               Ip_floating_point_v7_0_bitacc_cmodel
+               Ip_floating_point_v7_1_bitacc_cmodel 
                PATHS
-               ${VITIS_ROOT}/lnx64/tools/fpo_v7_0
-               ${VITIS_ROOT}/../../Vitis_HLS/${Vitis_VERSION}/lnx64/tools/fpo_v7_0
-               ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/lnx64/tools/fpo_v7_0
-               ${VITIS_ROOT}/Vivado_HLS/lnx64/tools/fpo_v7_0)
+               ${VITIS_ROOT}/lnx64/tools/
+               ${VITIS_ROOT}/../../Vitis_HLS/${Vitis_VERSION}/lnx64/tools/
+               ${VITIS_ROOT}/../../Vivado/${Vitis_VERSION}/lnx64/tools/
+               ${VITIS_ROOT}/Vivado_HLS/lnx64/tools/
+               PATH_SUFFIXES
+               fpo_v7_0
+               fpo_v7_1)
   mark_as_advanced(Vitis_FLOATING_POINT_LIBRARY)
 
   get_filename_component(VITIS_FP_DIR ${Vitis_FLOATING_POINT_LIBRARY}
