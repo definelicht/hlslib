@@ -37,11 +37,27 @@ endif()
 
 if(NOT DEFINED VITIS_ROOT)
 
-  find_path(VITIS_SEARCH_PATH v++ xocc 
-            PATHS ENV XILINX_OPENCL ENV XILINX_VITIS ENV XILINX_SDACCEL
-                  ENV XILINX_SDX
-            PATH_SUFFIXES bin)
-  get_filename_component(VITIS_ROOT ${VITIS_SEARCH_PATH} DIRECTORY) 
+  find_path(
+    VITIS_SEARCH_PATH
+    v++ xocc
+    PATHS ENV XILINX_OPENCL
+          ENV XILINX_VITIS
+          ENV XILINX_SDACCEL
+          ENV XILINX_SDX
+          /tools/Xilinx/Vitis
+    PATH_SUFFIXES bin
+                  2023.2/bin
+                  2023.1/bin
+                  2022.2/bin
+                  2022.1/bin
+                  2021.2/bin
+                  2021.1/bin
+                  2020.3/bin
+                  2020.2/bin
+                  2020.1/bin
+                  2019.2/bin
+  )
+  get_filename_component(VITIS_ROOT ${VITIS_SEARCH_PATH} DIRECTORY)
   mark_as_advanced(VITIS_SEARCH_PATH)
 
 else()
