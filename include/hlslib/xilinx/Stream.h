@@ -170,6 +170,12 @@ class Stream<T, 0, Storage::Unspecified> {
   }
 
   /// Compatibility with hls::stream interface.
+  bool read_nb(T &out) {
+    #pragma HLS INLINE
+    return ReadNonBlocking(out);
+  }
+
+  /// Compatibility with hls::stream interface.
   void write(T const &val) {
     #pragma HLS INLINE
     WriteBlocking(val);
