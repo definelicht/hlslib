@@ -1,6 +1,6 @@
 # Author:  Johannes de Fine Licht (definelicht@inf.ethz.ch)
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.27)
 project(hlslib)
 
 option(HLSLIB_ENABLE_TESTING
@@ -12,7 +12,7 @@ option(HLSLIB_BUILD_DOCUMENTATION
 # Vitis/SDx/SDAccel and Intel FPGA OpenCL.
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
-# Find Xilinx and Intel OpenCL software for enabling test targets 
+# Find Xilinx and Intel OpenCL software for enabling test targets
 find_package(Threads)
 find_package(Vitis)
 find_package(IntelFPGAOpenCL)
@@ -61,7 +61,7 @@ if(NOT HLSLIB_IS_SUBPROJECT)
     if(Doxygen_FOUND)
       configure_file(${PROJECT_SOURCE_DIR}/Doxyfile.in Doxyfile)
       add_custom_target(doxygen ALL
-          COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile 
+          COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile
           WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
     endif()
 

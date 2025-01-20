@@ -1,12 +1,12 @@
 # Author:  Johannes de Fine Licht (definelicht@inf.ethz.ch)
-# This software is copyrighted under the BSD 3-Clause License. 
+# This software is copyrighted under the BSD 3-Clause License.
 #
 # Once done this will define:
 #   Vitis_FOUND - Indicates whether Vitis/SDx/SDAccel was found.
-#   Vitis_INCLUDE_DIRS - Include directories for HLS. 
-#   Vitis_LIBRARIES - Runtime libraries required for host side code. 
+#   Vitis_INCLUDE_DIRS - Include directories for HLS.
+#   Vitis_LIBRARIES - Runtime libraries required for host side code.
 #   Vitis_COMPILER - Path to the compiler executable (v++ or xocc).
-#   Vitis_HLS - Path to HLS executable (vitis_hls or vivado_hls). 
+#   Vitis_HLS - Path to HLS executable (vitis_hls or vivado_hls).
 #   Vitis_FLOATING_POINT_LIBRARY - Library required for emulation of fp16.
 #   Vitis_VERSION - Version of Vitis/SDx/SDAccel installation.
 #   Vitis_VERSION_MAJOR - Major version of Vitis/SDx/SDAccel installation.
@@ -46,6 +46,8 @@ if(NOT DEFINED VITIS_ROOT)
           ENV XILINX_SDX
           /tools/Xilinx/Vitis
     PATH_SUFFIXES bin
+                  2024.2/bin
+                  2024.1/bin
                   2023.2/bin
                   2023.1/bin
                   2022.2/bin
@@ -68,7 +70,7 @@ endif()
 
 # Check if all the necessary components are present. We want to ensure that we
 # use the tools bundled together, so we restrict all further finds to only look
-# in paths relative to the determined installation. 
+# in paths relative to the determined installation.
 
 find_program(Vitis_XOCC xocc PATHS ${VITIS_ROOT}/bin NO_DEFAULT_PATH)
 find_program(Vitis_VPP v++ PATHS ${VITIS_ROOT}/bin NO_DEFAULT_PATH)
@@ -80,7 +82,7 @@ if(Vitis_XOCC)
   set(VITIS_IS_LEGACY TRUE)
   add_definitions(-DVITIS_IS_LEGACY)
 endif()
-# Prefer v++ over xocc executable 
+# Prefer v++ over xocc executable
 if(Vitis_VPP)
   set(VITIS_COMPILER ${Vitis_VPP})
   set(VITIS_IS_LEGACY FALSE)
@@ -108,7 +110,7 @@ find_program(Vitis_VIVADO_HLS NAMES vivado_hls PATHS
 
 # Check if we should use vivado_hls or vitis_hls
 if(Vitis_MAJOR_VERSION GREATER 2020 OR Vitis_MAJOR_VERSION EQUAL 2020)
-  # vitis_hls is used internally for building kernels starting from 2020.1. 
+  # vitis_hls is used internally for building kernels starting from 2020.1.
   set(Vitis_USE_VITIS_HLS ON CACHE BOOL "Use vitis_hls instead of vivado_hls." FORCE)
   find_program(VITIS_HLS NAMES vitis_hls vivado_hls PATHS
                ${VITIS_ROOT}/../../Vitis_HLS/${Vitis_VERSION}/bin
@@ -154,10 +156,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
   # Floating point library
   #----------------------------------------------------------------------------
 
-  find_library(Vitis_FLOATING_POINT_LIBRARY 
-               NAMES 
+  find_library(Vitis_FLOATING_POINT_LIBRARY
+               NAMES
                Ip_floating_point_v7_0_bitacc_cmodel
-               Ip_floating_point_v7_1_bitacc_cmodel 
+               Ip_floating_point_v7_1_bitacc_cmodel
                PATHS
                ${VITIS_ROOT}/lnx64/tools/
                ${VITIS_ROOT}/../../Vitis_HLS/${Vitis_VERSION}/lnx64/tools/
@@ -169,10 +171,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
   mark_as_advanced(Vitis_FLOATING_POINT_LIBRARY)
 
   get_filename_component(VITIS_FP_DIR ${Vitis_FLOATING_POINT_LIBRARY}
-                         DIRECTORY) 
+                         DIRECTORY)
   mark_as_advanced(VITIS_FP_DIR)
 
-  set(Vitis_FLOATING_POINT_LIBRARY ${Vitis_FLOATING_POINT_LIBRARY} 
+  set(Vitis_FLOATING_POINT_LIBRARY ${Vitis_FLOATING_POINT_LIBRARY}
       ${Vitis_FLOATING_POINT_LIBMPFR} ${Vitis_FLOATING_POINT_LIBGMP})
 
   find_library(Vitis_FLOATING_POINT_LIBGMP gmp
@@ -202,18 +204,18 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
               PATH_SUFFIXES 1_1/CL 1_2/CL 2_0/CL
               NO_DEFAULT_PATH)
     get_filename_component(Vitis_OPENCL_INCLUDE_DIR
-                           ${Vitis_OPENCL_INCLUDE_DIR} DIRECTORY) 
+                           ${Vitis_OPENCL_INCLUDE_DIR} DIRECTORY)
 
   else()
 
     if(NOT DEFINED XRT_ROOT)
 
-      find_path(XRT_SEARCH_PATH libxilinxopencl.so 
+      find_path(XRT_SEARCH_PATH libxilinxopencl.so
                 PATHS ENV XILINX_XRT
                       /opt/xilinx/xrt /opt/Xilinx/xrt
                       /tools/Xilinx/xrt /tools/xilinx/xrt
                 PATH_SUFFIXES lib)
-      get_filename_component(XRT_ROOT ${XRT_SEARCH_PATH} DIRECTORY) 
+      get_filename_component(XRT_ROOT ${XRT_SEARCH_PATH} DIRECTORY)
       mark_as_advanced(XRT_SEARCH_PATH)
 
       if(NOT XRT_SEARCH_PATH)
@@ -222,7 +224,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
 
       message(STATUS "Found Xilinx Runtime (XRT): ${XRT_ROOT}")
 
-    else() 
+    else()
 
       message(STATUS "Using user defined Xilinx Runtime (XRT) directory \"${XRT_ROOT}\".")
 
@@ -244,8 +246,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
                NO_DEFAULT_PATH)
   mark_as_advanced(Vitis_LIBXILINXOPENCL)
 
-  get_filename_component(VITIS_RUNTIME_LIB_FOLDER ${Vitis_LIBXILINXOPENCL}  
-                         DIRECTORY) 
+  get_filename_component(VITIS_RUNTIME_LIB_FOLDER ${Vitis_LIBXILINXOPENCL}
+                         DIRECTORY)
   mark_as_advanced(VITIS_RUNTIME_LIB_FOLDER)
 
   # Only succeed if libraries were found
@@ -264,14 +266,14 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
             PATHS ${VITIS_RUNTIME_DIR}/include
             PATH_SUFFIXES 1_1/CL 1_2/CL 2_0/CL CL
             NO_DEFAULT_PATH)
-  get_filename_component(Vitis_OPENCL_EXTENSIONS_INCLUDE_DIR 
-                         ${Vitis_OPENCL_EXTENSIONS_INCLUDE_DIR} DIRECTORY) 
+  get_filename_component(Vitis_OPENCL_EXTENSIONS_INCLUDE_DIR
+                         ${Vitis_OPENCL_EXTENSIONS_INCLUDE_DIR} DIRECTORY)
 
   # Only succeed if both include paths were found
   if(Vitis_HLS_INCLUDE_DIR AND Vitis_OPENCL_INCLUDE_DIR AND
      Vitis_OPENCL_EXTENSIONS_INCLUDE_DIR)
     set(Vitis_INCLUDE_DIRS ${Vitis_HLS_INCLUDE_DIR}
-        ${Vitis_OPENCL_INCLUDE_DIR} ${Vitis_OPENCL_EXTENSIONS_INCLUDE_DIR} 
+        ${Vitis_OPENCL_INCLUDE_DIR} ${Vitis_OPENCL_EXTENSIONS_INCLUDE_DIR}
         CACHE STRING "Vitis include directories." FORCE)
   endif()
 
@@ -321,7 +323,7 @@ function(add_vitis_kernel
   string(REPLACE " " ";" KERNEL_DEPENDS "${KERNEL_DEPENDS}")
   unset(_KERNEL_DEPENDS)
   foreach(DEP ${KERNEL_DEPENDS})
-    if(NOT TARGET ${DEP}) 
+    if(NOT TARGET ${DEP})
       hlslib_make_paths_absolute(DEP ${DEP})
     endif()
     set(_KERNEL_DEPENDS ${_KERNEL_DEPENDS} ${DEP})
@@ -353,11 +355,11 @@ function(add_vitis_kernel
   foreach(MAPPING ${KERNEL_PORT_MAPPING})
     string(REGEX MATCH "[A-Za-z0-9_]+\\.[^: \t\n]+:[^: \t\n]+" HAS_KERNEL_NAME ${MAPPING})
     if(HAS_KERNEL_NAME)
-      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.sp ${MAPPING}") 
+      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.sp ${MAPPING}")
     else()
       string(REGEX MATCH "[^: \t\n]+:[^: \t\n]+" IS_MEMORY_BANK ${MAPPING})
       if(IS_MEMORY_BANK)
-        set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.sp ${KERNEL_NAME}_1.${MAPPING}") 
+        set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.sp ${KERNEL_NAME}_1.${MAPPING}")
       else()
         message(FATAL_ERROR "Unrecognized port mapping \"${MAPPING}\".")
       endif()
@@ -369,9 +371,9 @@ function(add_vitis_kernel
   foreach(MAPPING ${KERNEL_SLR_MAPPING})
     string(REGEX MATCH "[A-Za-z0-9_]+:[^: \t\n]+" HAS_KERNEL_NAME ${MAPPING})
     if(HAS_KERNEL_NAME)
-      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.slr ${MAPPING}") 
+      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.slr ${MAPPING}")
     else()
-      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.slr ${KERNEL_NAME}_1:${MAPPING}") 
+      set(KERNEL_LINK_FLAGS "${KERNEL_LINK_FLAGS} --connectivity.slr ${KERNEL_NAME}_1:${MAPPING}")
     endif()
   endforeach()
 
@@ -466,7 +468,7 @@ function(add_vitis_program
   string(REPLACE " " ";" PROGRAM_DEPENDS "${PROGRAM_DEPENDS}")
   unset(_PROGRAM_DEPENDS)
   foreach(DEP ${PROGRAM_DEPENDS})
-    if(NOT TARGET ${DEP}) 
+    if(NOT TARGET ${DEP})
       hlslib_make_paths_absolute(DEP ${DEP})
     endif()
     set(_PROGRAM_DEPENDS ${_PROGRAM_DEPENDS} ${DEP})
@@ -534,7 +536,7 @@ function(add_vitis_program
   foreach(MAPPING ${PROGRAM_CONNECTIVITY})
     string(REGEX MATCH "[^\\.: \t\n]+\\.[^\\.: \t\n]+:[^\\.: \t\n]+\\.[^\\.: \t\n]+" IS_MAPPING ${MAPPING})
     if(IS_MAPPING)
-      set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} --connectivity.sc ${MAPPING}") 
+      set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} --connectivity.sc ${MAPPING}")
     else()
       message(FATAL_ERROR "Unrecognized kernel mapping \"${MAPPING}\".")
     endif()
@@ -551,7 +553,7 @@ function(add_vitis_program
   unset(PROGRAM_XO_FILES_HW)
 
   foreach(KERNEL ${PROGRAM_KERNELS})
-  
+
     get_target_property(KERNEL_NAME ${KERNEL} KERNEL_NAME)
     get_target_property(KERNEL_FILES ${KERNEL} KERNEL_FILES)
     get_target_property(KERNEL_HLS_FLAGS ${KERNEL} HLS_FLAGS)
@@ -560,7 +562,7 @@ function(add_vitis_program
     get_target_property(KERNEL_LINK_FLAGS ${KERNEL} LINK_FLAGS)
     get_target_property(KERNEL_DEPENDS ${KERNEL} DEPENDS)
 
-    set(KERNEL_COMPILE_FLAGS "${PROGRAM_COMPILE_FLAGS} ${KERNEL_COMPILE_FLAGS} --advanced.prop kernel.${KERNEL_NAME}.kernel_flags=\"${KERNEL_HLS_FLAGS}\"") 
+    set(KERNEL_COMPILE_FLAGS "${PROGRAM_COMPILE_FLAGS} ${KERNEL_COMPILE_FLAGS} --advanced.prop kernel.${KERNEL_NAME}.kernel_flags=\"${KERNEL_HLS_FLAGS}\"")
     set(PROGRAM_LINK_FLAGS "${PROGRAM_LINK_FLAGS} ${KERNEL_LINK_FLAGS}")
 
     # If HLS TCL config commands are provided, generate a file that can be passed
@@ -569,7 +571,7 @@ function(add_vitis_program
       file(WRITE ${HLS_TCL_FILE} "${KERNEL_HLS_CONFIG}")
       set(KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS} --hls.pre_tcl ${HLS_TCL_FILE}")
     endif()
-    
+
     # Canonicalize flags
     string(REGEX REPLACE "[ \t\r\n][ \t\r\n]+" " " KERNEL_COMPILE_FLAGS "${KERNEL_COMPILE_FLAGS}")
     string(STRIP "${KERNEL_COMPILE_FLAGS}" KERNEL_COMPILE_FLAGS)
@@ -585,7 +587,7 @@ function(add_vitis_program
               XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
               ${Vitis_COMPILER} --compile --target sw_emu
               --kernel ${KERNEL_NAME}
-              ${KERNEL_COMPILE_FLAGS} 
+              ${KERNEL_COMPILE_FLAGS}
               ${PROGRAM_BUILD_FLAGS}
               ${KERNEL_FILES}
               --output ${KERNEL_XO_FILE_SW_EMU}
@@ -609,7 +611,7 @@ function(add_vitis_program
               XILINX_PATH=${CMAKE_CURRENT_BINARY_DIR}
               ${Vitis_COMPILER} --compile --target hw_emu
               --kernel ${KERNEL_NAME}
-              ${KERNEL_COMPILE_FLAGS} 
+              ${KERNEL_COMPILE_FLAGS}
               ${PROGRAM_BUILD_FLAGS}
               ${KERNEL_FILES}
               --output ${KERNEL_XO_FILE_HW_EMU}
@@ -652,17 +654,17 @@ function(add_vitis_program
       if(PROGRAM_CLOCK)
         set(KERNEL_HLS_TCL_CLOCK "create_clock -period ${PROGRAM_CLOCK}MHz -name default\n")
       endif()
-      string(REPLACE ";" " " KERNEL_FILES "${KERNEL_FILES}") 
+      string(REPLACE ";" " " KERNEL_FILES "${KERNEL_FILES}")
       file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL}_synthesis.tcl
            "\
-open_project ${KERNEL} \ 
-open_solution -flow_target vitis ${PROGRAM_PLATFORM_PART} \ 
-set_part ${PROGRAM_PLATFORM_PART} \ 
-add_files -cflags \"${KERNEL_HLS_FLAGS}\" \"${KERNEL_FILES}\" \ 
-set_top ${KERNEL_NAME} \ 
+open_project ${KERNEL} \
+open_solution -flow_target vitis ${PROGRAM_PLATFORM_PART} \
+set_part ${PROGRAM_PLATFORM_PART} \
+add_files -cflags \"${KERNEL_HLS_FLAGS}\" \"${KERNEL_FILES}\" \
+set_top ${KERNEL_NAME} \
 ${KERNEL_HLS_TCL_CLOCK}\
-${KERNEL_HLS_CONFIG} \ 
-csynth_design \ 
+${KERNEL_HLS_CONFIG} \
+csynth_design \
 exit")
       add_custom_command(OUTPUT ${KERNEL}/${PROGRAM_PLATFORM_PART}/${PROGRAM_PLATFORM_PART}.log
                          COMMENT "Running high-level synthesis for ${KERNEL}."
@@ -670,7 +672,7 @@ exit")
                          # CMake does not seem to rerun the custom target if the target that it depends
                          # on is rerun, so we have to re-add the files as dependencies here.
                          DEPENDS ${KERNEL} ${KERNEL_DEPENDS})
-      add_custom_target(synthesize_${KERNEL} DEPENDS  
+      add_custom_target(synthesize_${KERNEL} DEPENDS
                         ${KERNEL}/${PROGRAM_PLATFORM_PART}/${PROGRAM_PLATFORM_PART}.log)
       set_property(TARGET synthesize_${KERNEL} APPEND PROPERTY ADDITIONAL_CLEAN_FILES
                    ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL} vitis_hls.log)
@@ -807,7 +809,7 @@ set(Vitis_EXPORTS
     Vitis_HLS
     Vitis_INCLUDE_DIRS
     Vitis_LIBRARIES
-    Vitis_FLOATING_POINT_LIBRARY 
+    Vitis_FLOATING_POINT_LIBRARY
     Vitis_VERSION
     Vitis_MAJOR_VERSION
     Vitis_MINOR_VERSION
