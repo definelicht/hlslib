@@ -476,7 +476,7 @@ function(add_vitis_program
   set(PROGRAM_DEPENDS ${PROGRAM_DEPENDS} ${_PROGRAM_DEPENDS})
 
   # Recover the part name used by the given platform
-  if(NOT PROGRAM_PLATFORM_PART OR NOT "${${PROGRAM_TARGET}_PLATFORM}" STREQUAL "${PROGRAM_PLATFORM}")
+  if(((NOT DEFINED PROGRAM_PLATFORM_PART) OR (NOT PROGRAM_PLATFORM_PART)) AND (NOT "${${PROGRAM_TARGET}_PLATFORM}" STREQUAL "${PROGRAM_PLATFORM}"))
     message(STATUS "Querying Vitis platform for ${PROGRAM_TARGET}.")
     execute_process(COMMAND ${Vitis_PLATFORMINFO} --platform ${PROGRAM_PLATFORM} -jhardwarePlatform.board.part
                     OUTPUT_VARIABLE PLATFORM_PART)
@@ -485,6 +485,7 @@ function(add_vitis_program
       set(PROGRAM_PLATFORM_PART ${PLATFORM_PART} CACHE INTERNAL "")
     endif()
   endif()
+  message(STATUS "Deduced PROGRAM_PLATFORM_PART: ${PROGRAM_PLATFORM_PART}")
   if(NOT PROGRAM_PLATFORM_PART)
     message(WARNING "Xilinx platform ${PROGRAM_PLATFORM} was not found. Please consult \"${Vitis_PLATFORMINFO} -l\" for a list of installed platforms.")
   else()
